@@ -25,7 +25,6 @@
  */
 package com.justjournal;
 
-
 import com.justjournal.core.Settings;
 import com.justjournal.ctl.LoginAccount;
 import com.justjournal.ctl.UpdateJournal;
@@ -71,9 +70,9 @@ public class Application extends SpringBootServletInitializer {
   }
 
   @Bean
-  public ServletRegistrationBean<UpdateJournal> updateJournalServlet(Settings settings, EntryRepository entryRepository, UserRepository user, SecurityRepository securityRepository,
+  public ServletRegistrationBean<UpdateJournal> updateJournalServlet(Settings settings, EntryRepository entryRepository, UserRepository user,
                                                                      LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService) {
-    return new ServletRegistrationBean<>(new UpdateJournal(settings, entryRepository, user, securityRepository, locationDao, moodDao, webLogin, trackbackService, bingService), "/updateJournal");
+    return new ServletRegistrationBean<>(new UpdateJournal(settings, entryRepository, user, locationDao, moodDao, webLogin, trackbackService, bingService), "/updateJournal");
   }
 
   @Bean

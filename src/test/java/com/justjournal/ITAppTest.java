@@ -27,6 +27,8 @@
  */
 package com.justjournal;
 
+import com.justjournal.exception.NotFoundException;
+import com.justjournal.exception.UnauthorizedException;
 import com.justjournal.model.RssSubscription;
 import com.justjournal.model.User;
 import com.justjournal.repository.RssSubscriptionsRepository;
@@ -43,6 +45,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.LinkedMultiValueMap;
+
+import static com.justjournal.core.Constants.LOGIN_ATTRID;
+import static com.justjournal.core.Constants.LOGIN_ATTRNAME;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -207,22 +213,6 @@ class ITAppTest {
   void apiMoodWithId() throws Exception {
     mockMvc
         .perform(get("/api/mood/1"))
-        .andExpect(status().isOk())
-        .andExpect(content().contentTypeCompatibleWith("application/json;charset=UTF-8"));
-  }
-
-  @Test
-  void apiSecurity() throws Exception {
-    mockMvc
-        .perform(get("/api/security"))
-        .andExpect(status().isOk())
-        .andExpect(content().contentTypeCompatibleWith("application/json;charset=UTF-8"));
-  }
-
-  @Test
-  void apiSecurityWithId() throws Exception {
-    mockMvc
-        .perform(get("/api/security/1"))
         .andExpect(status().isOk())
         .andExpect(content().contentTypeCompatibleWith("application/json;charset=UTF-8"));
   }
@@ -466,18 +456,24 @@ class ITAppTest {
   @Test
   void apiRssReaderGetById() throws Exception {
     // Assuming there's an RSS subscription with ID 1
-    mockMvc.perform(get("/api/rssreader/1")
+    // TODO: should we get rid of this endpoint?
+    mockMvc.perform(get("/api/rssreader/7")
                     .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentTypeCompatibleWith("application/json"))
-            .andExpect(jsonPath("$.subscriptionId").value(1));
+            .andExpect(jsonPath("$.subscriptionId").value(7));
   }
 
   @Test
   void apiRssReaderGetByIdNotFound() throws Exception {
     mockMvc.perform(get("/api/rssreader/999999")
                     .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isNotFound()).andExpect(result -> {
+              Exception resolvedException = result.getResolvedException();
+              assertNotNull(resolvedException);
+                assertInstanceOf(NotFoundException.class, resolvedException);
+              assertEquals("RSS subscription not found", resolvedException.getMessage());
+            });
   }
 
   @Test
@@ -494,7 +490,13 @@ class ITAppTest {
   void apiRssReaderGetByUserNotFound() throws Exception {
     mockMvc.perform(get("/api/rssreader/user/nonexistentuser")
                     .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isNotFound())
+            .andExpect(result -> {
+              Exception resolvedException = result.getResolvedException();
+              assertNotNull(resolvedException);
+                assertInstanceOf(NotFoundException.class, resolvedException);
+              assertEquals("User not found", resolvedException.getMessage());
+            });
   }
 
   @Test
@@ -504,7 +506,8 @@ class ITAppTest {
                     .content(uri)
                     .contentType(MediaType.TEXT_PLAIN)
                     .accept(MediaType.APPLICATION_JSON)
-                    .sessionAttr("username", "testuser"))
+                    .sessionAttr(LOGIN_ATTRID, 2908)
+                    .sessionAttr(LOGIN_ATTRNAME, "testuser"))
             .andExpect(status().isOk())
             .andExpect(content().contentTypeCompatibleWith("application/json"))
             .andExpect(jsonPath("$.id").exists());
@@ -519,26 +522,36 @@ class ITAppTest {
 
   @Test
   void apiRssReaderCreateUnauthorized() throws Exception {
-    String uri = "https://example.com/rss";
-    mockMvc.perform(put("/api/rssreader")
-                    .content(uri)
-                    .contentType(MediaType.TEXT_PLAIN)
-                    .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isUnauthorized());
+      String uri = "https://example.com/rss";
+      mockMvc.perform(put("/api/rssreader")
+                      .content(uri)
+                      .contentType(MediaType.TEXT_PLAIN)
+                      .accept(MediaType.APPLICATION_JSON))
+              .andExpect(status().isUnauthorized())
+              .andExpect(result -> {
+                Exception resolvedException = result.getResolvedException();
+                assertNotNull(resolvedException);
+                  assertInstanceOf(UnauthorizedException.class, resolvedException);
+              });
   }
 
   @Test
   void apiRssReaderDelete() throws Exception {
-    // Create a subscription to delete
     User user = userRepository.findByUsername("testuser");
-    RssSubscription subscription = new RssSubscription();
-    subscription.setUser(user);
-    subscription.setUri("https://example.com/rss-to-delete");
-    subscription = rssSubscriptionsRepository.save(subscription);
+
+    // Create a subscription to delete
+    RssSubscription subscription = rssSubscriptionsRepository.findByUserAndUri(user, "https://example.com/rss-to-delete");
+    if (subscription == null) {
+      subscription = new RssSubscription();
+      subscription.setUser(user);
+      subscription.setUri("https://example.com/rss-to-delete");
+      subscription = rssSubscriptionsRepository.save(subscription);
+    }
 
     mockMvc.perform(delete("/api/rssreader/" + subscription.getSubscriptionId())
                     .accept(MediaType.APPLICATION_JSON)
-                    .sessionAttr("username", "testuser"))
+                    .sessionAttr(LOGIN_ATTRID, 2908)
+                    .sessionAttr(LOGIN_ATTRNAME, "testuser"))
             .andExpect(status().isOk())
             .andExpect(content().contentTypeCompatibleWith("application/json"))
             .andExpect(jsonPath("$.id").value(subscription.getSubscriptionId()));
@@ -548,14 +561,25 @@ class ITAppTest {
   void apiRssReaderDeleteNotFound() throws Exception {
     mockMvc.perform(delete("/api/rssreader/999999")
                     .accept(MediaType.APPLICATION_JSON)
-                    .sessionAttr("username", "testuser"))
-            .andExpect(status().isNotFound());
+                    .sessionAttr(LOGIN_ATTRID, 2908)
+                    .sessionAttr(LOGIN_ATTRNAME, "testuser"))
+            .andExpect(status().isNotFound()).andExpect(result -> {
+              Exception resolvedException = result.getResolvedException();
+              assertNotNull(resolvedException);
+                assertInstanceOf(NotFoundException.class, resolvedException);
+              assertEquals("Subscription not found", resolvedException.getMessage());
+            });
   }
 
   @Test
   void apiRssReaderDeleteUnauthorized() throws Exception {
-    mockMvc.perform(delete("/api/rssreader/1")
+    mockMvc.perform(delete("/api/rssreader/7")
                     .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isUnauthorized());
+            .andExpect(status().isUnauthorized()).andExpect(result -> {
+              Exception resolvedException = result.getResolvedException();
+              assertNotNull(resolvedException);
+                assertInstanceOf(UnauthorizedException.class, resolvedException);
+              assertEquals("The login timed out or is invalid.", resolvedException.getMessage());
+            });
   }
 }
