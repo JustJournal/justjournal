@@ -43,10 +43,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * Trackback and Post-IT Pings inbound http://wellformedweb.org/story/9
@@ -74,24 +71,27 @@ public class TrackbackPingController {
   }
 
   @PostMapping(
-      produces = "text/xml",
+          produces = MediaType.TEXT_XML_VALUE + ";charset=UTF-8",
       consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE})
   @ResponseBody
   public ResponseEntity<String> post(
-      @RequestParam("entryID") int entryId, TrackbackPingRequest trackbackPingRequest) {
+      @RequestParam("entryID") int entryId, @ModelAttribute TrackbackPingRequest trackbackPingRequest) {
     try {
-      // response.setContentType("text/xml; charset=utf-8");
       boolean istrackback = true;
 
       if (entryId < 1) {
         if (trackbackPingRequest.getEntryID() > 0) {
           entryId = trackbackPingRequest.getEntryID();
-        } else throw new IllegalArgumentException("entry id is missing");
+        } else {
+          return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                  .body(trackbackService.generateResponse(1, "Missing required parameter \"entryID\"."));
+        }
       }
 
       if (StringUtils.isEmpty(trackbackPingRequest.getUrl())
           || !DNSUtil.isUrlDomainValid(trackbackPingRequest.getUrl())) {
-        throw new IllegalArgumentException("Missing required parameter \"url\"");
+        ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(trackbackService.generateResponse(1, "Missing required parameter \"url\"."));
       }
 
       final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
@@ -103,7 +103,7 @@ public class TrackbackPingController {
       trackBackIpRepository.saveIpAddreess(ip).block(Duration.ofMinutes(1));
 
       final Optional<Entry> entry = entryRepository.findById(entryId);
-      if (!entry.isPresent()) {
+      if (entry.isEmpty()) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(trackbackService.generateResponse(1, "Entry not found."));
       }
@@ -117,9 +117,9 @@ public class TrackbackPingController {
       // TODO: add pingback support which looks xmlrpc-ish
 
       final Trackback tb = new Trackback();
-      if (StringUtils.isNotEmpty(trackbackPingRequest.getTitle())) // trackback
-      tb.setSubject(trackbackPingRequest.getTitle());
-      else if (StringUtils.isNotEmpty(trackbackPingRequest.getName())) { // post it
+      if (StringUtils.isNotEmpty(trackbackPingRequest.getTitle())) {
+        tb.setSubject(trackbackPingRequest.getTitle()); // trackback
+      } else if (StringUtils.isNotEmpty(trackbackPingRequest.getName())) { // post it
         tb.setSubject(trackbackPingRequest.getName());
         istrackback = false;
       }
@@ -132,15 +132,24 @@ public class TrackbackPingController {
       }
 
       if (StringUtil.isEmailValid(trackbackPingRequest.getEmail())
-          && DNSUtil.isEmailDomainValid(trackbackPingRequest.getEmail()))
+          && DNSUtil.isEmailDomainValid(trackbackPingRequest.getEmail())) {
         tb.setAuthorEmail(trackbackPingRequest.getEmail());
+      }
 
-      if (istrackback) tb.setType(TrackbackType.trackback);
-      else tb.setType(TrackbackType.postit);
+      tb.setUrl(trackbackPingRequest.getUrl());
+
+      if (istrackback) {
+        tb.setType(TrackbackType.trackback);
+      } else {
+        tb.setType(TrackbackType.postit);
+      }
       // don't do pingbacks yet.
 
       tb.setBlogName(trackbackPingRequest.getBlog_name());
-      tb.setEntryId(entryId);
+      if (entryId > 0)
+        tb.setEntryId(entryId);
+      else
+        tb.setEntryId(trackbackPingRequest.getEntryID());
       tb.setUrl(trackbackPingRequest.getUrl());
 
       if (trackbackService.save(tb) == null) {
