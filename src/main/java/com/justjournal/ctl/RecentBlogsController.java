@@ -34,7 +34,6 @@ import com.justjournal.core.Settings;
 import com.justjournal.model.Entry;
 import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.rss.Rss;
 import java.io.IOException;
@@ -46,7 +45,6 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -68,17 +66,14 @@ public class RecentBlogsController {
 
   private final EntryRepository entryRepository;
 
-  private final SecurityRepository securityDao;
-
   private final Settings set;
 
   private final Rss rss;
 
   private final RecentBlogsRepository recentBlogsRepository;
 
-  public RecentBlogsController(EntryRepository entryRepository, SecurityRepository securityDao, Settings set, Rss rss, RecentBlogsRepository recentBlogsRepository) {
+  public RecentBlogsController(EntryRepository entryRepository, Settings set, Rss rss, RecentBlogsRepository recentBlogsRepository) {
     this.entryRepository = entryRepository;
-    this.securityDao = securityDao;
     this.set = set;
     this.rss = rss;
     this.recentBlogsRepository = recentBlogsRepository;
@@ -115,9 +110,8 @@ public class RecentBlogsController {
       rss.setManagingEditor(set.getSiteAdminEmail() + " (" + set.getSiteAdmin() + ")");
       rss.setSelfLink(set.getBaseUri() + "RecentBlogs");
 
-      final Security security = securityDao.findById(2).orElse(null); // public
       final Pageable pageable = PageRequest.of(1, 15);
-      final Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(security, pageable);
+      final Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(Security.PUBLIC, pageable);
 
       final Map<String, Entry> map = new HashMap<>();
       int count = 0;

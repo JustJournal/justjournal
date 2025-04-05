@@ -32,6 +32,7 @@ import com.justjournal.repository.TrackbackRepository;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -170,7 +171,11 @@ public class TrackbackService {
       return null;
     }
 
-    final java.sql.Date now = new java.sql.Date(System.currentTimeMillis());
+    if (tb.getEntryId() < 1) {
+      throw new IllegalArgumentException("EntryId must be set before saving a Trackback");
+    }
+
+    final Date now = new Date(System.currentTimeMillis());
     tb.setDate(now);
     return trackbackRepository.save(tb).toTrackbackTo();
   }
@@ -180,7 +185,7 @@ public class TrackbackService {
   }
 
   public List<TrackbackTo> getByEntry(int entryId) {
-    return findByEntry(entryId).stream().map(Trackback::toTrackbackTo).collect(Collectors.toList());
+    return findByEntry(entryId).stream().map(Trackback::toTrackbackTo).toList();
   }
 
   public Optional<TrackbackTo> getById(int trackbackId) {

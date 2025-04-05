@@ -76,7 +76,7 @@ public class RssReaderController {
             .orElseThrow(() -> new NotFoundException("RSS subscription not found"));
   }
 
-  @Cacheable(value = "rsssubscription", key = "#username")
+  //@Cacheable(value = "rsssubscription", key = "#username")
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Collection<RssSubscription>> getByUser(@PathVariable(PARAM_USERNAME) String username) {
     User user = userRepository.findByUsername(username);
@@ -94,7 +94,7 @@ public class RssReaderController {
     }
 
     User user = userRepository.findById(Login.currentLoginId(session))
-            .orElseThrow(() -> new UnauthorizedException("User not found"));
+            .orElseThrow(() -> new UnauthorizedException("User not authenticated"));
 
     RssSubscription subscription = new RssSubscription();
     subscription.setUser(user);
@@ -117,13 +117,13 @@ public class RssReaderController {
     }
 
     User user = userRepository.findById(Login.currentLoginId(session))
-            .orElseThrow(() -> new UnauthorizedException("User not found"));
+            .orElseThrow(() -> new UnauthorizedException("User not authenticated"));
 
     RssSubscription subscription = rssSubscriptionsDAO.findById(subId)
             .orElseThrow(() -> new NotFoundException("Subscription not found"));
 
     if (user.getId() != (subscription.getUser().getId())) {
-      throw new ForbiddenException("User does not own this subscription");
+      throw new NotFoundException("Subscription not found");
     }
 
     rssSubscriptionsDAO.delete(subscription);

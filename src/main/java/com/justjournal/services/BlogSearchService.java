@@ -26,11 +26,9 @@
 package com.justjournal.services;
 
 import com.justjournal.model.Entry;
-import com.justjournal.model.Security;
 import com.justjournal.model.search.BlogEntry;
 import com.justjournal.model.search.Tag;
 import com.justjournal.repository.EntryRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.search.BlogEntryRepository;
 import java.util.ArrayList;
 import java.util.Date;
@@ -45,6 +43,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import static com.justjournal.model.Security.PUBLIC;
+
 /**
  * Blog entry search services
  *
@@ -58,16 +58,13 @@ public class BlogSearchService {
 
   private final EntryRepository entryRepository;
 
-  private final SecurityRepository securityDao;
 
   @Autowired
   public BlogSearchService(
       final BlogEntryRepository blogEntryRepository,
-      final EntryRepository entryRepository,
-      final SecurityRepository securityDao) {
+      final EntryRepository entryRepository) {
     this.blogEntryRepository = blogEntryRepository;
     this.entryRepository = entryRepository;
-    this.securityDao = securityDao;
   }
 
   /**
@@ -145,14 +142,13 @@ public class BlogSearchService {
   @Async
   public void indexAllPublicBlogEntries() {
     try {
-      // so as to not use all the ram, i loop through a page at a time and save the blog
+      // to not use all the ram, I loop through a page at a time and save the blog
       // entries in a batch of 100 at a time to ES
-      // since i can't use java 8 on this project, i don't have streams.
+      // since I can't use java 8 on this project, I don't have streams.
 
-      final Security sec = securityDao.findByName("public");
       Pageable pageable = PageRequest.of(0, 100);
 
-      Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(sec, pageable);
+      Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(PUBLIC, pageable);
       for (int i = 0; i < entries.getTotalPages(); i++) {
         final ArrayList<BlogEntry> items = new ArrayList<>();
 
@@ -163,7 +159,7 @@ public class BlogSearchService {
         blogEntryRepository.saveAll(items);
 
         pageable = PageRequest.of(i + 1, 100);
-        entries = entryRepository.findBySecurityOrderByDateDesc(sec, pageable);
+        entries = entryRepository.findBySecurityOrderByDateDesc(PUBLIC, pageable);
       }
     } catch (final Exception e) {
       log.error(e.getMessage(), e);
@@ -206,10 +202,9 @@ public class BlogSearchService {
    */
   @Async
   public void indexPublicBlogEntriesSince(final Date date) {
-    final Security sec = securityDao.findByName("public");
     Pageable pageable = PageRequest.of(0, 100);
 
-    Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(sec, pageable);
+    Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(PUBLIC, pageable);
     for (int i = 0; i < entries.getTotalPages(); i++) {
       ArrayList<BlogEntry> items = new ArrayList<>();
       for (final Entry entry : entries) {
@@ -225,14 +220,14 @@ public class BlogSearchService {
       blogEntryRepository.saveAll(items);
 
       pageable = PageRequest.of(i + 1, 100);
-      entries = entryRepository.findBySecurityOrderByDateDesc(sec, pageable);
+      entries = entryRepository.findBySecurityOrderByDateDesc(PUBLIC, pageable);
     }
   }
 
   /**
    * Index a single entry
    *
-   * @param entry
+   * @param entry blog entry to index
    */
   public void index(@NonNull final Entry entry) {
     this.blogEntryRepository.save(convert(entry));
@@ -248,7 +243,7 @@ public class BlogSearchService {
     final BlogEntry blogEntry = new BlogEntry();
     blogEntry.setAuthor(entry.getUser().getUsername());
     blogEntry.setId(entry.getId());
-    blogEntry.setPrivateEntry(!entry.getSecurity().getName().equalsIgnoreCase("public"));
+    blogEntry.setPrivateEntry(entry.getSecurity() != PUBLIC);
     blogEntry.setSubject(entry.getSubject());
     blogEntry.setBody(entry.getBody());
     blogEntry.setDate(entry.getDate());

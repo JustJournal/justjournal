@@ -32,13 +32,7 @@ import static com.justjournal.core.Constants.PATH_USERS;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
-import com.justjournal.model.Comment;
-import com.justjournal.model.Entry;
-import com.justjournal.model.FormatType;
-import com.justjournal.model.PrefBool;
-import com.justjournal.model.QueueMail;
-import com.justjournal.model.Settings;
-import com.justjournal.model.User;
+import com.justjournal.model.*;
 import com.justjournal.model.api.CommentTo;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
@@ -113,7 +107,7 @@ public class CommentController {
     try {
       if (new ArrayList<>(entry.getUser().getJournals()).get(0).isOwnerViewOnly()
           || entry.getAllowComments() == PrefBool.N
-          || entry.getSecurity().getId() == 0) {
+          || entry.getSecurity() == Security.PRIVATE) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       }
     } catch (final Exception e) {

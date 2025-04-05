@@ -27,6 +27,7 @@ package com.justjournal.ctl;
 
 
 import com.justjournal.model.Entry;
+import com.justjournal.model.Security;
 import com.justjournal.model.Trackback;
 import com.justjournal.model.TrackbackType;
 import com.justjournal.repository.EntryRepository;
@@ -108,7 +109,7 @@ public class TrackbackPingController {
             .body(trackbackService.generateResponse(1, "Entry not found."));
       }
 
-      if (!entry.get().getSecurity().getName().equalsIgnoreCase("public")) {
+      if (entry.get().getSecurity() != Security.PUBLIC) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
             .body(trackbackService.generateResponse(1, "Entry does not support TrackBack"));
       }

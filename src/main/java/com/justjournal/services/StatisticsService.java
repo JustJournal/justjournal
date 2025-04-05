@@ -27,10 +27,7 @@ package com.justjournal.services;
 
 
 import com.justjournal.exception.ServiceException;
-import com.justjournal.model.Statistics;
-import com.justjournal.model.StatisticsImpl;
-import com.justjournal.model.User;
-import com.justjournal.model.UserStatistics;
+import com.justjournal.model.*;
 import com.justjournal.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,16 +52,14 @@ public class StatisticsService {
 
   private final TagRepository tagDao;
 
-  private final SecurityRepository securityDao;
 
   private final StyleRepository styleRepository;
 
-  public StatisticsService(EntryRepository entryRepository, UserRepository userRepository, CommentRepository commentRepository, TagRepository tagDao, SecurityRepository securityDao, StyleRepository styleRepository) {
+  public StatisticsService(EntryRepository entryRepository, UserRepository userRepository, CommentRepository commentRepository, TagRepository tagDao, StyleRepository styleRepository) {
     this.entryRepository = entryRepository;
     this.userRepository = userRepository;
     this.commentRepository = commentRepository;
     this.tagDao = tagDao;
-    this.securityDao = securityDao;
     this.styleRepository = styleRepository;
   }
 
@@ -104,11 +99,11 @@ public class StatisticsService {
       statistics.setStyles(styleRepository.count());
 
       statistics.setPublicEntries(
-          entryRepository.countBySecurity(securityDao.findById(2).orElse(null)));
+          entryRepository.countBySecurity(Security.PUBLIC));
       statistics.setPrivateEntries(
-          entryRepository.countBySecurity(securityDao.findById(0).orElse(null)));
+          entryRepository.countBySecurity(Security.PRIVATE));
       statistics.setFriendsEntries(
-          entryRepository.countBySecurity(securityDao.findById(1).orElse(null)));
+          entryRepository.countBySecurity(Security.FRIENDS));
 
       return statistics;
     } catch (final Exception e) {

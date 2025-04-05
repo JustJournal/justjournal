@@ -44,7 +44,6 @@ import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.services.EntryService;
@@ -99,8 +98,6 @@ public class EntryController {
 
   private final EntryRepository entryRepository;
 
-  private final SecurityRepository securityDao;
-
   private final LocationRepository locationDao;
 
   private final MoodRepository moodDao;
@@ -115,10 +112,12 @@ public class EntryController {
 
   private final RecentBlogsRepository recentBlogsRepository;
 
-  public EntryController(@Qualifier("commentRepository") CommentRepository commentDao, @Qualifier("entryRepository") EntryRepository entryRepository, @Qualifier("securityRepository") SecurityRepository securityDao, @Qualifier("locationRepository") LocationRepository locationDao, @Qualifier("moodRepository") MoodRepository moodDao, @Qualifier("userRepository") UserRepository userRepository, EntryService entryService, TrackbackService trackbackService, Settings settings, RecentBlogsRepository recentBlogsRepository) {
+  public EntryController(@Qualifier("commentRepository") CommentRepository commentDao, @Qualifier("entryRepository") EntryRepository entryRepository,
+                         @Qualifier("locationRepository") LocationRepository locationDao, @Qualifier("moodRepository") MoodRepository moodDao,
+                         @Qualifier("userRepository") UserRepository userRepository, EntryService entryService,
+                         TrackbackService trackbackService, Settings settings, RecentBlogsRepository recentBlogsRepository) {
     this.commentDao = commentDao;
     this.entryRepository = entryRepository;
-    this.securityDao = securityDao;
     this.locationDao = locationDao;
     this.moodDao = moodDao;
     this.userRepository = userRepository;
@@ -233,7 +232,7 @@ public class EntryController {
       }
 
       if (entry.getUser().getUsername().equalsIgnoreCase(username)) {
-        if (entry.getSecurity().getId() == 2) { // public
+        if (entry.getSecurity() == Security.PUBLIC) { // public
           return entry.toEntryTo();
         } else {
           if (!Login.isAuthenticated(session)) {
@@ -347,7 +346,7 @@ public class EntryController {
     final Entry entry = new Entry(entryTo);
     entry.setUser(user);
     entry.setLocation(getLocation(entryTo.getLocation()));
-    entry.setSecurity(getSecurity(entryTo.getSecurity()));
+    entry.setSecurity(entryTo.getSecurity());
     entry.setMood(getMood(entryTo.getMood()));
     entry.setTags(new HashSet<>());
 
@@ -361,7 +360,7 @@ public class EntryController {
     entryService.applyTags(saved, entryTo.getTags());
 
     // only ping if it's public
-    if (entry.getSecurity().getId() == 2) {
+    if (entry.getSecurity() == Security.PUBLIC) {
       trackbackPing(entryTo, user, saved.getId());
     }
 
@@ -465,7 +464,7 @@ public class EntryController {
     entry.setUser(user);
 
     entry.setLocation(getLocation(entryTo.getLocation()));
-    entry.setSecurity(getSecurity(entryTo.getSecurity()));
+    entry.setSecurity(entryTo.getSecurity());
     entry.setMood(getMood(entryTo.getMood()));
 
     final Entry entry2 = entryRepository.findById(entryTo.getEntryId()).orElse(null);
@@ -486,7 +485,7 @@ public class EntryController {
     entryService.applyTags(entry, entryTo.getTags());
 
     // only ping if it's public
-    if (entry.getSecurity().getId() == 2) {
+    if (entry.getSecurity() == Security.PUBLIC) {
       trackbackPing(entryTo, user, entry.getId());
     }
 
@@ -499,9 +498,6 @@ public class EntryController {
     return locationDao.findById(locationId).orElse(null);
   }
 
-  private Security getSecurity(int securityId) {
-    return securityDao.findById(securityId).orElse(null);
-  }
 
   private Mood getMood(int moodId) {
     return moodDao.findById(moodId);

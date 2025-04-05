@@ -29,6 +29,7 @@ import com.justjournal.Application;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Entry;
 import com.justjournal.model.RecentEntry;
+import com.justjournal.model.Security;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-public class EntryServiceTests {
+class EntryServiceTests {
 
   private static final String TEST_USER = "testuser";
   private static final int PUBLIC_ENTRY_ID = 33661;
@@ -52,16 +53,16 @@ public class EntryServiceTests {
   @Autowired private EntryService entryService;
 
   @Test
-  public void entryGetPublicEntry() throws ServiceException {
+   void entryGetPublicEntry() throws ServiceException {
     final Entry entry = entryService.getPublicEntry(PUBLIC_ENTRY_ID, TEST_USER);
     Assertions.assertNotNull(entry);
     Assertions.assertEquals(PUBLIC_ENTRY_ID, entry.getId());
     Assertions.assertEquals(TEST_USER, entry.getUser().getUsername());
-    Assertions.assertEquals(2, entry.getSecurity().getId());
+    Assertions.assertEquals(Security.PUBLIC, entry.getSecurity());
   }
 
   @Test
-  public void entryGetRecentEntriesPublic() throws ServiceException {
+   void entryGetRecentEntriesPublic() throws ServiceException {
     final List<RecentEntry> entryList =
         entryService.getRecentEntriesPublic(TEST_USER).collect(Collectors.toList()).block();
     Assertions.assertNotNull(entryList);
@@ -72,7 +73,7 @@ public class EntryServiceTests {
   }
 
   @Test
-  public void entryGetRecentEntries() throws ServiceException {
+   void entryGetRecentEntries() throws ServiceException {
     final List<RecentEntry> entryList =
         entryService.getRecentEntries(TEST_USER).collectList().block();
     Assertions.assertNotNull(entryList);
@@ -83,9 +84,9 @@ public class EntryServiceTests {
   }
 
   @Test
-  public void entryGetPublicEntries() throws ServiceException {
+   void entryGetPublicEntries() throws ServiceException {
     final List<Entry> entryList = entryService.getPublicEntries(TEST_USER);
     Assertions.assertNotNull(entryList);
-    Assertions.assertTrue(entryList.size() > 0);
+    Assertions.assertFalse(entryList.isEmpty());
   }
 }

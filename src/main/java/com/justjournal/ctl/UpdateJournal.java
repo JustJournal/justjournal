@@ -30,18 +30,11 @@ import static com.justjournal.core.Constants.*;
 import com.justjournal.ErrorPage;
 import com.justjournal.Login;
 import com.justjournal.core.Settings;
-import com.justjournal.model.DateTime;
-import com.justjournal.model.DateTimeBean;
-import com.justjournal.model.Entry;
-import com.justjournal.model.FormatType;
-import com.justjournal.model.Journal;
-import com.justjournal.model.PrefBool;
-import com.justjournal.model.User;
+import com.justjournal.model.*;
 import com.justjournal.model.api.EntryTo;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.BingService;
 import com.justjournal.services.RestPing;
@@ -99,8 +92,6 @@ public class UpdateJournal extends HttpServlet {
 
   private final UserRepository userRepository;
 
-  private final SecurityRepository securityRepository;
-
   private final LocationRepository locationDao;
 
   private final MoodRepository moodDao;
@@ -111,13 +102,12 @@ public class UpdateJournal extends HttpServlet {
 
   private final BingService bingService;
 
-  public UpdateJournal(Settings settings, EntryRepository entryRepository, UserRepository user, SecurityRepository securityRepository,
+  public UpdateJournal(Settings settings, EntryRepository entryRepository, UserRepository user,
                        LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService) {
     super();
     this.settings = settings;
     this.entryRepository = entryRepository;
     this.userRepository = user;
-    this.securityRepository = securityRepository;
     this.locationDao = locationDao;
     this.moodDao = moodDao;
     this.webLogin = webLogin;
@@ -472,7 +462,7 @@ public class UpdateJournal extends HttpServlet {
         et.setSubject(subject);
         et.setMusic(StringUtil.replace(music, '\'', "\\\'"));
 
-        et.setSecurity(securityRepository.findById(security).orElse(null));
+        et.setSecurity(Security.fromValue(security));
 
         et.setLocation(locationDao.findById(location).orElse(null));
         et.setMood(moodDao.findById(mood));
@@ -626,12 +616,12 @@ public class UpdateJournal extends HttpServlet {
             sb.append(endl);
           } else sb.append("JJ.JOURNAL.UPDATE.OK");
 
-          if (et.getSecurity().getId() == 2) {
+          if (et.getSecurity() == Security.PUBLIC) {
             /* Initialize Preferences Object */
             final User pf = userRepository.findByUsername(userName);
             final Journal journal = new ArrayList<>(pf.getJournals()).get(0);
 
-            if (pf != null && !journal.isOwnerViewOnly() && journal.isPingServices()) {
+            if (!journal.isOwnerViewOnly() && journal.isPingServices()) {
               final RestPing rp = new RestPing("http://ping.blo.gs/");
               rp.setName(journal.getName());
               rp.setUri(settings.getBaseUri() + PATH_USERS + userName);

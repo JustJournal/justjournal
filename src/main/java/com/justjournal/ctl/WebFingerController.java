@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justjournal.core.Settings;
 import com.justjournal.model.PrefBool;
+import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.UserRepository;
 import lombok.Getter;
@@ -90,7 +91,7 @@ public class WebFingerController {
             if (matcher.find()) {
                 Integer entryId = Integer.parseInt(matcher1.group(2));
                 var entry = entryRepository.findById(entryId);
-                if (entry.isPresent()&& entry.get().getSecurity().getName().equals("public")) {
+                if (entry.isPresent()&& entry.get().getSecurity() == Security.PUBLIC) {
                     var links = new ArrayList<Links>();
                     links.add(new Links("author", baseUri + "users/" + entry.get().getUser().getUsername(), Collections.singletonMap("en-us", entry.get().getUser().getJournals().stream().findFirst().get().getName())));
                     webFingerResponse.setLinks(links);

@@ -25,17 +25,10 @@
  */
 package com.justjournal.services;
 
-
 import com.justjournal.exception.ServiceException;
-import com.justjournal.model.Entry;
-import com.justjournal.model.EntryTag;
-import com.justjournal.model.PrefBool;
-import com.justjournal.model.RecentEntry;
-import com.justjournal.model.Tag;
-import com.justjournal.model.User;
+import com.justjournal.model.*;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.EntryTagsRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.utility.Xml;
@@ -47,7 +40,6 @@ import java.util.Map;
 import java.util.Set;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -67,16 +59,14 @@ public class EntryService {
 
   private final UserRepository userRepository;
 
-  private final SecurityRepository securityDao;
 
   private final TagRepository tagDao;
 
   private final EntryTagsRepository entryTagsRepository;
 
-  public EntryService(EntryRepository entryDao, UserRepository userRepository, SecurityRepository securityDao, TagRepository tagDao, EntryTagsRepository entryTagsRepository) {
+  public EntryService(EntryRepository entryDao, UserRepository userRepository, TagRepository tagDao, EntryTagsRepository entryTagsRepository) {
     this.entryDao = entryDao;
     this.userRepository = userRepository;
-    this.securityDao = securityDao;
     this.tagDao = tagDao;
     this.entryTagsRepository = entryTagsRepository;
   }
@@ -105,7 +95,7 @@ public class EntryService {
           PageRequest.of(0, MAX_RECENT_ENTRIES, Sort.by(Sort.Direction.DESC, "date", "id"));
       final Page<Entry> entries =
           entryDao.findByUserAndSecurityAndDraftWithSubjectOnly(
-              username, securityDao.findByName("public"), PrefBool.N, page);
+              username, Security.PUBLIC, PrefBool.N, page);
       return getRecentEntryObservable(entries);
     } catch (final Exception e) {
       log.error(e.getMessage());
@@ -145,7 +135,7 @@ public class EntryService {
       if (entry == null) return null;
 
       if (entry.getUser().getUsername().equalsIgnoreCase(username)
-            && entry.getSecurity().getId() == 2
+            && entry.getSecurity() == Security.PUBLIC
             && entry.getDraft().equals(PrefBool.N)) // public
           return entry;
       return null;
@@ -163,7 +153,7 @@ public class EntryService {
         return Collections.emptyList();
       }
       return entryDao.findByUserAndSecurityAndDraftOrderByDateDesc(
-          user, securityDao.findById(2).orElse(null), PrefBool.N);
+          user, Security.PUBLIC, PrefBool.N);
     } catch (final Exception e) {
       log.error(e.getMessage());
       throw new ServiceException(e);
@@ -179,7 +169,7 @@ public class EntryService {
         return null;
       }
       return entryDao.findByUserAndSecurityAndDraft(
-          user, securityDao.findById(2).orElse(null), PrefBool.N, pageable);
+          user, Security.PUBLIC, PrefBool.N, pageable);
     } catch (final Exception e) {
       log.error(e.getMessage());
       throw new ServiceException(e);

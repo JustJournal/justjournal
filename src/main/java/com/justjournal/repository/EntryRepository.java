@@ -70,8 +70,8 @@ public interface EntryRepository extends JpaRepository<Entry, Integer> {
       @Param("tag") String tag);
 
   @Query(
-      "select e from Entry e, User u, Friend f, Security s where e.user = f.friend and"
-          + " LOWER(u.username) = LOWER(:username) and e.security = s and s.name='public'"
+      "select e from Entry e, User u, Friend f where e.user = f.friend and"
+          + " LOWER(u.username) = LOWER(:username) and e.security = com.justjournal.model.Security.PUBLIC"
           + " and f.user = u and e.draft = :draft")
   Page<Entry> findByUserFriends(
       @Param("username") String username, @Param("draft") PrefBool draft, Pageable pageable);

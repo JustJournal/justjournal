@@ -105,14 +105,11 @@ public class Entry implements Serializable {
   @JoinColumn(name = "uid")
   private User user;
 
-  @JsonProperty("security")
-  @ManyToOne
-  @JoinColumn(name = "security")
-  private Security security;
-
   @Setter
-  @Column(name = "security", insertable = false, updatable = false)
-  private int securityId = 0;
+  @JsonProperty("security")
+  @Enumerated(EnumType.ORDINAL)
+  @Column(name = "security")
+  private Security security = Security.PRIVATE;
 
   @Setter
   @JsonProperty("subject")
@@ -214,11 +211,6 @@ public class Entry implements Serializable {
     else setMoodId(0);
   }
 
-  public void setSecurity(final Security security) {
-    this.security = security;
-    setSecurityId(security.getId());
-  }
-
     public Entry(final EntryTo entryTo) {
     if (entryTo.getMood() == 0) entryTo.setMood(12); // DEFAULT NOT SPECIFIED
 
@@ -258,7 +250,7 @@ public class Entry implements Serializable {
             .subject(getSubject())
             .body(getBody())
             .location(getLocationId())
-            .security(getSecurityId())
+            .security(getSecurity())
             .mood(getMoodId())
             .format(getFormat().toString())
             .date(getDate())

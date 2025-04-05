@@ -67,6 +67,10 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.justjournal.model.Security;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -99,7 +103,9 @@ public class EntryTo extends EntityModel<EntryTo> implements Serializable {
 
   @Getter @Setter private String user;
 
-  @Getter @Setter private int security;
+  @JsonSerialize(using = SecuritySerializer.class)
+  @JsonDeserialize(using = SecurityDeserializer.class)
+  @Getter @Setter private Security security;
 
   @Getter @Setter private String subject = "";
 

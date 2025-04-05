@@ -27,6 +27,11 @@ package com.justjournal.filter;
 
 
 import java.io.IOException;
+
+import com.justjournal.exception.BadRequestException;
+import com.justjournal.exception.ForbiddenException;
+import com.justjournal.exception.NotFoundException;
+import com.justjournal.exception.UnauthorizedException;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -52,7 +57,20 @@ public class SimpleCorsFilter implements Filter {
         "Access-Control-Allow-Headers",
         "x-auth-token, x-requested-with, accept, authorization, content-type");
 
-    if (!request.getMethod().equals("OPTIONS")) chain.doFilter(req, res);
+    if (!request.getMethod().equals("OPTIONS")) {
+      try {
+        chain.doFilter(req, res);
+      } catch (Exception e) {
+        if (e instanceof UnauthorizedException
+                || e instanceof BadRequestException
+                || e instanceof NotFoundException
+                || e instanceof ForbiddenException) {
+          throw e;
+        } else {
+          throw new ServletException(e);
+        }
+      }
+    }
   }
 
   /** {@inheritDoc} */

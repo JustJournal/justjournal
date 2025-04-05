@@ -34,17 +34,7 @@ import com.justjournal.atom.AtomFeed;
 import com.justjournal.core.Constants;
 import com.justjournal.core.UserContext;
 import com.justjournal.exception.ServiceException;
-import com.justjournal.model.Comment;
-import com.justjournal.model.DateTimeBean;
-import com.justjournal.model.Entry;
-import com.justjournal.model.EntryTag;
-import com.justjournal.model.Favorite;
-import com.justjournal.model.FormatType;
-import com.justjournal.model.Friend;
-import com.justjournal.model.Journal;
-import com.justjournal.model.MoodThemeData;
-import com.justjournal.model.RssSubscription;
-import com.justjournal.model.User;
+import com.justjournal.model.*;
 import com.justjournal.model.api.TrackbackTo;
 import com.justjournal.model.search.BlogEntry;
 import com.justjournal.repository.CommentRepository;
@@ -52,7 +42,6 @@ import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.FavoriteRepository;
 import com.justjournal.repository.MoodThemeDataRepository;
 import com.justjournal.repository.RssSubscriptionsRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.UserPicRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.rss.CachedHeadlineBean;
@@ -144,8 +133,6 @@ public class UsersController {
 
   private final UserRepository userRepository;
 
-  private final SecurityRepository securityDao;
-
   private final RssSubscriptionsRepository rssSubscriptionsDAO;
 
   private final UserImageService userImageService;
@@ -168,7 +155,6 @@ public class UsersController {
       final FavoriteRepository favoriteRepository,
       final @Qualifier("moodThemeDataRepository") MoodThemeDataRepository emoticonDao,
       final UserRepository userRepository,
-      final SecurityRepository securityDao,
       final RssSubscriptionsRepository rssSubscriptionsDAO,
       final UserImageService userImageService,
       final UserPicRepository userPicRepository,
@@ -180,7 +166,6 @@ public class UsersController {
     this.favoriteRepository = favoriteRepository;
     this.emoticonDao = emoticonDao;
     this.userRepository = userRepository;
-    this.securityDao = securityDao;
     this.rssSubscriptionsDAO = rssSubscriptionsDAO;
     this.userImageService = userImageService;
     this.userPicRepository = userPicRepository;
@@ -853,7 +838,7 @@ public class UsersController {
     if (entryUserId != uc.getBlogUser().getId()) return null;
 
     // everyone can see public entries
-    if (entry.getSecurity().getName().equals("public")) return entry;
+    if (entry.getSecurity() == Security.PUBLIC) return entry;
 
     final int authUserId = uc.getAuthenticatedUser().getId();
 
@@ -862,7 +847,7 @@ public class UsersController {
     // private or protected access of their own blog is fine.
     if (entryUserId == authUserId) return entry;
 
-    if (entry.getSecurity().getName().equals("protected")) {
+    if (entry.getSecurity() == Security.FRIENDS) {
       for (final Friend friend : uc.getBlogUser().getFriends()) {
         if (friend.getFriend().getId() == authUserId) return entry;
       }
@@ -979,7 +964,7 @@ public class UsersController {
       } else {
         entries =
             entryDao.findByUserAndSecurityOrderByDateDesc(
-                uc.getBlogUser(), securityDao.findById(2).orElse(null), pageable);
+                uc.getBlogUser(), Security.PUBLIC, pageable);
 
         log.debug("getEntries: User is not logged in.");
       }
@@ -1031,7 +1016,7 @@ public class UsersController {
 
       // if the blog entry belongs to the user or it's public, render it.
       // TODO: handle friends posts
-      if (e.getSecurity().getId() == 2
+      if (e.getSecurity() == Security.PUBLIC
           || auth && (e.getUser().getId() == uc.getAuthenticatedUser().getId())) entries.add(e);
     }
 
@@ -1126,13 +1111,13 @@ public class UsersController {
 
         sb.append("<p>");
 
-        if (o.getSecurity() == null || o.getSecurity().getId() == 0) {
+        if (o.getSecurity() == null || o.getSecurity() == Security.PRIVATE) {
           sb.append("<span class=\"security\">security: ");
           sb.append("<img src=\"/img/icon_private.gif\" alt=\"private\" /> ");
           sb.append("private");
           sb.append("</span><br />");
           sb.append(ENDL);
-        } else if (o.getSecurity().getId() == 1) {
+        } else if (o.getSecurity() == Security.FRIENDS) {
           sb.append("<span class=\"security\">security: ");
           sb.append("<img src=\"/img/icon_protected.gif\" alt=\"friends\" /> ");
           sb.append(MODEL_FRIENDS);
@@ -1148,7 +1133,7 @@ public class UsersController {
         }
 
         if (o.getMood() != null
-            && o.getMood().getTitle().length() > 0
+            && !o.getMood().getTitle().isEmpty()
             && o.getMood().getId() != 12) {
           final MoodThemeData emoto = emoticonDao.findByThemeIdAndMoodId(1, o.getMood().getId());
 
@@ -1375,13 +1360,13 @@ public class UsersController {
 
         sb.append("<p>");
 
-        if (o.getSecurity().getId() == 0) {
+        if (o.getSecurity() == Security.PRIVATE) {
           sb.append("<span class=\"security\">security: ");
           sb.append("<img src=\"/img/icon_private.gif\" alt=\"private\" /> ");
           sb.append("private");
           sb.append("</span><br />");
           sb.append(ENDL);
-        } else if (o.getSecurity().getId() == 1) {
+        } else if (o.getSecurity() == Security.FRIENDS) {
           sb.append("<span class=\"security\">security: ");
           sb.append("<img src=\"/img/icon_protected.gif\" alt=\"friends\" /> ");
           sb.append(MODEL_FRIENDS);
@@ -1396,7 +1381,7 @@ public class UsersController {
           sb.append(ENDL);
         }
 
-        if (o.getMood().getTitle().length() > 0 && o.getMood().getId() != 12) {
+        if (!o.getMood().getTitle().isEmpty() && o.getMood().getId() != 12) {
           final MoodThemeData emoto = emoticonDao.findByThemeIdAndMoodId(1, o.getMood().getId());
 
           if (emoto != null) {
@@ -1564,7 +1549,7 @@ public class UsersController {
       else
         entries =
             entryDao.findByUsernameAndYearAndSecurity(
-                uc.getBlogUser().getUsername(), year, securityDao.findById(2).orElse(null));
+                uc.getBlogUser().getUsername(), year, Security.PUBLIC);
 
       if (entries == null || entries.isEmpty()) {
         sb.append("<p>Calendar data not available.</p>");
@@ -1612,7 +1597,7 @@ public class UsersController {
       else
         entries =
             entryDao.findByUsernameAndYearAndMonthAndSecurity(
-                uc.getBlogUser().getUsername(), year, month, securityDao.findById(2).orElse(null));
+                uc.getBlogUser().getUsername(), year, month, Security.PUBLIC);
 
       if (entries.isEmpty()) {
         sb.append("<p>Calendar data not available.</p>");
@@ -1683,7 +1668,7 @@ public class UsersController {
       else
         entries =
             entryDao.findByUsernameAndYearAndMonthAndSecurity(
-                uc.getBlogUser().getUsername(), year, month, securityDao.findById(2).orElse(null));
+                uc.getBlogUser().getUsername(), year, month, Security.PUBLIC);
 
       if (entries.isEmpty()) {
         sb.append("\t<!-- could not render calendar -->");
@@ -1731,7 +1716,7 @@ public class UsersController {
                 year,
                 month,
                 day,
-                securityDao.findById(2).orElse(null));
+                Security.PUBLIC);
 
       if (entries == null || entries.isEmpty()) {
         sb.append("<p>Calendar data not available.</p>");
@@ -1800,7 +1785,7 @@ public class UsersController {
     final Pageable page = PageRequest.of(0, 15);
     rss.populate(
         entryDao
-            .findByUserAndSecurityOrderByDateDesc(user, securityDao.findById(2).orElse(null), page)
+            .findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page)
             .getContent());
     return rss.toXml();
   }
@@ -1828,7 +1813,7 @@ public class UsersController {
     final Pageable page = PageRequest.of(0, 15);
     atom.populate(
         entryDao
-            .findByUserAndSecurityOrderByDateDesc(user, securityDao.findById(2).orElse(null), page)
+            .findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page)
             .getContent());
     return atom.toXml();
   }
@@ -1868,7 +1853,7 @@ public class UsersController {
       } else {
         entries =
             entryDao.findByUsernameAndSecurityAndTag(
-                uc.getBlogUser().getUsername(), securityDao.findById(2).orElse(null), tag);
+                uc.getBlogUser().getUsername(), Security.PUBLIC, tag);
       }
 
       // Format the current time.
@@ -2010,13 +1995,13 @@ public class UsersController {
 
     sb.append("\t\t\t<p>");
 
-    if (o.getSecurity() == null || o.getSecurity().getId() == 0) {
+    if (o.getSecurity() == null || o.getSecurity() == Security.PRIVATE) {
       sb.append("<span class=\"security\">security: ");
       sb.append("<img src=\"/images/icon_private.gif\" alt=\"private\" /> ");
       sb.append("private");
       sb.append("</span><br />");
       sb.append(ENDL);
-    } else if (o.getSecurity().getId() == 1) {
+    } else if (o.getSecurity() == Security.FRIENDS) {
       sb.append("\t\t\t<span class=\"security\">security: ");
       sb.append("<img src=\"/images/icon_protected.gif\" alt=\"friends\" /> ");
       sb.append("friends");
@@ -2109,7 +2094,7 @@ public class UsersController {
 
     if (single) {
       sb.append("<td><div align=\"right\">");
-      if (o.getSecurity() != null && o.getSecurity().getId() == 2) {
+      if (o.getSecurity() != null && o.getSecurity() == Security.FRIENDS) {
         // facebook
         sb.append(
                 "<div style=\"padding-right: 5px\" class=\"fb-share-button\""
@@ -2252,9 +2237,11 @@ public class UsersController {
         sb.append("</span>\n");
         sb.append("</div>\n");
 
-        sb.append("<p>");
-        sb.append(ESAPI.encoder().encodeForHTML(trackback.getBody()));
-        sb.append("</p>");
+        if (StringUtils.isNotBlank(trackback.getBody())) {
+          sb.append("<p>");
+          sb.append(ESAPI.encoder().encodeForHTML(trackback.getBody()));
+          sb.append("</p>");
+        }
       }
       sb.append("\n</div>\n");
     }

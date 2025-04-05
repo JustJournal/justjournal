@@ -29,8 +29,8 @@ package com.justjournal.services;
 import com.justjournal.core.UserContext;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Entry;
+import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.utility.HTMLUtil;
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
@@ -50,8 +50,6 @@ import org.springframework.stereotype.Service;
 public class AbstractFormatService {
 
   @Autowired private EntryRepository entryRepository;
-
-  @Autowired private SecurityRepository securityRepository;
 
   @Autowired
   private MarkdownService markdownService;
@@ -102,7 +100,7 @@ public class AbstractFormatService {
         entries = entryRepository.findByUsername(blogUser.getUsername());
       } else {
         entries = entryRepository.findByUsernameAndSecurity(
-                blogUser.getUsername(), securityRepository.findByName("public"));
+                blogUser.getUsername(), Security.PUBLIC);
       }
 
       // Format the current time.
@@ -144,9 +142,9 @@ public class AbstractFormatService {
         }
         document.add(Chunk.NEWLINE);
 
-        if (o.getSecurity().getId() == 0)
+        if (o.getSecurity() == Security.PRIVATE)
           document.add(new Paragraph("Security: " + "Private", helvetica8));
-        else if (o.getSecurity().getId() == 1)
+        else if (o.getSecurity() == Security.FRIENDS)
           document.add(new Paragraph("Security: " + "Friends", helvetica8));
         else document.add(new Paragraph("Security: " + "Public", helvetica8));
 

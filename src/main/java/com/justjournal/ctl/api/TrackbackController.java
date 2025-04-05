@@ -32,6 +32,7 @@ import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
 import com.justjournal.model.Entry;
 import com.justjournal.model.PrefBool;
+import com.justjournal.model.Security;
 import com.justjournal.model.api.TrackbackTo;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.services.TrackbackService;
@@ -85,7 +86,7 @@ public class TrackbackController {
     try {
       if (new ArrayList<>(entry.getUser().getJournals()).get(0).isOwnerViewOnly()
           || entry.getAllowComments() == PrefBool.N
-          || entry.getSecurity().getId() == 0) {
+          || entry.getSecurity() == Security.PRIVATE) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       }
     } catch (final Exception e) {
