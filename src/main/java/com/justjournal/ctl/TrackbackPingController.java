@@ -77,6 +77,7 @@ public class TrackbackPingController {
   @ResponseBody
   public ResponseEntity<String> post(
       @RequestParam("entryID") int entryId, @ModelAttribute TrackbackPingRequest trackbackPingRequest) {
+    log.info("received trackback request: " + trackbackPingRequest);
     try {
       boolean istrackback = true;
 

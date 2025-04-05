@@ -363,26 +363,26 @@ class ITAppTest {
 
   @Test
   void trackbackPingInvalid() throws Exception {
-    mockMvc.perform(post("/trackback/?entryID=")).andExpect(status().is4xxClientError());
+    mockMvc.perform(post("/trackback?entryID=")   .accept(MediaType.TEXT_XML)
+            .contentType(MediaType.APPLICATION_FORM_URLENCODED)).andExpect(status().is4xxClientError());
   }
 
   @Test
   void trackbackPingInvalid2() throws Exception {
-    mockMvc.perform(post("/trackback/?url=")).andExpect(status().is4xxClientError());
+    mockMvc.perform(post("/trackback?url=")   .accept(MediaType.TEXT_XML)
+            .contentType(MediaType.APPLICATION_FORM_URLENCODED)).andExpect(status().is4xxClientError());
   }
 
   @Test
   void trackbackPing() throws Exception {
-    LinkedMultiValueMap<String, String> requestParams = new LinkedMultiValueMap<>();
-    requestParams.put("entryID", Collections.singletonList("33661"));
-    requestParams.put("title", Collections.singletonList("my title"));
-    requestParams.put("url", Collections.singletonList("http://justjournal.com/users/jjsite"));
-    requestParams.put("excerpt", Collections.singletonList("a cool blog"));
-
     mockMvc
         .perform(
-            post("/trackback/")
-                .queryParams(requestParams)
+            post("/trackback")
+              //      .queryParam("entryID", "33661")
+                    .param("entryID", "33661")
+                    .param("title", "my title")
+                    .param("url", "https://www.justjournal.com/users/jjsite")
+                    .param("excerpt", "a cool blog")
                 .accept(MediaType.TEXT_XML)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED))
         .andExpect(status().isOk())
@@ -395,38 +395,39 @@ class ITAppTest {
     requestParams.put("entryID", Collections.singletonList("33661"));
     requestParams.put("title", Collections.singletonList("my title"));
     requestParams.put(
-        "url",
-        Collections.singletonList(
-            "http://example.notarealdomainnameatallandshouldntresolve.com/bar"));
+            "url",
+            Collections.singletonList(
+                    "http://example.notarealdomainnameatallandshouldntresolve.com/bar"));
     requestParams.put("excerpt", Collections.singletonList("a cool blog"));
 
     mockMvc
-        .perform(
-            post("/trackback/")
-                .queryParams(requestParams)
-                .accept(MediaType.TEXT_XML)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-        .andExpect(status().is5xxServerError())
-        .andExpect(content().contentTypeCompatibleWith("text/xml;charset=UTF-8"));
+            .perform(
+                    post("/trackback")
+                            .queryParams(requestParams)
+                            .accept(MediaType.TEXT_XML)
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+            .andExpect(status().is5xxServerError())
+            .andExpect(content().contentTypeCompatibleWith("text/xml;charset=UTF-8"));
   }
 
+  // post it is a different format
   @Test
   void trackbackPingPostIt() throws Exception {
     LinkedMultiValueMap<String, String> requestParams = new LinkedMultiValueMap<>();
     requestParams.put("entryID", Collections.singletonList("33661"));
     requestParams.put("name", Collections.singletonList("my title"));
     requestParams.put("email", Collections.singletonList("test@example.com"));
-    requestParams.put("url", Collections.singletonList("http://justjournal.com/bar"));
+    requestParams.put("url", Collections.singletonList("https://www.justjournal.com/users/jjsite/"));
     requestParams.put("excerpt", Collections.singletonList("a cool blog"));
     requestParams.put("blog_name", Collections.singletonList("blog_name"));
 
     mockMvc
         .perform(
-            post("/trackback/")
+            post("/trackback")
                 .queryParams(requestParams)
                 .accept(MediaType.TEXT_XML)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-        .andExpect(status().isOk())
+        .andExpect(status().is2xxSuccessful())
         .andExpect(content().contentTypeCompatibleWith("text/xml;charset=UTF-8"));
   }
 
@@ -445,11 +446,12 @@ class ITAppTest {
 
     mockMvc
         .perform(
-            post("/trackback/")
+            post("/trackback")
+           //         .content(requestParams.toString())
                 .queryParams(requestParams)
                 .accept(MediaType.TEXT_XML)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-        .andExpect(status().is5xxServerError())
+        .andExpect(status().is4xxClientError())
         .andExpect(content().contentTypeCompatibleWith("text/xml;charset=UTF-8"));
   }
 

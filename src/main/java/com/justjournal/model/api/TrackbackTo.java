@@ -71,7 +71,7 @@ public class TrackbackTo implements Serializable {
   }
 
   public void setUrl(String url) {
-    if (url == null || url.length() > 5) throw new IllegalArgumentException("Illegal url: " + url);
+    if (url == null || url.length() < 5) throw new IllegalArgumentException("Illegal url: " + url);
 
     this.url = url;
   }
