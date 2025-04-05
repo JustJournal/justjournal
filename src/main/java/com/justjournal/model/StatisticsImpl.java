@@ -28,6 +28,8 @@ package com.justjournal.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.stereotype.Component;
 
 /**
@@ -35,6 +37,8 @@ import org.springframework.stereotype.Component;
  *
  * @author Lucas Holt
  */
+@Setter
+@Getter
 @EqualsAndHashCode
 @Component
 public final class StatisticsImpl implements Statistics {
@@ -53,67 +57,4 @@ public final class StatisticsImpl implements Statistics {
     super();
   }
 
-  public long getPublicEntries() {
-    return publicEntries;
-  }
-
-  public void setPublicEntries(final long publicEntries) {
-    this.publicEntries = publicEntries;
-  }
-
-  public long getFriendsEntries() {
-    return friendsEntries;
-  }
-
-  public void setFriendsEntries(final long friendsEntries) {
-    this.friendsEntries = friendsEntries;
-  }
-
-  public long getPrivateEntries() {
-    return privateEntries;
-  }
-
-  public void setPrivateEntries(final long privateEntries) {
-    this.privateEntries = privateEntries;
-  }
-
-  public void setUsers(final long users) {
-    this.users = users;
-  }
-
-  public void setEntries(final long entries) {
-    this.entries = entries;
-  }
-
-  public void setComments(final long comments) {
-    this.comments = comments;
-  }
-
-  public void setStyles(final long styles) {
-    this.styles = styles;
-  }
-
-  public void setTags(final long tags) {
-    this.tags = tags;
-  }
-
-  public long getUsers() {
-    return users;
-  }
-
-  public long getEntries() {
-    return entries;
-  }
-
-  public long getComments() {
-    return comments;
-  }
-
-  public long getStyles() {
-    return styles;
-  }
-
-  public long getTags() {
-    return tags;
-  }
 }

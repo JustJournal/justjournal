@@ -31,9 +31,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
+
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.stereotype.Component;
 
 /** @author Lucas Holt */
+@Setter
+@Getter
 @Component
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 public class UserStatistics implements Serializable {
@@ -47,33 +52,9 @@ public class UserStatistics implements Serializable {
   private int commentCount = 0;
 
   @JsonCreator
-  public UserStatistics() {}
+  public UserStatistics() { /* TODO document why this constructor is empty */ }
 
-  public int getEntryCount() {
-    return entryCount;
-  }
-
-  public void setEntryCount(final int entryCount) {
-    this.entryCount = entryCount;
-  }
-
-  public int getCommentCount() {
-    return commentCount;
-  }
-
-  public void setCommentCount(final int commentCount) {
-    this.commentCount = commentCount;
-  }
-
-  public String getUsername() {
-    return username;
-  }
-
-  public void setUsername(final String username) {
-    this.username = username;
-  }
-
-  @JsonIgnore
+    @JsonIgnore
   @Override
   public String toString() {
     return "UserStatisticsImpl{"

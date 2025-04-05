@@ -88,7 +88,7 @@ public class FavoriteController {
    * @return an arraylist containing EntryTo objects
    */
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-  public @ResponseBody Collection<Entry> getFavorites(
+  public Collection<Entry> getFavorites(
       final HttpSession session, final HttpServletResponse response) {
     final Collection<Entry> entries = new ArrayList<>();
 

@@ -58,9 +58,9 @@ public class RequestUtil {
           ((ServletRequestAttributes) (RequestContextHolder.getRequestAttributes())).getRequest();
 
       String ip =
-          Arrays.asList(IP_HEADER_NAMES).stream()
+          Arrays.stream(IP_HEADER_NAMES)
               .map(request::getHeader)
-              .filter(h -> h != null && h.length() != 0 && !"unknown".equalsIgnoreCase(h))
+              .filter(h -> h != null && !h.isEmpty() && !"unknown".equalsIgnoreCase(h))
               .map(h -> h.split(",")[0])
               .reduce("", (h1, h2) -> h1 + ":" + h2);
       return ip + request.getRemoteAddr();

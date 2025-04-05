@@ -28,8 +28,8 @@ package com.justjournal.repository;
 
 import com.justjournal.model.Mood;
 import java.util.List;
-import java.util.Optional;
 
+import org.jetbrains.annotations.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -40,7 +40,7 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface MoodRepository extends JpaRepository<Mood, Integer> {
-  List<Mood> findAll();
+  @NotNull List<Mood> findAll();
 
   Mood findById(int id);
 }

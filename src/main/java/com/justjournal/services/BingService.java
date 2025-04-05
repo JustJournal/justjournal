@@ -17,8 +17,11 @@ public class BingService {
     @Value("${bing.indexNowKey}")
     private String indexNowKey;
 
-    @Autowired
-    private RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
+
+    public BingService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     public boolean indexNow(String permalink) {
         try {

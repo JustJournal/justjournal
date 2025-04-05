@@ -30,6 +30,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.io.Serial;
 import java.io.Serializable;
 import java.sql.Timestamp;
 import jakarta.persistence.Basic;
@@ -49,6 +51,7 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "user_location")
 public class UserLocation implements Serializable {
+  @Serial
   private static final long serialVersionUID = -5429965410191859512L;
 
   @Id

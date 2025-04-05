@@ -32,6 +32,7 @@ import static com.justjournal.core.Constants.PASSWORD_MIN_LENGTH;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Journal;
 import com.justjournal.model.User;
 import com.justjournal.model.api.PasswordChange;
@@ -52,7 +53,6 @@ import java.util.Optional;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -61,7 +61,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /** @author Lucas Holt */
@@ -172,13 +171,13 @@ public class AccountController {
     try {
       final Optional<User> user = userDao.findById(userID);
       if (user.isEmpty()) {
-        throw new RuntimeException("User should always exist at this point");
+        throw new NotFoundException("User should always exist at this point");
       }
       commentRepository.deleteAll(commentRepository.findByUser(user.get()));
-      entryRepository.deleteInBatch(entryRepository.findByUser(user.get()));
+      entryRepository.deleteAllInBatch(entryRepository.findByUser(user.get()));
       entryRepository.flush();
 
-      favoriteRepository.deleteInBatch(favoriteRepository.findByUser(user.get()));
+      favoriteRepository.deleteAllInBatch(favoriteRepository.findByUser(user.get()));
       favoriteRepository.flush();
 
       jdbcTemplate.execute("DELETE from friends where id = " + userID + ";");

@@ -31,11 +31,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.justjournal.utility.StringUtil;
+import jakarta.persistence.*;
+import lombok.Setter;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serial;
 import java.io.Serializable;
-import jakarta.persistence.*;
-import lombok.EqualsAndHashCode;
+import java.util.Objects;
 
 /**
  * A tag is a form of metadata about a blog entry. It is similar to a category.
@@ -44,7 +46,6 @@ import lombok.EqualsAndHashCode;
  * @version $Id: Tag.java,v 1.7 2012/06/23 18:15:31 laffer1 Exp $
  *     <p>Date: Apr 25, 2008 Time: 5:13:16 PM
  */
-@EqualsAndHashCode
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 @Entity
 @Table(name = "tags")
@@ -67,6 +68,7 @@ public class Tag implements Serializable {
   @Transient
   private long count;
 
+  @Setter
   @JsonProperty("type")
   @Transient
   private String type;
@@ -148,7 +150,19 @@ public class Tag implements Serializable {
     return type;
   }
 
-  public void setType(final String type) {
-    this.type = type;
+    @Override
+  public final boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null) return false;
+    Class<?> oEffectiveClass = o instanceof HibernateProxy hibernateProxy ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+    Class<?> thisEffectiveClass = this instanceof HibernateProxy hibernateProxy? hibernateProxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+    if (thisEffectiveClass != oEffectiveClass) return false;
+    Tag tag = (Tag) o;
+    return Objects.equals(getId(), tag.getId());
+  }
+
+  @Override
+  public final int hashCode() {
+    return this instanceof HibernateProxy hibernateProxy ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
   }
 }

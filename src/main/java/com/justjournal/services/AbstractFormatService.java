@@ -56,21 +56,25 @@ public class AbstractFormatService {
   @Autowired
   private MarkdownService markdownService;
 
-  public void format(final UserContext uc, final Document document) throws ServiceException {
-
+  private void validate(final UserContext uc, final Document document) throws ServiceException {
     if (uc == null || document == null) {
       throw new IllegalArgumentException("Invalid input parameters.");
     }
 
-    var blogUser = uc.getBlogUser();
-    if (blogUser == null) {
+    if (uc.getBlogUser() == null) {
       throw new ServiceException("user not found.");
     }
-    var journals = blogUser.getJournals();
-    if (journals.isEmpty()) {
+
+    if (uc.getBlogUser().getJournals().isEmpty()) {
       throw new ServiceException("No journals found.");
     }
+  }
 
+  public void format(final UserContext uc, final Document document) throws ServiceException {
+    validate(uc, document);
+
+    var blogUser = uc.getBlogUser();
+    var journals = blogUser.getJournals();
     var journalName = journals.stream().findFirst();
 
     final Font helvetica14 = new Font(Font.HELVETICA, 14.0F);

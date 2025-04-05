@@ -50,7 +50,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public abstract class JustJournalBaseServlet extends HttpServlet {
 
-  @Autowired protected Settings set;
+  @Autowired protected transient Settings set;
 
   /**
    * Handles the HTTP <code>GET</code> method.

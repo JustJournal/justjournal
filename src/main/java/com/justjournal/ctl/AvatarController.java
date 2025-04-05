@@ -135,7 +135,7 @@ public class AvatarController {
   }
 
   @DeleteMapping("/{id}")
-  public ResponseEntity delete(@PathVariable(PARAM_ID) final int id, final HttpSession session) {
+  public ResponseEntity<String> delete(@PathVariable(PARAM_ID) final int id, final HttpSession session) throws ServiceException {
 
     // Retreive user id
     final Integer userIDasi = (Integer) session.getAttribute(LOGIN_ATTRID);
@@ -147,16 +147,10 @@ public class AvatarController {
 
     /* Make sure we are logged in */
     if (userID < 1) {
-      return new ResponseEntity(HttpStatus.FORBIDDEN);
+      throw new ForbiddenException("You must be logged in to delete an avatar");
     }
 
-    try {
-      imageStorageService.deleteAvatar(userID);
-    } catch (final Exception dae) {
-      log.error(dae.getMessage(), dae);
-      return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    return new ResponseEntity(HttpStatus.OK);
+    imageStorageService.deleteAvatar(userID);
+    return ResponseEntity.noContent().build();
   }
 }
