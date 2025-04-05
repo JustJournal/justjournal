@@ -65,7 +65,7 @@ public class Trackback implements Serializable {
   private int id;
 
   @Column(name = "eid")
-  private int entryId = 0;
+  private int entryId;
 
   @Setter
   @Column(name = "date")
@@ -106,7 +106,8 @@ public class Trackback implements Serializable {
   }
 
     public void setEntryId(int entryId) {
-    if (entryId < 0) throw new IllegalArgumentException("Illegal eid: " + entryId);
+    if (entryId < 0)
+      throw new IllegalArgumentException("Illegal eid: " + entryId);
     this.entryId = entryId;
   }
 
@@ -146,6 +147,7 @@ public class Trackback implements Serializable {
     trackbackTo.setBlogName(getBlogName());
     trackbackTo.setEntryId(getEntryId());
     trackbackTo.setType(getType());
+    trackbackTo.setUrl(getUrl());
 
     return trackbackTo;
   }
