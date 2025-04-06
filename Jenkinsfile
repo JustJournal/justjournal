@@ -52,7 +52,13 @@ pipeline {
        stage('Sonarqube') {
             steps {
                 withSonarQubeEnv('sonarcloud') {
-                	sh 'mvn sonar:sonar -Dsonar.organization=laffer1-github -Dsonar.projectKey=laffer1_justjournal'
+                    sh '''
+                	    mvn sonar:sonar \
+                	    -Dsonar.organization=laffer1-github \
+                	    -Dsonar.projectKey=laffer1_justjournal \
+                	    -Dsonar.branch.name=${env.BRANCH_NAME} \
+                	    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+                    '''
                 }
                 timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
