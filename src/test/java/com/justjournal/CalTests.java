@@ -18,19 +18,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 class CalTests {
 
-    private Cal cal;
-    private Collection<Entry> entries;
-
     @Test
     void testInitializeWithEmptyEntries() {
         Collection<Entry> emptyEntries = new ArrayList<>();
-        Cal cal = new Cal(emptyEntries);
-
-        assertNotNull(cal);
-        assertEquals(1, cal.monthList.size());
-
-        assertThrows(ArrayIndexOutOfBoundsException.class, cal::render);
-        assertThrows(ArrayIndexOutOfBoundsException.class, cal::renderMini);
+        assertThrows(IllegalArgumentException.class, () -> new Cal(emptyEntries));
     }
 
     @Test
