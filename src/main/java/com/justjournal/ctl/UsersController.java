@@ -1542,7 +1542,7 @@ public class UsersController {
       }
 
     } catch (final Exception e1) {
-      log.trace(e1.getMessage(), e1);
+      log.error("Calendar render failed: {}", e1.getMessage(), e1);
       ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
     }
 
@@ -1659,7 +1659,7 @@ public class UsersController {
         sb.append(mycal.renderMini());
       }
     } catch (final Exception ex) {
-      log.debug(ex.getMessage(), ex);
+      log.warn(ex.getMessage(), ex);
     }
     return sb.toString();
   }
@@ -1697,7 +1697,7 @@ public class UsersController {
                 day,
                 Security.PUBLIC);
 
-      if (entries == null || entries.isEmpty()) {
+      if (CollectionUtils.isEmpty(entries)) {
         sb.append("<p>Calendar data not available.</p>\n");
       } else {
         final SimpleDateFormat formatter = new SimpleDateFormat(ENTRY_DATE_TIME_FORMAT);
@@ -1718,10 +1718,7 @@ public class UsersController {
           curDate = formatmydate.format(currentDate);
 
           if (curDate.compareTo(lastDate) != 0) {
-            sb.append("\t\t<h2>");
-            sb.append(curDate);
-            sb.append("</h2>");
-            sb.append(ENDL);
+            sb.append("\t\t<h2>").append(curDate).append("</h2>\n");
             lastDate = curDate;
           }
 
@@ -1730,7 +1727,7 @@ public class UsersController {
       }
 
     } catch (final Exception e1) {
-      log.trace(e1.getMessage(), e1);
+      log.warn(e1.getMessage(), e1);
       ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
     }
 
@@ -2006,10 +2003,9 @@ public class UsersController {
         sb.append(o.getMood().getTitle());
         sb.append("\" /> ");
         sb.append(o.getMood().getTitle());
-        sb.append("</span><br />");
-        sb.append(ENDL);
+        sb.append("</span><br />\n");
       } else {
-        log.error("Couldn't get mood theme data for " + o.getMood().getId());
+          log.error("Couldn't get mood theme data for {}", o.getMood().getId());
       }
     }
 
