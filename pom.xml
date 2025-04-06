@@ -32,7 +32,6 @@
         <okhttp3.version>4.11.0</okhttp3.version>
         <logback.version>1.4.14</logback.version>
         <tomcat.version>10.1.39</tomcat.version>
-        <elasticsearch-client.version>7.17.0</elasticsearch-client.version>
     </properties>
 
     <profiles>
