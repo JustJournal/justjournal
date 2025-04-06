@@ -24,8 +24,7 @@ Support for RTF exports was also dropped due to a licensing change from the libr
 JJ now requires Java 17 due to the Spring Boot upgrade.
 
 ## Build Status
-
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=com.justjournal%3Ajustjournal&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=com.justjournal%3Ajustjournal)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=laffer1_justjournal&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=laffer1_justjournal)
 
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Flaffer1%2Fjustjournal.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Flaffer1%2Fjustjournal?ref=badge_shield)
 
