@@ -38,18 +38,23 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.thymeleaf.util.StringUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /** @author Lucas Holt */
 @ExtendWith(MockitoExtension.class)
@@ -61,6 +66,13 @@ class TagServiceTests {
 
   @Mock
   EntryTagsRepository entryTagsRepository;
+
+  @Mock
+  private ReactiveRedisTemplate<String, Tag> reactiveRedisTemplateTag;
+
+  @Mock
+  private ReactiveValueOperations<String, Tag> valueOperations;
+
 
   @InjectMocks
   private TagService tagService;
@@ -76,13 +88,13 @@ class TagServiceTests {
     when(tagRepository.findAll()).thenReturn(data);
     List<Tag> tags = tagService.getTags().toStream().toList();
 
-    Assertions.assertFalse(tags.isEmpty());
+    assertFalse(tags.isEmpty());
 
     for (Tag tag : tags) {
-      Assertions.assertTrue(tag.getId() > 0);
-      Assertions.assertFalse(StringUtils.isEmpty(tag.getName()));
-      Assertions.assertFalse(StringUtils.isEmpty(tag.getType()));
-      Assertions.assertTrue(tag.getCount() > 0);
+      assertTrue(tag.getId() > 0);
+      assertFalse(StringUtils.isEmpty(tag.getName()));
+      assertFalse(StringUtils.isEmpty(tag.getType()));
+      assertTrue(tag.getCount() > 0);
     }
   }
 
@@ -92,7 +104,7 @@ class TagServiceTests {
 
     List<Tag> tags = tagService.getTags().toStream().toList();
 
-    Assertions.assertTrue(tags.isEmpty());
+    assertTrue(tags.isEmpty());
     Mockito.verify(tagRepository, times(1)).findAll();
   }
 
@@ -106,5 +118,66 @@ class TagServiceTests {
 
     // Assert
     Mockito.verify(tagRepository, times(1)).deleteById(tagId);
+  }
+
+  @Test
+  void getTag_whenInRedisCache_shouldReturnFromCache() {
+    // Arrange
+    Integer tagId = 1;
+    Tag expectedTag = new Tag();
+    expectedTag.setId(tagId);
+    expectedTag.setName("TestTag");
+
+    when(reactiveRedisTemplateTag.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.get("tag" + tagId)).thenReturn(Mono.just(expectedTag));
+
+    // Act
+    Optional<Tag> result = tagService.getTag(tagId);
+
+    // Assert
+    assertTrue(result.isPresent());
+    assertEquals(expectedTag, result.get());
+    Mockito.verify(tagRepository, never()).findById(any());
+  }
+
+  @Test
+  void getTag_whenNotInRedisCache_shouldFetchFromDatabaseAndCache() {
+    // Arrange
+    Integer tagId = 1;
+    Tag expectedTag = new Tag();
+    expectedTag.setId(tagId);
+    expectedTag.setName("TestTag");
+
+    when(reactiveRedisTemplateTag.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.get("tag" + tagId)).thenReturn(Mono.empty());
+    when(tagRepository.findById(tagId)).thenReturn(Optional.of(expectedTag));
+    when(valueOperations.set(eq("tag" + tagId), eq(expectedTag), any(Duration.class))).thenReturn(Mono.just(true));
+
+    // Act
+    Optional<Tag> result = tagService.getTag(tagId);
+
+    // Assert
+    assertTrue(result.isPresent());
+    assertEquals(expectedTag, result.get());
+    verify(tagRepository).findById(tagId);
+    verify(valueOperations).set(eq("tag" + tagId), eq(expectedTag), any(Duration.class));
+  }
+
+  @Test
+  void getTag_whenNotInRedisAndNotInDatabase_shouldReturnEmpty() {
+    // Arrange
+    Integer tagId = 1;
+
+    when(reactiveRedisTemplateTag.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.get("tag" + tagId)).thenReturn(Mono.empty());
+    when(tagRepository.findById(tagId)).thenReturn(Optional.empty());
+
+    // Act
+    Optional<Tag> result = tagService.getTag(tagId);
+
+    // Assert
+    assertFalse(result.isPresent());
+    verify(tagRepository).findById(tagId);
+    verify(valueOperations, never()).set(any(), any(), any(Duration.class));
   }
 }
