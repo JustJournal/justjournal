@@ -83,6 +83,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -1532,9 +1533,8 @@ public class UsersController {
             entryDao.findByUsernameAndYearAndSecurity(
                 uc.getBlogUser().getUsername(), year, Security.PUBLIC);
 
-      if (entries == null || entries.isEmpty()) {
-        sb.append("<p>Calendar data not available.</p>");
-        sb.append(ENDL);
+      if (CollectionUtils.isEmpty(entries)) {
+        sb.append("<p>Calendar data not available.</p>\n");
       } else {
         // we have calendar data!
         final Cal mycal = new Cal(entries);
@@ -1543,14 +1543,14 @@ public class UsersController {
 
     } catch (final Exception e1) {
       log.trace(e1.getMessage(), e1);
-      ErrorPage.display(" Error", "An error has occured rendering calendar.", sb);
+      ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
     }
 
     return sb.toString();
   }
 
   /**
-   * Lists all of the journal entries for the month specified in the year specified.
+   * Lists all the journal entries for the month specified in the year specified.
    *
    * @param year the year to display data for
    * @param month the month we want
@@ -1580,9 +1580,8 @@ public class UsersController {
             entryDao.findByUsernameAndYearAndMonthAndSecurity(
                 uc.getBlogUser().getUsername(), year, month, Security.PUBLIC);
 
-      if (entries.isEmpty()) {
-        sb.append("<p>Calendar data not available.</p>");
-        sb.append(ENDL);
+      if (CollectionUtils.isEmpty(entries)) {
+        sb.append("<p>Calendar data not available.</p>\n");
       } else {
 
         final SimpleDateFormat formatmydate = new SimpleDateFormat("dd");
@@ -1622,8 +1621,8 @@ public class UsersController {
       }
 
     } catch (final Exception e1) {
-      log.trace(e1.getMessage(), e1);
-      ErrorPage.display(" Error", "An error has occured rendering calendar.", sb);
+      log.warn(e1.getMessage(), e1);
+      ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
     }
     return sb.toString();
   }
@@ -1666,7 +1665,7 @@ public class UsersController {
   }
 
   /**
-   * Generates all of the HTML to display journal entries for a particular day specified in the url.
+   * Generates all the HTML to display journal entries for a particular day specified in the url.
    *
    * @param year the year to display
    * @param month the month we want to look at
@@ -1680,8 +1679,7 @@ public class UsersController {
 
     final StringBuilder sb = new StringBuilder();
 
-    sb.append("<p>Lists all of the journal entries for the day.</p>");
-    sb.append(ENDL);
+    sb.append("<p>Lists all of the journal entries for the day.</p>\n");
 
     try {
 
@@ -1700,8 +1698,7 @@ public class UsersController {
                 Security.PUBLIC);
 
       if (entries == null || entries.isEmpty()) {
-        sb.append("<p>Calendar data not available.</p>");
-        sb.append(ENDL);
+        sb.append("<p>Calendar data not available.</p>\n");
       } else {
         final SimpleDateFormat formatter = new SimpleDateFormat(ENTRY_DATE_TIME_FORMAT);
         final SimpleDateFormat formatmydate = new SimpleDateFormat(ENTRY_DATE_FORMAT);

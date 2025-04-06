@@ -36,6 +36,7 @@ import java.util.List;
 
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 
 /**
  * Storage for calendar months.
@@ -70,6 +71,11 @@ public final class Cal {
   private String baseUrl = null;
 
   public Cal(final Collection<Entry> entries) {
+    if (CollectionUtils.isEmpty(entries)) {
+      // TODO: make this class handle empty entries rather than do this hack in the constructor.
+      log.error("Entries collection is empty");
+      throw new IllegalArgumentException("Entry collection cannot be null or empty");
+    }
     this.entries = entries;
     this.calculateEntryCounts();
   }
@@ -88,6 +94,7 @@ public final class Cal {
         calendarg.setTime(currentDate);
         year = calendarg.get(java.util.Calendar.YEAR);
 
+        // intentionally using -1 for first pass through the list
         if (month == calendarg.get(java.util.Calendar.MONTH)) {
           // month didn't change
           day = calendarg.get(java.util.Calendar.DAY_OF_MONTH);
@@ -226,29 +233,41 @@ public final class Cal {
         }
       }
 
-      if (dayinweek <= 6 && dayinweek != 0) {
-        // this is seven because colspan is 1 based.  why do the
-        // extra addition +1
-        sb.append("\t<td class=\"fullcalendaroffrow\" colspan=\"")
-            .append(7 - dayinweek)
-            .append(" \"></td>");
-        tableRowClose(sb);
-      }
-
-      tableRowOpen(sb);
-      sb.append("\t<td class=\"fullcalendarsub\" colspan=\"7\"><a href=\"");
-      sb.append(o.getYear());
-      sb.append("/");
-      if ((o.monthid + 1) < 10) {
-        sb.append("0");
-      }
-      sb.append(o.monthid + 1);
-      sb.append("\">View Subjects</a></td>\n");
-      tableRowClose(sb);
-      sb.append("</tbody>\n");
+      dayInWeek(sb, dayinweek, false);
+      viewSubjectsLink(sb, o, false);
+      tableBodyClose(sb);
       tableClose(sb);
     }
     return sb.toString();
+  }
+
+  private void viewSubjectsLink(StringBuilder sb, CalMonth o, boolean miniCalendar) {
+    String cssClass = miniCalendar? "minicalendarsub" : "fullcalendarsub";
+
+    tableRowOpen(sb);
+    sb.append("\t<td class=\"").append(cssClass).append("\" colspan=\"7\"><a href=\"");
+    if (miniCalendar)
+      sb.append(baseUrl);
+    sb.append(o.getYear());
+    sb.append("/");
+    if ((o.monthid + 1) < 10) {
+      sb.append("0");
+    }
+    sb.append(o.monthid + 1);
+    sb.append("\">View Subjects</a></td>\n");
+    tableRowClose(sb);
+  }
+
+  private void dayInWeek(StringBuilder sb, int dayinweek, boolean miniCalendar) {
+    String cssClass = miniCalendar? "minicalendaroffrow" : "fullcalendaroffrow";
+    if (dayinweek <= 6 && dayinweek != 0) {
+      // this is seven because colspan is 1 based.  why do the
+      // extra addition +1
+      sb.append("\t<td class=\"").append(cssClass).append("\" colspan=\"")
+              .append(7 - dayinweek)
+              .append(" \"></td>");
+      tableRowClose(sb);
+    }
   }
 
   private void caption(final StringBuilder sb, int year, int month) {
@@ -333,24 +352,9 @@ public final class Cal {
         }
       }
 
-      if (dayinweek <= 6 && dayinweek != 0) {
-        // this is seven because colspan is 1 based.  why do the
-        // extra addition +1
-        sb.append("\t\t<td class=\"minicalendaroffrow\" colspan=\"")
-            .append(7 - dayinweek)
-            .append(" \"></td>");
-        tableRowClose(sb);
-      }
+      dayInWeek(sb, dayinweek, true);
 
-      tableRowOpen(sb);
-      sb.append("\t\t<td class=\"minicalendarsub\" colspan=\"7\"><a href=\"");
-      sb.append(baseUrl);
-      sb.append(o.getYear());
-      sb.append("/");
-      if ((o.monthid + 1) < 10) sb.append("0");
-      sb.append(o.monthid + 1);
-      sb.append("\">View Subjects</a></td>\n");
-      tableRowClose(sb);
+      viewSubjectsLink(sb, o, true);
       tableBodyClose(sb);
       tableClose(sb);
     }
