@@ -562,7 +562,7 @@
                     </execution>
                     <execution>
                         <id>merge-results</id>
-                        <phase>verify</phase>
+                        <phase>post-integration-test</phase>
                         <goals>
                             <goal>merge</goal>
                         </goals>
