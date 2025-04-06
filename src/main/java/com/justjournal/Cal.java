@@ -47,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class Cal {
   public static final int MONTHS_IN_YEAR = 12;
-  private final List<CalMonth> monthList = new ArrayList<>(MONTHS_IN_YEAR);
+  final List<CalMonth> monthList = new ArrayList<>(MONTHS_IN_YEAR);
   private final SimpleDateFormat shortDate = new SimpleDateFormat("yyyy-MM-dd");
   private final String[] days = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
   private final String[] daysSmall = {"S", "M", "T", "W", "R", "F", "S"};
