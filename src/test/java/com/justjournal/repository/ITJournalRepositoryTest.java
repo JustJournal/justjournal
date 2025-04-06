@@ -25,8 +25,10 @@
  */
 package com.justjournal.repository;
 
+import static org.junit.Assert.assertNotNull;
+
 import com.justjournal.Application;
-import com.justjournal.model.State;
+import com.justjournal.model.Journal;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,19 +38,29 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
-
 /** @author Lucas Holt */
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
 @ActiveProfiles("it")
- class ITStateRepositoryTests {
-  @Autowired private StateRepository stateRepository;
+class ITJournalRepositoryTest {
+  @Autowired private JournalRepository journalRepository;
 
   @Test
-   void list() {
-    final Iterable<State> list = stateRepository.findAll();
+  void list() throws Exception {
+    final Iterable<Journal> list = journalRepository.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertEquals(0, stateRepository.count());
+  }
+
+  @Test
+  void findByUsername() {
+    final Iterable<Journal> list = journalRepository.findByUsername("testuser");
+    Assertions.assertNotNull(list);
+  }
+
+  @Test
+  void findBySlug() {
+    final Journal journal = journalRepository.findOneBySlug("testuser");
+    Assertions.assertNotNull(journal);
   }
 }

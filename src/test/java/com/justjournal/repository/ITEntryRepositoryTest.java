@@ -50,7 +50,7 @@ import java.util.List;
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
 @ActiveProfiles("it")
-class ITEntryRepositoryTests {
+class ITEntryRepositoryTest {
   @Autowired EntryRepository entryRepository;
 
   @Autowired

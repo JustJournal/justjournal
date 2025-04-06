@@ -26,36 +26,42 @@
 package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.model.Country;
+import com.justjournal.model.Location;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
-/** @author Lucas Holt */
 @ActiveProfiles("it")
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-class ITCountryRepositoryTests {
-  @Autowired private CountryRepository countryRepository;
+@DirtiesContext
+/*@TestExecutionListeners({DependencyInjectionTestExecutionListener.class,
+        DirtiesContextTestExecutionListener.class,
+        TransactionalTestExecutionListener.class
+})*/
+class ITLocationDaoTest {
+
+  @Autowired private LocationRepository locationDao;
 
   @Test
   void list() throws Exception {
-    Iterable<Country> list = countryRepository.findAll();
+    Iterable<Location> list = locationDao.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertEquals(239, countryRepository.count());
+    Assertions.assertEquals(5, locationDao.count());
   }
 
   @Test
   void get() {
-    Country country = countryRepository.findById(1).orElse(null);
-    Assertions.assertNotNull(country);
-    Assertions.assertEquals(1, country.getId());
-    Assertions.assertNotNull(country.getTitle());
+    Location locationTo = locationDao.findById(1).orElse(null);
+    Assertions.assertNotNull(locationTo);
+    Assertions.assertEquals(1, locationTo.getId());
+    Assertions.assertNotNull(locationTo.getTitle());
   }
 }

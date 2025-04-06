@@ -26,7 +26,7 @@
 package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.model.User;
+import com.justjournal.model.EntryTag;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,44 +41,18 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
 @ActiveProfiles("it")
-class ITUserRepositoryTests {
-  @Autowired private UserRepository userRepository;
+class ITEntryTagsRepositoryTest {
+  @Autowired EntryTagsRepository entryTagsRepository;
 
   @Test
-   void list() {
-    final Iterable<User> list = userRepository.findAll();
+ void list() throws Exception {
+    final Iterable<EntryTag> list = entryTagsRepository.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertTrue(userRepository.count() > 0);
   }
 
   @Test
-   void getById() {
-    final User user = userRepository.findById(1).orElse(null);
-    Assertions.assertNotNull(user);
-    Assertions.assertEquals(1, user.getId());
-  }
-
-  @Test
-   void getByUsername() {
-    final User user = userRepository.findByUsername("testuser");
-    Assertions.assertNotNull(user);
-    Assertions.assertEquals(2908, user.getId());
-  }
-
-  @Test
-  public void getByUsernameInvalid() throws Exception {
-    final User user = userRepository.findByUsername("iamnotareal");
-    Assertions.assertNull(user);
-  }
-
-  @Test
-  public void getByUserAndPasswordInvalid() {
-    final User user = userRepository.findByUsernameAndPassword("testuser", "wrongpassword");
-    Assertions.assertNull(user);
-  }
-
-  @Test
-  public void exists() {
-    Assertions.assertTrue(userRepository.existsById(1));
+  void findByUsername() {
+    final Iterable<EntryTag> list = entryTagsRepository.findByUsername("testuser");
+    Assertions.assertNotNull(list);
   }
 }

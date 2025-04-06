@@ -43,7 +43,7 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-class ITCommentRepositoryTests {
+class ITCommentRepositoryTest {
 
   @Autowired private CommentRepository commentRepository;
 
