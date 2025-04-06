@@ -41,6 +41,9 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -68,20 +71,37 @@ public class Rss {
   private String albumImageUrl;
   private String userBaseUrl;
 
+  @Setter
+  @Getter
   private String title = "";
+  @Setter
+  @Getter
   private String link = "";
+  @Setter
+  @Getter
   private String description = "";
+  @Setter
+  @Getter
   private String language = "";
+  @Setter
+  @Getter
   private String copyright = "";
+  @Setter
+  @Getter
   private String webMaster = "";
+  @Getter
+  @Setter
   private String managingEditor = "";
+  @Getter
+  @Setter
   private String selfLink = "";
 
   private final JdbcTemplate jdbcTemplate;
 
+  @Getter
   private Date newestEntryDate = new Date();
 
-  private List<RssItem> items = new ArrayList<>(MAX_LENGTH);
+  private final List<RssItem> items = new ArrayList<>(MAX_LENGTH);
 
   @Autowired
   public Rss(final JdbcTemplate jdbcTemplate, final Settings settings, MarkdownService markdownService) {
@@ -93,75 +113,6 @@ public class Rss {
     this.markdownService = markdownService;
   }
 
-  public String getTitle() {
-    return title;
-  }
-
-  public void setTitle(String title) {
-    this.title = title;
-  }
-
-  public String getLink() {
-    return link;
-  }
-
-  public void setLink(String link) {
-    this.link = link;
-  }
-
-  public String getCopyright() {
-    return copyright;
-  }
-
-  public void setCopyright(String copyright) {
-    this.copyright = copyright;
-  }
-
-  public String getDescription() {
-    return description;
-  }
-
-  public void setDescription(String description) {
-    this.description = description;
-  }
-
-  public String getLanguage() {
-    return language;
-  }
-
-  public void setLanguage(String language) {
-    this.language = language;
-  }
-
-  public String getManagingEditor() {
-    return managingEditor;
-  }
-
-  public void setManagingEditor(String managingEditor) {
-    this.managingEditor = managingEditor;
-  }
-
-  public String getWebMaster() {
-    return webMaster;
-  }
-
-  public void setWebMaster(String webMaster) {
-    this.webMaster = webMaster;
-  }
-
-  public String getSelfLink() {
-    return this.selfLink;
-  }
-
-  public void setSelfLink(String selfLink) {
-    this.selfLink = selfLink;
-  }
-
-  public Date getNewestEntryDate() {
-    return newestEntryDate;
-  }
-
-  // Methods
 
   public void populate(final Collection<Entry> entries) {
 
@@ -397,8 +348,6 @@ public class Rss {
    * @return rss item count
    */
   public int size() {
-    if (items == null) return 0;
-
     return items.size();
   }
 }

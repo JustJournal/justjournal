@@ -20,7 +20,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh 'mvn -B -DskipTests clean package'
+                sh 'mvn -B -DskipTests -DskipJacoco clean package'
             }
         }
         stage('Test') {
@@ -45,6 +45,7 @@ pipeline {
        }
        stage('Coverage') {
             steps {
+                sh 'mvn jacoco:merge'
                 sh 'mvn jacoco:report'
                 recordCoverage(tools: [[parser: 'JACOCO']], id: 'jacoco', name: 'JaCoCo Coverage', sourceCodeRetention: 'EVERY_BUILD', enabledForFailure: true,
         qualityGates: [

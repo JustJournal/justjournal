@@ -25,6 +25,8 @@
  */
 package com.justjournal.rss;
 
+import lombok.Setter;
+
 /**
  * An RSS Item is one entry in an RSS feed.
  *
@@ -35,11 +37,16 @@ package com.justjournal.rss;
 public final class RssItem {
 
   private String title;
+  @Setter
   private String link; // link of exact item.
   private String description;
+  @Setter
   private String author; // email address of author of item.
+  @Setter
   private String comments; // url of comments page for item.
+  @Setter
   private String pubDate; // publication date.
+  @Setter
   private String guid; // url to item, always works.
 
   /* file attachment rss 2 feature
@@ -47,20 +54,19 @@ public final class RssItem {
   length="5588242" type="audio/mpeg"/>
   */
   private String enclosureURL;
+  @Setter
   private String enclosureLength;
+  @Setter
   private String enclosureType;
 
+  @Setter
   private boolean truncateFields = true;
 
   public boolean isTruncateFields() {
     return truncateFields;
   }
 
-  public void setTruncateFields(final boolean truncateFields) {
-    this.truncateFields = truncateFields;
-  }
-
-  /**
+    /**
    * URL pointed to an object to embed in the feed. MP3, images, and other elements make good
    * candidates.
    *
@@ -89,51 +95,27 @@ public final class RssItem {
     return enclosureLength;
   }
 
-  public void setEnclosureLength(String enclosureLength) {
-    this.enclosureLength = enclosureLength;
-  }
-
-  public String getEnclosureType() {
+    public String getEnclosureType() {
     return enclosureType;
   }
 
-  public void setEnclosureType(String enclosureType) {
-    this.enclosureType = enclosureType;
-  }
-
-  public String getAuthor() {
+    public String getAuthor() {
     return author;
   }
 
-  public void setAuthor(String author) {
-    this.author = author;
-  }
-
-  public String getComments() {
+    public String getComments() {
     return comments;
   }
 
-  public void setComments(String comments) {
-    this.comments = comments;
-  }
-
-  public String getPubDate() {
+    public String getPubDate() {
     return pubDate;
   }
 
-  public void setPubDate(String pubDate) {
-    this.pubDate = pubDate;
-  }
-
-  public String getGuid() {
+    public String getGuid() {
     return guid;
   }
 
-  public void setGuid(String guid) {
-    this.guid = guid;
-  }
-
-  public String getTitle() {
+    public String getTitle() {
     return title;
   }
 
@@ -155,11 +137,7 @@ public final class RssItem {
     return link;
   }
 
-  public void setLink(final String link) {
-    this.link = link;
-  }
-
-  public String getDescription() {
+    public String getDescription() {
     return description;
   }
 
