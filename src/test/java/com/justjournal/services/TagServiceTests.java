@@ -27,29 +27,53 @@ package com.justjournal.services;
 
 import com.justjournal.Application;
 import com.justjournal.model.Tag;
+import com.justjournal.repository.EntryTagsRepository;
+import com.justjournal.repository.TagRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.thymeleaf.util.StringUtils;
+import reactor.core.publisher.Flux;
 
+import java.util.Collections;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
+
 /** @author Lucas Holt */
-@ExtendWith(SpringExtension.class)
-@SpringBootTest(classes = Application.class)
-@WebAppConfiguration
+@ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
 class TagServiceTests {
 
-  @Autowired private TagService tagService;
+  @Mock
+  TagRepository tagRepository;
+
+  @Mock
+  EntryTagsRepository entryTagsRepository;
+
+  @InjectMocks
+  private TagService tagService;
 
   @Test
   void testGetTags() {
+    var data = List.of(new Tag("test"), new Tag("test"));
+    for (Tag tag : data) {
+      tag.setId(1);
+      tag.setType("small");
+    }
+    when(entryTagsRepository.countByTag(any(Tag.class))).thenReturn(2L);
+    when(tagRepository.findAll()).thenReturn(data);
     List<Tag> tags = tagService.getTags().toStream().toList();
 
     Assertions.assertFalse(tags.isEmpty());
@@ -60,5 +84,27 @@ class TagServiceTests {
       Assertions.assertFalse(StringUtils.isEmpty(tag.getType()));
       Assertions.assertTrue(tag.getCount() > 0);
     }
+  }
+
+  @Test
+  void testGetTagsEmptyList() {
+    when(tagRepository.findAll()).thenReturn(Collections.emptyList());
+
+    List<Tag> tags = tagService.getTags().toStream().toList();
+
+    Assertions.assertTrue(tags.isEmpty());
+    Mockito.verify(tagRepository, times(1)).findAll();
+  }
+
+  @Test
+  void deleteTag_shouldCallRepositoryDeleteById() {
+    // Arrange
+    int tagId = 1;
+
+    // Act
+    tagService.deleteTag(tagId);
+
+    // Assert
+    Mockito.verify(tagRepository, times(1)).deleteById(tagId);
   }
 }
