@@ -1971,23 +1971,25 @@ public class UsersController {
       converted to br's.  If someone used html, we don't want autoformat!
       We handle Windows/UNIX with the \n case and Mac OS Classic with \r
     */
+    var body = o.getBody();
+    body = StringUtil.stripNonPrintableCharacters(body);
     if (o.getFormat().equals(FormatType.TEXT)) {
 
-      if (o.getBody() != null) {
+      if (body != null) {
         sb.append("\t\t\t\t<p>");
-        if (o.getBody().contains("\n")) sb.append(StringUtil.replace(o.getBody(), '\n', "<br>"));
-        else if (o.getBody().contains("\r"))
-          sb.append(StringUtil.replace(o.getBody(), '\r', "<br>"));
+        if (body.contains("\n")) sb.append(StringUtil.replace(body, '\n', "<br>"));
+        else if (body.contains("\r"))
+          sb.append(StringUtil.replace(body, '\r', "<br>"));
         else
           // we do not have any "new lines" but it might be
           // one long line.
-          sb.append(o.getBody());
+          sb.append(body);
 
         sb.append("</p>");
       }
     } else if (o.getFormat().equals(FormatType.MARKDOWN))
-      sb.append(markdownService.convertToHtml(o.getBody()));
-    else sb.append(o.getBody());
+      sb.append(markdownService.convertToHtml(body));
+    else sb.append(body);
 
     sb.append(ENDL);
     sb.append("\t\t\t</div>");
@@ -2016,7 +2018,7 @@ public class UsersController {
       sb.append(ENDL);
     }
 
-    if (o.getMood() != null && o.getMood().getTitle().length() > 0 && o.getMood().getId() != 12) {
+    if (o.getMood() != null && !o.getMood().getTitle().isEmpty() && o.getMood().getId() != 12) {
       final MoodThemeData emoto = emoticonDao.findByThemeIdAndMoodId(1, o.getMood().getId());
 
       if (emoto != null) {
@@ -2037,7 +2039,7 @@ public class UsersController {
       }
     }
 
-    if (o.getMusic() != null && o.getMusic().length() > 0) {
+    if (o.getMusic() != null && !o.getMusic().isEmpty()) {
       sb.append("\t\t\t<span class=\"music\">music: ");
       sb.append(Xml.cleanString(o.getMusic()));
       sb.append("</span><br />");

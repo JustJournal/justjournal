@@ -166,4 +166,19 @@ public final class StringUtil {
     final int len = str.length();
     return len >= minLength && len <= maxLength;
   }
+
+  public static String stripNonPrintableCharacters(String input) {
+    if (input == null) {
+      return null;
+    }
+    // This regex matches all non-printable characters except for newline and carriage return
+    return input.replaceAll("[^\\p{Print}\n\r]", "");
+  }
+
+  public static String stripToAsciiPrintable(String input) {
+    if (input == null) {
+      return null;
+    }
+    return input.replaceAll("[^\\x20-\\x7E\n\r]", "");
+  }
 }
