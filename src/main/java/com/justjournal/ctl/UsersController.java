@@ -627,13 +627,13 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -675,7 +675,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
