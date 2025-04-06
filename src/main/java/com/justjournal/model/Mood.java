@@ -94,4 +94,21 @@ public class Mood implements Serializable, Comparable<Mood> {
   public int compareTo(Mood mood) {
     return this.getTitle().compareTo(mood.getTitle());
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    Mood mood = (Mood) obj;
+    return title.equals(mood.title);
+  }
+
+  @Override
+  public int hashCode() {
+    return title.hashCode();
+  }
 }
