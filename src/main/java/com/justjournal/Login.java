@@ -162,7 +162,7 @@ public class Login {
       setLastLogin(userId);
       return userId;
     } catch (final Exception e) {
-      log.error("validate(): " + e.getMessage());
+      log.error("validate(): {}", e.getMessage());
     }
     return BAD_USER_ID;
   }
@@ -232,7 +232,15 @@ public class Login {
       com.justjournal.model.User user;
       user =
           userRepository.findByUsernameAndPassword(userName, getHashedPassword(userName, password));
-      if (user == null) user = userRepository.findByUsernameAndPassword(userName, sha1(password));
+      if (user == null) {
+        user = userRepository.findByUsernameAndPassword(userName, sha1(password));
+        if (user != null) {
+          // upgrade the password to sha256
+          user.setPassword(getHashedPassword(userName, password));
+          user.setPasswordType(PasswordType.SHA256);
+          user = userRepository.saveAndFlush(user);
+        }
+      }
 
       return user;
     } catch (final Exception e) {
