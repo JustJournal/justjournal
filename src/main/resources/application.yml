@@ -39,7 +39,7 @@ spring:
      hibernate:
        temp:
          use_jdbc_metadata_defaults: false
-     javax:
+     jakarta:
        persistence:
          sharedCache:
            mode: ALL
