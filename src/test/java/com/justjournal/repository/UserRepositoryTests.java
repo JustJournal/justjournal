@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
@@ -39,25 +40,26 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-public class UserRepositoryTests {
+@ActiveProfiles("test")
+class UserRepositoryTests {
   @Autowired private UserRepository userRepository;
 
   @Test
-  public void list() throws Exception {
+   void list() {
     final Iterable<User> list = userRepository.findAll();
     Assertions.assertNotNull(list);
     Assertions.assertTrue(userRepository.count() > 0);
   }
 
   @Test
-  public void getById() throws Exception {
+   void getById() {
     final User user = userRepository.findById(1).orElse(null);
     Assertions.assertNotNull(user);
     Assertions.assertEquals(1, user.getId());
   }
 
   @Test
-  public void getByUsername() throws Exception {
+   void getByUsername() {
     final User user = userRepository.findByUsername("testuser");
     Assertions.assertNotNull(user);
     Assertions.assertEquals(2908, user.getId());

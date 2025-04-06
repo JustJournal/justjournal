@@ -447,7 +447,6 @@ class ITAppTest {
     mockMvc
         .perform(
             post("/trackback")
-           //         .content(requestParams.toString())
                 .queryParams(requestParams)
                 .accept(MediaType.TEXT_XML)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED))

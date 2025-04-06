@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.ByteArrayInputStream;
@@ -52,6 +53,7 @@ import static org.mockito.Mockito.*;
 
 /** @author Lucas Holt */
 @ExtendWith(SpringExtension.class)
+@ActiveProfiles("test")
 class ImageStorageServiceTests {
 
   @Mock private MinioClient minioClient;

@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
@@ -48,12 +49,13 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-public class RssTests {
+@ActiveProfiles("test")
+class RssTests {
 
   @Autowired private Rss rss;
 
   @Test
-  public void testPopulate() {
+   void testPopulate() {
 
     final java.util.GregorianCalendar calendar = new java.util.GregorianCalendar();
     calendar.setTime(new java.util.Date());
@@ -83,7 +85,7 @@ public class RssTests {
   }
 
   @Test
-  public void testWebmaster() {
+  void testWebmaster() {
     final String webmaster = "test@test.com (test)";
 
     rss.setWebMaster(webmaster);

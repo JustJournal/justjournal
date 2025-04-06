@@ -34,6 +34,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.security.NoSuchAlgorithmException;
 
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** @author Lucas Holt */
+@ActiveProfiles("test")
 @ExtendWith(MockitoExtension.class)
 class LoginTests {
 

@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
@@ -40,11 +41,12 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-public class StateRepositoryTests {
+@ActiveProfiles("test")
+ class StateRepositoryTests {
   @Autowired private StateRepository stateRepository;
 
   @Test
-  public void list() throws Exception {
+   void list() {
     final Iterable<State> list = stateRepository.findAll();
     Assertions.assertNotNull(list);
     Assertions.assertEquals(0, stateRepository.count());

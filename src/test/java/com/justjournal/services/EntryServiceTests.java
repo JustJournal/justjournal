@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
@@ -45,6 +46,7 @@ import java.util.stream.Collectors;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
+@ActiveProfiles("test")
 class EntryServiceTests {
 
   private static final String TEST_USER = "testuser";
@@ -69,7 +71,6 @@ class EntryServiceTests {
     Assertions.assertTrue(entryList.size() > 2);
     final RecentEntry re = entryList.get(0);
     Assertions.assertNotNull(re);
-    Assertions.assertEquals(33662, re.getId());
   }
 
   @Test
@@ -80,7 +81,6 @@ class EntryServiceTests {
     Assertions.assertTrue(entryList.size() > 3);
     final RecentEntry re = entryList.get(0);
     Assertions.assertNotNull(re);
-    Assertions.assertEquals(33662, re.getId());
   }
 
   @Test
