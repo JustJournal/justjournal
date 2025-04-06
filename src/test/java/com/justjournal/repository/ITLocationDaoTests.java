@@ -26,36 +26,42 @@
 package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.model.Mood;
+import com.justjournal.model.Location;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
-/** @author Lucas Holt */
+@ActiveProfiles("it")
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-@ActiveProfiles("test")
-class MoodRepositoryTests {
-  @Autowired private MoodRepository moodRepository;
+@DirtiesContext
+/*@TestExecutionListeners({DependencyInjectionTestExecutionListener.class,
+        DirtiesContextTestExecutionListener.class,
+        TransactionalTestExecutionListener.class
+})*/
+class ITLocationDaoTests {
+
+  @Autowired private LocationRepository locationDao;
 
   @Test
-  void list() {
-    Iterable<Mood> list = moodRepository.findAll();
+  void list() throws Exception {
+    Iterable<Location> list = locationDao.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertTrue(moodRepository.count() > 100);
+    Assertions.assertEquals(5, locationDao.count());
   }
 
   @Test
   void get() {
-    Mood moodTo = moodRepository.findById(1);
-    Assertions.assertNotNull(moodTo);
-    Assertions.assertEquals(1, moodTo.getId());
-    Assertions.assertNotNull(moodTo.getTitle());
+    Location locationTo = locationDao.findById(1).orElse(null);
+    Assertions.assertNotNull(locationTo);
+    Assertions.assertEquals(1, locationTo.getId());
+    Assertions.assertNotNull(locationTo.getTitle());
   }
 }

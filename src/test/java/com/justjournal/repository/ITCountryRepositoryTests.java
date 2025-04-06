@@ -25,10 +25,8 @@
  */
 package com.justjournal.repository;
 
-import static org.junit.Assert.assertNotNull;
-
 import com.justjournal.Application;
-import com.justjournal.model.Journal;
+import com.justjournal.model.Country;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,28 +37,25 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
 /** @author Lucas Holt */
+@ActiveProfiles("it")
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-@ActiveProfiles("test")
-class JournalRepositoryTests {
-  @Autowired private JournalRepository journalRepository;
+class ITCountryRepositoryTests {
+  @Autowired private CountryRepository countryRepository;
 
   @Test
   void list() throws Exception {
-    final Iterable<Journal> list = journalRepository.findAll();
+    Iterable<Country> list = countryRepository.findAll();
     Assertions.assertNotNull(list);
+    Assertions.assertEquals(239, countryRepository.count());
   }
 
   @Test
-  void findByUsername() {
-    final Iterable<Journal> list = journalRepository.findByUsername("testuser");
-    Assertions.assertNotNull(list);
-  }
-
-  @Test
-  void findBySlug() {
-    final Journal journal = journalRepository.findOneBySlug("testuser");
-    Assertions.assertNotNull(journal);
+  void get() {
+    Country country = countryRepository.findById(1).orElse(null);
+    Assertions.assertNotNull(country);
+    Assertions.assertEquals(1, country.getId());
+    Assertions.assertNotNull(country.getTitle());
   }
 }

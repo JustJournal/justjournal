@@ -26,7 +26,7 @@
 package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.model.Country;
+import com.justjournal.model.EntryTag;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,25 +37,22 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
 /** @author Lucas Holt */
-@ActiveProfiles("test")
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-class CountryRepositoryTests {
-  @Autowired private CountryRepository countryRepository;
+@ActiveProfiles("it")
+class ITEntryTagsRepositoryTests {
+  @Autowired EntryTagsRepository entryTagsRepository;
 
   @Test
-  void list() throws Exception {
-    Iterable<Country> list = countryRepository.findAll();
+ void list() throws Exception {
+    final Iterable<EntryTag> list = entryTagsRepository.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertEquals(239, countryRepository.count());
   }
 
   @Test
-  void get() {
-    Country country = countryRepository.findById(1).orElse(null);
-    Assertions.assertNotNull(country);
-    Assertions.assertEquals(1, country.getId());
-    Assertions.assertNotNull(country.getTitle());
+  void findByUsername() {
+    final Iterable<EntryTag> list = entryTagsRepository.findByUsername("testuser");
+    Assertions.assertNotNull(list);
   }
 }

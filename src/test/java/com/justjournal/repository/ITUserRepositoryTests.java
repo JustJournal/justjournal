@@ -23,12 +23,10 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-package com.justjournal.services;
+package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.exception.ServiceException;
-import com.justjournal.model.Statistics;
-import com.justjournal.model.UserStatistics;
+import com.justjournal.model.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,37 +40,45 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-@ActiveProfiles("test")
- class StatisticsServiceTests {
-  private static final String TEST_USER = "testuser";
-
-  @Autowired private StatisticsService statisticsService;
+@ActiveProfiles("it")
+class ITUserRepositoryTests {
+  @Autowired private UserRepository userRepository;
 
   @Test
-   void testGetStatistics() throws ServiceException {
-    final Statistics statistics = statisticsService.getStatistics();
-    Assertions.assertNotNull(statistics);
-    Assertions.assertTrue(statistics.getComments() > 0);
-    Assertions.assertTrue(statistics.getEntries() > 0);
-    // assertTrue(statistics.getTags() > 0);
-    // assertTrue(statistics.getStyles() > 0);
-    // assertTrue(statistics.getPrivateEntries() > 0);
-    Assertions.assertTrue(statistics.getPublicEntries() > 0);
-    // assertTrue(statistics.getFriendsEntries() > 0);
+   void list() {
+    final Iterable<User> list = userRepository.findAll();
+    Assertions.assertNotNull(list);
+    Assertions.assertTrue(userRepository.count() > 0);
   }
 
   @Test
-   void testGetUserStatistics() throws ServiceException {
-    final UserStatistics statistics = statisticsService.getUserStatistics(TEST_USER);
-    Assertions.assertNotNull(statistics);
-    Assertions.assertEquals("testuser", statistics.getUsername());
-    Assertions.assertTrue(statistics.getEntryCount() > 0);
-    Assertions.assertTrue(statistics.getCommentCount() > 0);
+   void getById() {
+    final User user = userRepository.findById(1).orElse(null);
+    Assertions.assertNotNull(user);
+    Assertions.assertEquals(1, user.getId());
   }
 
   @Test
-   void testGetUserStatisticsBadUser() throws ServiceException {
-    final UserStatistics statistics = statisticsService.getUserStatistics("root");
-    Assertions.assertNull(statistics);
+   void getByUsername() {
+    final User user = userRepository.findByUsername("testuser");
+    Assertions.assertNotNull(user);
+    Assertions.assertEquals(2908, user.getId());
+  }
+
+  @Test
+  public void getByUsernameInvalid() throws Exception {
+    final User user = userRepository.findByUsername("iamnotareal");
+    Assertions.assertNull(user);
+  }
+
+  @Test
+  public void getByUserAndPasswordInvalid() {
+    final User user = userRepository.findByUsernameAndPassword("testuser", "wrongpassword");
+    Assertions.assertNull(user);
+  }
+
+  @Test
+  public void exists() {
+    Assertions.assertTrue(userRepository.existsById(1));
   }
 }

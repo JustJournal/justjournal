@@ -26,42 +26,45 @@
 package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.model.Location;
+import com.justjournal.model.Comment;
+import java.util.List;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
-@ActiveProfiles("test")
+/** @author Lucas Holt */
+@ActiveProfiles("it")
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-@DirtiesContext
-/*@TestExecutionListeners({DependencyInjectionTestExecutionListener.class,
-        DirtiesContextTestExecutionListener.class,
-        TransactionalTestExecutionListener.class
-})*/
-class LocationDaoTests {
+class ITCommentRepositoryTests {
 
-  @Autowired private LocationRepository locationDao;
+  @Autowired private CommentRepository commentRepository;
 
   @Test
   void list() throws Exception {
-    Iterable<Location> list = locationDao.findAll();
+    Iterable<Comment> list = commentRepository.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertEquals(5, locationDao.count());
+    Assertions.assertTrue(commentRepository.count() > 0);
   }
 
   @Test
-  void get() {
-    Location locationTo = locationDao.findById(1).orElse(null);
-    Assertions.assertNotNull(locationTo);
-    Assertions.assertEquals(1, locationTo.getId());
-    Assertions.assertNotNull(locationTo.getTitle());
+  void getById() {
+    Comment comment = commentRepository.findById(1).orElse(null);
+    Assertions.assertNotNull(comment);
+    Assertions.assertEquals(1, comment.getId());
+  }
+
+  @Test
+  void getByEntryId() {
+    List<Comment> comments = commentRepository.findByEntryId(33661);
+    Assertions.assertNotNull(comments);
+    Assertions.assertEquals(1, comments.size());
   }
 }

@@ -67,12 +67,12 @@ class ImageStorageServiceTests {
   @InjectMocks private ImageStorageService imageStorageService;
 
   @BeforeEach
-  public void setup() {
+  void setup() {
     imageStorageService.setAvatarBucket("testa");
   }
 
   @Test
-  void testDeleteNoUser() throws ServiceException {
+  void testDeleteNoUser() {
     Throwable exception = assertThrows(IllegalArgumentException.class, ()->{
       when(userPrefRepository.findById(anyInt())).thenReturn(Optional.empty());
       imageStorageService.deleteAvatar(1);

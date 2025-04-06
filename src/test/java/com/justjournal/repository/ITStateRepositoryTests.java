@@ -26,9 +26,7 @@
 package com.justjournal.repository;
 
 import com.justjournal.Application;
-import com.justjournal.model.Comment;
-import java.util.List;
-
+import com.justjournal.model.State;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,33 +36,19 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
+
 /** @author Lucas Holt */
-@ActiveProfiles("test")
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-class CommentRepositoryTests {
-
-  @Autowired private CommentRepository commentRepository;
+@ActiveProfiles("it")
+ class ITStateRepositoryTests {
+  @Autowired private StateRepository stateRepository;
 
   @Test
-  void list() throws Exception {
-    Iterable<Comment> list = commentRepository.findAll();
+   void list() {
+    final Iterable<State> list = stateRepository.findAll();
     Assertions.assertNotNull(list);
-    Assertions.assertTrue(commentRepository.count() > 0);
-  }
-
-  @Test
-  void getById() {
-    Comment comment = commentRepository.findById(1).orElse(null);
-    Assertions.assertNotNull(comment);
-    Assertions.assertEquals(1, comment.getId());
-  }
-
-  @Test
-  void getByEntryId() {
-    List<Comment> comments = commentRepository.findByEntryId(33661);
-    Assertions.assertNotNull(comments);
-    Assertions.assertEquals(1, comments.size());
+    Assertions.assertEquals(0, stateRepository.count());
   }
 }

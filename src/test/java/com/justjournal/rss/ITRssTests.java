@@ -23,10 +23,19 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-package com.justjournal.repository;
+package com.justjournal.rss;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.justjournal.Application;
+import com.justjournal.model.Entry;
+import com.justjournal.model.FormatType;
+import com.justjournal.model.PrefBool;
 import com.justjournal.model.User;
+import java.util.ArrayList;
+import java.util.Collection;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,45 +49,46 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-@ActiveProfiles("test")
-class UserRepositoryTests {
-  @Autowired private UserRepository userRepository;
+@ActiveProfiles("it")
+class ITRssTests {
+
+  @Autowired private Rss rss;
 
   @Test
-   void list() {
-    final Iterable<User> list = userRepository.findAll();
-    Assertions.assertNotNull(list);
-    Assertions.assertTrue(userRepository.count() > 0);
+   void testPopulate() {
+
+    final java.util.GregorianCalendar calendar = new java.util.GregorianCalendar();
+    calendar.setTime(new java.util.Date());
+
+    final Collection<Entry> entries = new ArrayList<>();
+
+    final User user = new User();
+    user.setUsername("testuser");
+    user.setSince(2003);
+
+    final Entry entry = new Entry();
+    entry.setId(1);
+    entry.setFormat(FormatType.TEXT);
+    entry.setBody("Foo Bar");
+    entry.setDraft(PrefBool.N);
+    entry.setAutoFormat(PrefBool.Y);
+    entry.setSubject("Test Blog Post");
+    entry.setUser(user);
+    entries.add(entry);
+
+    rss.populate(entries);
+
+    Assertions.assertTrue(rss.size() > 0);
+
+    final String xml = rss.toXml();
+    Assertions.assertTrue(xml.contains("<item"));
   }
 
   @Test
-   void getById() {
-    final User user = userRepository.findById(1).orElse(null);
-    Assertions.assertNotNull(user);
-    Assertions.assertEquals(1, user.getId());
-  }
+  void testWebmaster() {
+    final String webmaster = "test@test.com (test)";
 
-  @Test
-   void getByUsername() {
-    final User user = userRepository.findByUsername("testuser");
-    Assertions.assertNotNull(user);
-    Assertions.assertEquals(2908, user.getId());
-  }
-
-  @Test
-  public void getByUsernameInvalid() throws Exception {
-    final User user = userRepository.findByUsername("iamnotareal");
-    Assertions.assertNull(user);
-  }
-
-  @Test
-  public void getByUserAndPasswordInvalid() {
-    final User user = userRepository.findByUsernameAndPassword("testuser", "wrongpassword");
-    Assertions.assertNull(user);
-  }
-
-  @Test
-  public void exists() {
-    Assertions.assertTrue(userRepository.existsById(1));
+    rss.setWebMaster(webmaster);
+    Assertions.assertEquals(webmaster, rss.getWebMaster());
   }
 }

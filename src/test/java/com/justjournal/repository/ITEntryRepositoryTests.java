@@ -49,8 +49,8 @@ import java.util.List;
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
-@ActiveProfiles("test")
-class EntryRepositoryTests {
+@ActiveProfiles("it")
+class ITEntryRepositoryTests {
   @Autowired EntryRepository entryRepository;
 
   @Autowired
