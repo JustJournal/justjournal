@@ -13,6 +13,7 @@ spring:
       write-dates-as-timestamps: false
   elasticsearch:
     uris: http://localhost:9200
+    enabled: true
   datasource:
     url: jdbc:mysql://localhost:3306/jj
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -125,6 +126,7 @@ spring:
       on-profile: test
   elasticsearch:
     uris: http://localhost:9200
+    enabled: false
   datasource:
     url: jdbc:mysql://localhost:3306/justjournal_test
     type: com.zaxxer.hikari.HikariDataSource
@@ -160,8 +162,10 @@ spring:
       on-profile: it
   elasticsearch:
     uris: http://localhost:9200
+    enabled: true
   datasource:
     url: jdbc:mysql://localhost:3306/justjournal_test
+    type: com.zaxxer.hikari.HikariDataSource
     username: travis
     password:
     hikari:
