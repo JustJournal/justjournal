@@ -1,6 +1,11 @@
 {
+    "esversion": 6,
+    "node": true,
+    "browser": true,
     "globals": {
         "Globalize": false,
-        "angular": true
     }
+        "angular": true,
+        "jQuery": true,
+        "$": false
 }
