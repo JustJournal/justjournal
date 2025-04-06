@@ -663,26 +663,9 @@ public class UpdateJournal extends HttpServlet {
   private void trackbackPing(EntryTo entryTo, User user, int entryId) {
     if (StringUtils.isNotBlank(entryTo.getTrackback())) {
       try {
-        Optional<String> html = trackbackService.getHtmlDocument(entryTo.getTrackback());
-        if (html.isPresent()) {
-          Optional<String> url = trackbackService.parseTrackbackUrl(html.get());
-          if (url.isPresent()) {
-            String permalink =
-                settings.getBaseUri() + PATH_USERS + user.getUsername() + PATH_ENTRY + entryId;
-
             Optional<Journal> journal = user.getJournals().stream().findFirst();
-
-            if (journal.isPresent()) {
-              trackbackService.send(
-                  url.get(),
-                  journal.get().getName(),
-                  permalink,
-                  entryTo.getSubject(),
-                  entryTo.getBody());
-              log.info("Performed trackback call on {}", url.get());
-            }
-          }
-        }
+            journal.ifPresent(value -> trackbackService.sendForBlog(entryTo.getTrackback(), entryId, user.getUsername(),
+                    value.getName(), entryTo.getSubject(), entryTo.getBody()));
       } catch (final Exception e) {
         log.error("Could not save trackback on entry {}", entryId, e);
       }
@@ -693,26 +676,9 @@ public class UpdateJournal extends HttpServlet {
       if (Objects.equals(tbUrl, entryTo.getTrackback())) continue;
 
       try {
-        Optional<String> html = trackbackService.getHtmlDocument(tbUrl);
-        if (html.isPresent()) {
-          Optional<String> url = trackbackService.parseTrackbackUrl(html.get());
-          if (url.isPresent()) {
-            String permalink =
-                settings.getBaseUri() + PATH_USERS + user.getUsername() + PATH_ENTRY + entryId;
-
             Optional<Journal> journal = user.getJournals().stream().findFirst();
-
-            if (journal.isPresent()) {
-              trackbackService.send(
-                  url.get(),
-                  journal.get().getName(),
-                  permalink,
-                  entryTo.getSubject(),
-                  entryTo.getBody());
-              log.info("Performed trackback call on {}", url.get());
-            }
-          }
-        }
+            journal.ifPresent(value -> trackbackService.sendForBlog(tbUrl, entryId, user.getUsername(), value.getName(),
+                    entryTo.getSubject(), entryTo.getBody()));
       } catch (final Exception e) {
         log.error("Could not save trackback on entry {}", entryId, e);
       }

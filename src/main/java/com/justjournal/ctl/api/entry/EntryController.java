@@ -51,13 +51,13 @@ import com.justjournal.services.TrackbackService;
 import com.justjournal.utility.HTMLUtil;
 
 import java.util.*;
-import java.util.stream.Collectors;
+
+import com.justjournal.utility.StringUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -78,7 +78,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -338,7 +337,9 @@ public class EntryController {
       return ErrorHandler.modelError("User not found");
     }
 
-    if (entryTo.getBody() == null || entryTo.getBody().isEmpty()) {
+    cleanupEntryTo(entryTo);
+
+    if (StringUtils.isBlank(entryTo.getBody())) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError("Entry does not contain a body.");
     }
@@ -377,65 +378,42 @@ public class EntryController {
 
   private void trackbackPing(EntryTo entryTo, User user, int entryId) {
     if (StringUtils.isNotBlank(entryTo.getTrackback())) {
+      // do the main ping
       try {
-        Optional<String> html = trackbackService.getHtmlDocument(entryTo.getTrackback());
-        if (html.isPresent()) {
-          Optional<String> url = trackbackService.parseTrackbackUrl(html.get());
-          if (url.isPresent()) {
-            String permalink =
-                settings.getBaseUri() + PATH_USERS + user.getUsername() + PATH_ENTRY + entryId;
-
-            Optional<Journal> journal = user.getJournals().stream().findFirst();
-
-            if (journal.isPresent()) {
-              trackbackService.send(
-                  url.get(),
-                  journal.get().getName(),
-                  permalink,
-                  entryTo.getSubject(),
-                  entryTo.getBody());
-              log.info("Performed trackback call on {}", url.get());
-            }
-          }
-        }
+        Optional<Journal> journal = user.getJournals().stream().findFirst();
+        journal.ifPresent(value -> trackbackService.sendForBlog(entryTo.getTrackback(), entryId, user.getUsername(), value.getName(), entryTo.getSubject(), entryTo.getBody()));
       } catch (final Exception e) {
-        log.error("Could not save trackback on entry {}", entryId, e);
+        log.error("Could not save trackback on entry {} with url {}", entryId, entryTo.getTrackback(), e);
       }
     }
 
-    trackback(entryTo, user, entryId);
+    // look for and send to other urls
+    trackbackCandidates(entryTo, user, entryId);
   }
 
-  private void trackback(EntryTo entryTo, User user, int entryId) {
+  private void trackbackCandidates(EntryTo entryTo, User user, int entryId) {
     List<String> trackbackCandidates = HTMLUtil.getURIs(entryTo.getBody());
     for (String tbUrl : trackbackCandidates) {
       if (Objects.equals(tbUrl, entryTo.getTrackback())) continue;
 
       try {
-        Optional<String> html = trackbackService.getHtmlDocument(tbUrl);
-        if (html.isPresent()) {
-          Optional<String> url = trackbackService.parseTrackbackUrl(html.get());
-          if (url.isPresent()) {
-            String permalink =
-                    settings.getBaseUri() + PATH_USERS + user.getUsername() + PATH_ENTRY + entryId;
-
-            Optional<Journal> journal = user.getJournals().stream().findFirst();
-
-            if (journal.isPresent()) {
-              trackbackService.send(
-                      url.get(),
-                      journal.get().getName(),
-                      permalink,
-                      entryTo.getSubject(),
-                      entryTo.getBody());
-              log.info("Performed trackback call on {}", url.get());
-            }
-          }
-        }
+          Optional<Journal> journal = user.getJournals().stream().findFirst();
+          journal.ifPresent(value -> trackbackService.sendForBlog(tbUrl, entryId, user.getUsername(), value.getName(), entryTo.getSubject(), entryTo.getBody()));
       } catch (final Exception e) {
-        log.error("Could not save trackback on entry {}", entryId, e);
+        log.error("Could not save trackback on entry {} with url {}", entryId,tbUrl, e);
       }
     }
+  }
+
+  private void cleanupEntryTo(EntryTo entryTo) {
+    // stop grammarly from putting garbage in entry body
+    var body = entryTo.getBody();
+    body = StringUtil.stripNonPrintableCharacters(body);
+    entryTo.setBody(body);
+
+    var subject = entryTo.getSubject();
+    subject = StringUtil.stripNonPrintableCharacters(subject);
+    entryTo.setSubject(subject);
   }
 
   /**
@@ -460,6 +438,14 @@ public class EntryController {
       response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
       return ErrorHandler.modelError("Invalid user or session.");
     }
+
+    cleanupEntryTo(entryTo);
+
+    if (StringUtils.isBlank(entryTo.getBody())) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError("Entry does not contain a body.");
+    }
+
     Entry entry = new Entry(entryTo);
     entry.setUser(user);
 

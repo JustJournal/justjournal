@@ -26,6 +26,8 @@
 package com.justjournal.services;
 
 
+import com.justjournal.core.Settings;
+import com.justjournal.model.Journal;
 import com.justjournal.model.Trackback;
 import com.justjournal.model.api.TrackbackTo;
 import com.justjournal.repository.TrackbackRepository;
@@ -51,6 +53,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.thymeleaf.util.StringUtils;
 
+import static com.justjournal.core.Constants.PATH_ENTRY;
+import static com.justjournal.core.Constants.PATH_USERS;
+
 /** @author Lucas Holt */
 @Slf4j
 @Service
@@ -66,12 +71,14 @@ public class TrackbackService {
   private final TrackbackRepository trackbackRepository;
   private final RestTemplate restTemplate;
   private final Encoder encoder;
+  private Settings settings;
 
   @Autowired
-  public TrackbackService(TrackbackRepository trackbackRepository, RestTemplate restTemplate, Encoder encoder) {
+  public TrackbackService(TrackbackRepository trackbackRepository, RestTemplate restTemplate, Encoder encoder, Settings settings) {
     this.trackbackRepository = trackbackRepository;
     this.restTemplate = restTemplate;
     this.encoder = encoder;
+    this.settings = settings;
   }
 
   public boolean send(
@@ -105,6 +112,32 @@ public class TrackbackService {
     } catch (final Exception me) {
       log.error("Failed to perform trackback ping", me);
       return false;
+    }
+  }
+
+  public void sendForBlog(String trackbackurl, int entryId, String username, String journalName, String subject, String body) {
+    if (StringUtils.isEmptyOrWhitespace(trackbackurl))
+      return;
+
+    try {
+      Optional<String> html = getHtmlDocument(trackbackurl);
+      if (html.isPresent()) {
+        Optional<String> url = parseTrackbackUrl(html.get());
+        if (url.isPresent()) {
+          String permalink =
+                  settings.getBaseUri() + PATH_USERS + username + PATH_ENTRY + entryId;
+
+            send(
+                    url.get(),
+                    journalName,
+                    permalink,
+                    subject,
+                    body);
+            log.info("Performed trackback call on {}", url.get());
+        }
+      }
+    } catch (final Exception e) {
+      log.error("Could not save trackback on entry {}", entryId, e);
     }
   }
 

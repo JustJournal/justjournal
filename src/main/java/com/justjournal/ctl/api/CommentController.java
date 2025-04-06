@@ -45,7 +45,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+
+import com.justjournal.utility.StringUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
@@ -67,11 +68,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/comment")
 public class CommentController {
 
-  private CommentRepository commentDao;
-  private EntryRepository entryDao;
-  private UserRepository userRepository;
-  private SettingsRepository settingsRepository;
-  private QueueMailRepository queueMailRepository;
+  private final CommentRepository commentDao;
+  private final EntryRepository entryDao;
+  private final UserRepository userRepository;
+  private final SettingsRepository settingsRepository;
+  private final QueueMailRepository queueMailRepository;
 
   @Autowired
   public CommentController(
@@ -117,7 +118,7 @@ public class CommentController {
 
     return commentDao.findByEntryId(entryId).stream()
         .map(Comment::toCommentTo)
-        .collect(Collectors.toList());
+            .toList();
   }
 
   @DeleteMapping(value = "{id}")
@@ -191,6 +192,9 @@ public class CommentController {
         comment.setUser(user);
         comment.setDate(new Date());
         comment.setEntry(et);
+        // grammarly countermeasure
+        comment.setSubject(StringUtil.stripNonPrintableCharacters(comment.getSubject()));
+        comment.setBody(StringUtil.stripNonPrintableCharacters(comment.getBody()));
         try {
           commentDao.save(comment);
         } catch (final Exception e) {
@@ -212,8 +216,9 @@ public class CommentController {
               "Error saving comment. Entry id does not match original on comment.");
         }
         c.setUser(user);
-        c.setBody(comment.getBody());
-        c.setSubject(comment.getSubject());
+        // grammarly countermeasure
+        c.setBody(StringUtil.stripNonPrintableCharacters(comment.getBody()));
+        c.setSubject(StringUtil.stripNonPrintableCharacters(comment.getSubject()));
         try {
           commentDao.save(c);
         } catch (final Exception e) {
