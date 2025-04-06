@@ -33,7 +33,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class TrackbackPingRequest {
-  private int entryID;
+  private Integer entryID;
   private String url;
   private String title;
   private String name;

@@ -76,13 +76,13 @@ public class TrackbackPingController {
       consumes = {MediaType.APPLICATION_FORM_URLENCODED_VALUE})
   @ResponseBody
   public ResponseEntity<String> post(
-      @RequestParam("entryID") int entryId, @ModelAttribute TrackbackPingRequest trackbackPingRequest) {
+      @RequestParam("entryID") Integer entryId, @ModelAttribute TrackbackPingRequest trackbackPingRequest) {
     log.info("received trackback request: " + trackbackPingRequest);
     try {
       boolean istrackback = true;
 
-      if (entryId < 1) {
-        if (trackbackPingRequest.getEntryID() > 0) {
+      if (entryId == null || entryId < 1) {
+        if (trackbackPingRequest.getEntryID() != null && trackbackPingRequest.getEntryID() > 0) {
           entryId = trackbackPingRequest.getEntryID();
         } else {
           return ResponseEntity.status(HttpStatus.BAD_REQUEST)
