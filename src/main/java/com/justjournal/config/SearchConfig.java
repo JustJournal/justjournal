@@ -29,10 +29,12 @@ package com.justjournal.config;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 
@@ -41,6 +43,8 @@ import org.springframework.data.elasticsearch.repository.config.EnableElasticsea
 @Configuration
 @EnableElasticsearchRepositories(basePackages = {"com.justjournal.repository.search"})
 @Import(ElasticsearchRestClientAutoConfiguration.class)
+@Profile("!test")
+@ConditionalOnProperty(name = "spring.elasticsearch.enabled", havingValue = "true")
 public class SearchConfig {
   private final Environment environment;
 
