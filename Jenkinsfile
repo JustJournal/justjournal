@@ -52,7 +52,7 @@ pipeline {
        stage('Sonarqube') {
             steps {
                 withSonarQubeEnv('sonarcloud') {
-                	sh 'mvn sonar:sonar -Dsonar.organization=laffer1-github'
+                	sh 'mvn sonar:sonar -Dsonar.organization=laffer1-github -Dsonar.projectKey=laffer1_justjournal'
                 }
                 timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
