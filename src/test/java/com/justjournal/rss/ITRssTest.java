@@ -50,7 +50,7 @@ import org.springframework.test.context.web.WebAppConfiguration;
 @SpringBootTest(classes = Application.class)
 @WebAppConfiguration
 @ActiveProfiles("it")
-class ITRssTests {
+class ITRssTest {
 
   @Autowired private Rss rss;
 
