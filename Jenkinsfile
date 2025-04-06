@@ -43,17 +43,12 @@ pipeline {
             	}
             }
        }
-       stage('jacoco') {
-        	steps {
-        		jacoco(
-              	    execPattern: 'target/*.exec',
-              	    classPattern: 'target/classes',
-              	    sourcePattern: 'src/main/java',
-              	    exclusionPattern: 'src/test*',
-              	    runAlways: true
-        		)
-        	}
-       }
+       stage('Coverage') {
+            steps {
+                sh 'mvn jacoco:report'
+                publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
+            }
+        }
        stage('Sonarqube') {
             steps {
                 withSonarQubeEnv('sonarcloud') {
