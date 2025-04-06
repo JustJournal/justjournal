@@ -71,7 +71,7 @@ public final class Spelling implements SpellCheckListener {
    * @param event A reference to the spell check event (word)
    */
   public void spellingError(final SpellCheckEvent event) {
-    final List suggestions = event.getSuggestions();
+    final List<String> suggestions = (List<String>) event.getSuggestions();
     if (!suggestions.isEmpty()) {
       sb.append("<p><span style=\"color:red\">");
       sb.append(event.getInvalidWord());
@@ -81,7 +81,7 @@ public final class Spelling implements SpellCheckListener {
       // output after the last word or after the only word.
       // this looks like crap.
       int i = 0;
-      for (Iterator suggestedWord = suggestions.iterator(); suggestedWord.hasNext(); i++) {
+      for (Iterator<String> suggestedWord = suggestions.iterator(); suggestedWord.hasNext(); i++) {
         if (i > 0) sb.append(",&nbsp;");
 
         sb.append(suggestedWord.next());

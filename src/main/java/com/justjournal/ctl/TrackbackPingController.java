@@ -102,7 +102,7 @@ public class TrackbackPingController {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
             .body(trackbackService.generateResponse(1, "Too many requests. Try again later."));
       }
-      trackBackIpRepository.saveIpAddreess(ip).block(Duration.ofMinutes(1));
+      trackBackIpRepository.saveIpAddress(ip).block(Duration.ofMinutes(1));
 
       final Optional<Entry> entry = entryRepository.findById(entryId);
       if (entry.isEmpty()) {

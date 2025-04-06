@@ -374,7 +374,7 @@ public class UpdateJournal extends HttpServlet {
         String keepLogin = request.getParameter("keeplogin");
         if (keepLogin == null) keepLogin = "";
         if (keepLogin.compareTo(PARAM_CHECKED) == 0) {
-          session.setAttribute("auth.uid", userID);
+          session.setAttribute(LOGIN_ATTRID, userID);
           session.setAttribute(LOGIN_ATTRNAME, userName);
           webLogin.setLastLogin(userID);
         }
@@ -439,7 +439,7 @@ public class UpdateJournal extends HttpServlet {
       String subject = request.getParameter("subject");
       String body = request.getParameter("body");
 
-      if ((subject == null || subject.equals("")) && body != null) {
+      if ((subject == null || subject.isEmpty()) && body != null) {
         final Pattern p = Pattern.compile("(<title>)(.*?)(</title>)");
 
         final Matcher m = p.matcher(body);
@@ -624,8 +624,8 @@ public class UpdateJournal extends HttpServlet {
             if (!journal.isOwnerViewOnly() && journal.isPingServices()) {
               final RestPing rp = new RestPing("http://ping.blo.gs/");
               rp.setName(journal.getName());
-              rp.setUri(settings.getBaseUri() + PATH_USERS + userName);
-              rp.setChangesURL(settings.getBaseUri() + PATH_USERS + userName + "/rss");
+              rp.setUri(settings.getBaseUri() + PATH_USERS + pf.getUsername());
+              rp.setChangesURL(settings.getBaseUri() + PATH_USERS + pf.getUsername() + "/rss");
               rp.ping();
 
               final Entry et2 = entryRepository.findById(et.getId()).orElse(null);

@@ -25,7 +25,6 @@
  */
 package com.justjournal.services;
 
-
 import com.justjournal.core.UserContext;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Entry;
@@ -41,18 +40,19 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 /** @author Lucas Holt */
-@Service
 @Slf4j
-public class AbstractFormatService {
+public abstract class AbstractFormatService {
 
-  @Autowired private EntryRepository entryRepository;
+  private final EntryRepository entryRepository;
 
-  @Autowired
-  private MarkdownService markdownService;
+  private final MarkdownService markdownService;
+
+  protected AbstractFormatService(EntryRepository entryRepository, MarkdownService markdownService) {
+    this.entryRepository = entryRepository;
+    this.markdownService = markdownService;
+  }
 
   private void validate(final UserContext uc, final Document document) throws ServiceException {
     if (uc == null || document == null) {
@@ -87,7 +87,7 @@ public class AbstractFormatService {
       document.add(new Paragraph(""));
       Chunk chunk;
 
-      if (StringUtils.isNotBlank(journalName.get().getName())) {
+      if (journalName.isPresent() && StringUtils.isNotBlank(journalName.get().getName())) {
         chunk = new Chunk(journalName.get().getName());
         chunk.setTextRenderMode(PdfContentByte.TEXT_RENDER_MODE_STROKE, 0.4f, blue);
         document.add(chunk);

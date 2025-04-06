@@ -27,6 +27,7 @@ package com.justjournal.services;
 
 import com.justjournal.core.UserContext;
 import com.justjournal.exception.ServiceException;
+import com.justjournal.repository.EntryRepository;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.pdf.PdfWriter;
@@ -40,6 +41,10 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class PdfFormatService extends AbstractFormatService {
+
+  public PdfFormatService(EntryRepository entryRepository, MarkdownService markdownService) {
+    super(entryRepository, markdownService);
+  }
 
   public void write(final UserContext userContext, final OutputStream outputStream)
       throws ServiceException {

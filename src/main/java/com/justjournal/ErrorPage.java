@@ -62,7 +62,7 @@ public final class ErrorPage {
   }
 
   public static void severe(final String ErrTitle, final String ErrMsg, final StringBuilder sb) {
-    if (sb.length() > 0) {
+    if (!sb.isEmpty()) {
       // reset the output to display the error.
       sb.delete(0, sb.length() - 1);
     }

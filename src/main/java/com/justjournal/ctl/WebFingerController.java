@@ -33,6 +33,8 @@ public class WebFingerController {
     final
     Settings settings;
 
+    private static final String USERS_REL = "users/";
+
     private final UserRepository userRepository;
 
     private final EntryRepository entryRepository;
@@ -53,11 +55,11 @@ public class WebFingerController {
     }
 
     @GetMapping(produces = "application/jrd+json")
-    public String get(@RequestParam("resource") String resource, HttpServletRequest request, HttpServletResponse response) throws JsonProcessingException {
+    public String get(@RequestParam("resource") String resource) throws JsonProcessingException {
         var webFingerResponse = new WebFingerResponse();
         webFingerResponse.setSubject(resource);
 
-        final Pattern pattern = Pattern.compile("acct:([A-Za-z0-9]+)@justjournal\\.com", Pattern.CASE_INSENSITIVE);
+        final Pattern pattern = Pattern.compile("acct:([\\w]+)@justjournal\\.com", Pattern.CASE_INSENSITIVE);
         final Matcher matcher = pattern.matcher(resource);
         if (matcher.find()) {
             String account = matcher.group(1);
@@ -67,12 +69,12 @@ public class WebFingerController {
 
                 user.getJournals().stream().findFirst().ifPresent(journal -> {
                     if (!journal.isOwnerViewOnly()) {
-                        webFingerResponse.setAliases(Collections.singletonList(baseUri + "users/" + account));
+                        webFingerResponse.setAliases(Collections.singletonList(baseUri + USERS_REL + account));
                         var links = new ArrayList<Links>();
                         links.add(new Links("http://webfinger.net/rel/profile-page", baseUri + "#!/profile/" + account));
                         links.get(0).setType("text/html");
 
-                        links.add(new Links("self",baseUri + "users/" + account));
+                        links.add(new Links("self",baseUri + USERS_REL + account));
                         links.get(1).setType("application/activity+json");
 
                         if (user.getUserPref().getShowAvatar().equals(PrefBool.Y)) {
@@ -86,14 +88,15 @@ public class WebFingerController {
             }
         } else if (resource.startsWith(baseUri)) {
             // Compile regular expression
-            final Pattern pattern1 = Pattern.compile("https://www\\.justjournal\\.com/users/([A-Za-z0-9]+)/entry/([0-9]+)", Pattern.CASE_INSENSITIVE);
-            final Matcher matcher1 = pattern1.matcher(resource);
-            if (matcher.find()) {
-                Integer entryId = Integer.parseInt(matcher1.group(2));
+            final Pattern entryPattern = Pattern.compile("https://www\\.justjournal\\.com/users/([\\w]+)/entry/(\\d+)", Pattern.CASE_INSENSITIVE);
+            final Matcher entryMatcher = entryPattern.matcher(resource);
+            if (entryMatcher.find()) {
+                Integer entryId = Integer.parseInt(entryMatcher.group(2));
                 var entry = entryRepository.findById(entryId);
                 if (entry.isPresent()&& entry.get().getSecurity() == Security.PUBLIC) {
                     var links = new ArrayList<Links>();
-                    links.add(new Links("author", baseUri + "users/" + entry.get().getUser().getUsername(), Collections.singletonMap("en-us", entry.get().getUser().getJournals().stream().findFirst().get().getName())));
+                    links.add(new Links("author", baseUri + USERS_REL + entry.get().getUser().getUsername(),
+                            Collections.singletonMap("en-us", entry.get().getUser().getJournals().stream().findFirst().get().getName())));
                     webFingerResponse.setLinks(links);
                 }
             }

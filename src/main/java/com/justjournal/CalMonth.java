@@ -26,6 +26,9 @@
 package com.justjournal;
 
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -38,6 +41,8 @@ import java.util.GregorianCalendar;
  * @version $Id: CalMonth.java,v 1.4 2006/07/28 14:01:06 laffer1 Exp $
  */
 public final class CalMonth {
+  @Setter
+  @Getter
   private int[] storage = null;
   int monthid = 0;
   private Date baseDate;
@@ -65,15 +70,7 @@ public final class CalMonth {
     this.monthid = monthid;
   }
 
-  public int[] getStorage() {
-    return this.storage;
-  }
-
-  public void setStorage(final int[] storage) {
-    this.storage = storage;
-  }
-
-  /**
+    /**
    * Get the initial base date
    *
    * @return

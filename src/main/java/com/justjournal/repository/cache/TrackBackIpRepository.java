@@ -42,7 +42,7 @@ public class TrackBackIpRepository {
 
   ReactiveRedisTemplate<String, String> reactiveRedisTemplateString;
 
-  private ReactiveValueOperations<String, String> valOperations;
+  private final ReactiveValueOperations<String, String> valOperations;
 
   @Autowired
   public TrackBackIpRepository(ReactiveRedisTemplate<String, String> reactiveRedisTemplateString) {
@@ -50,7 +50,7 @@ public class TrackBackIpRepository {
     this.valOperations = reactiveRedisTemplateString.opsForValue();
   }
 
-  public Mono<Boolean> saveIpAddreess(String ip) {
+  public Mono<Boolean> saveIpAddress(String ip) {
     return valOperations.set(TRACKBACK_IP_KEY + ip, ip, Duration.ofSeconds(IP_CACHE_SECONDS));
   }
 

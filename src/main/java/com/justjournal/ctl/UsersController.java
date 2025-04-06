@@ -33,6 +33,7 @@ import com.justjournal.Login;
 import com.justjournal.atom.AtomFeed;
 import com.justjournal.core.Constants;
 import com.justjournal.core.UserContext;
+import com.justjournal.core.UserContextService;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.*;
 import com.justjournal.model.api.TrackbackTo;
@@ -147,6 +148,8 @@ public class UsersController {
 
   @Autowired private CachedHeadlineBean cachedHeadlineBean;
 
+  @Autowired private UserContextService userContextService;
+
   @Autowired
   public UsersController(
       final EntryService entryService,
@@ -191,7 +194,7 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userContext = getUserContext(username, session);
+    final UserContext userContext = userContextService.getUserContext(username, session);
 
     if (userContext == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -229,7 +232,7 @@ public class UsersController {
       final HttpSession session,
       final HttpServletResponse response) {
 
-    final UserContext userContext = getUserContext(username, session);
+    final UserContext userContext = userContextService.getUserContext(username, session);
 
     if (userContext == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -266,7 +269,7 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -302,14 +305,14 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -339,14 +342,14 @@ public class UsersController {
       final HttpSession session,
       final HttpServletResponse response) {
 
-    final UserContext userContext = getUserContext(username, session);
+    final UserContext userContext = userContextService.getUserContext(username, session);
 
     if (userContext == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userContext.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userContext.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -382,7 +385,7 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -417,7 +420,7 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -453,7 +456,7 @@ public class UsersController {
       final Model model,
       final HttpServletResponse response,
       final HttpSession session) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -591,7 +594,7 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -646,13 +649,13 @@ public class UsersController {
 
     int maxr = SEARCH_MAX_LENGTH;
 
-    if (max != null && max.length() > 0)
+    if (StringUtils.isNotBlank(max)) {
       try {
         maxr = Integer.parseInt(max);
       } catch (final NumberFormatException exInt) {
-        maxr = SEARCH_MAX_LENGTH;
         log.error(exInt.getMessage());
       }
+    }
 
     model.addAttribute("search", search(userc, maxr, bquery));
 
@@ -665,7 +668,7 @@ public class UsersController {
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-    final UserContext userc = getUserContext(username, session);
+    final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -731,26 +734,6 @@ public class UsersController {
     }
 
     return VIEW_USERS;
-  }
-
-  @Transactional(propagation = Propagation.REQUIRED)
-  public UserContext getUserContext(final String username, final HttpSession session) {
-    User authUser = null;
-    try {
-      authUser = userRepository.findByUsername(Login.currentLoginName(session));
-    } catch (final Exception e) {
-      log.trace(e.getMessage(), e);
-    }
-
-    try {
-      final User user = userRepository.findByUsername(username);
-      if (user == null || user.getId() == 0) return null;
-
-      return new UserContext(user, authUser);
-    } catch (final Exception e) {
-      log.error("Unable to get user context", e);
-    }
-    return null;
   }
 
   @Autowired private PdfFormatService pdfFormatService;
@@ -890,7 +873,7 @@ public class UsersController {
     final PageRequest page = PageRequest.of(0, maxResults);
     final Page<BlogEntry> result;
 
-    if (term != null && term.length() > 0) {
+    if (StringUtils.isNotBlank(term)) {
       if (uc.isAuthBlog())
         result = blogSearchService.search(term, uc.getAuthenticatedUser().getUsername(), page);
       else result = blogSearchService.publicSearch(term, uc.getBlogUser().getUsername(), page);
@@ -899,7 +882,7 @@ public class UsersController {
 
         sb.append("<h2><img src=\"/images/icon_search.gif\" alt=\"Search Blog\" /></h2>");
         sb.append(ENDL);
-        sb.append("<p>Searching for <i>" + term + "</i></p>");
+        sb.append("<p>Searching for <i>").append(term).append("</i></p>");
 
         if (result == null || result.getTotalElements() == 0) {
           sb.append("<p>No items were found matching your search criteria.</p>");
@@ -1153,7 +1136,7 @@ public class UsersController {
           }
         }
 
-        if (o.getMusic() != null && o.getMusic().length() > 0) {
+        if (o.getMusic() != null && !o.getMusic().isEmpty()) {
           sb.append("<span class=\"music\">music: ");
           sb.append(Xml.cleanString(o.getMusic()));
           sb.append("</span><br>");
@@ -1261,7 +1244,7 @@ public class UsersController {
    */
   private String getFriends(final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
-    final Collection entries;
+    final Collection<Entry> entries;
 
     /*      if (uc.getAuthenticatedUser() != null)
             entries = entryDao.viewFriends(uc.getBlogUser().getUserId(), uc.getAuthenticatedUser().getUserId());
@@ -1283,15 +1266,13 @@ public class UsersController {
       String curDate;
 
       /* Iterator */
-      Entry o;
-      final Iterator itr = entries.iterator();
-
-      log.trace("getFriends: Number of entries " + entries.size());
+      final Iterator<Entry> itr = entries.iterator();
+      log.trace("getFriends: Number of entries {}", entries.size());
 
       if (entries.isEmpty()) sb.append("<p>No friends entries found</p>.");
 
       for (int i = 0, n = entries.size(); i < n; i++) {
-        o = (Entry) itr.next();
+        Entry o = itr.next();
 
         // Parse the previous string back into a Date.
         final ParsePosition pos = new ParsePosition(0);
@@ -1400,7 +1381,7 @@ public class UsersController {
           }
         }
 
-        if (o.getMusic().length() > 0) {
+        if (!o.getMusic().isEmpty()) {
           sb.append("<span class=\"music\">music: ");
           sb.append(Xml.cleanString(o.getMusic()));
           sb.append("</span><br>");
@@ -1729,11 +1710,9 @@ public class UsersController {
         String curDate;
 
         /* Iterator */
-        Entry o;
-        final Iterator itr = entries.iterator();
-
+        final Iterator<Entry> itr = entries.iterator();
         for (int i = 0, n = entries.size(); i < n; i++) {
-          o = (Entry) itr.next();
+          Entry o = itr.next();
 
           // Parse the previous string back into a Date.
           final ParsePosition pos = new ParsePosition(0);
@@ -1845,7 +1824,7 @@ public class UsersController {
   @Transactional
   public String getTags(final UserContext uc, final String tag) {
     final StringBuilder sb = new StringBuilder();
-    final Collection entries;
+    final Collection<Entry> entries;
 
     try {
       if (uc.isAuthBlog()) {
@@ -1865,11 +1844,9 @@ public class UsersController {
 
       log.trace("getTags: Begin Iteration of records.");
 
-      Entry o;
-      final Iterator itr = entries.iterator();
-
+      final Iterator<Entry> itr = entries.iterator();
       for (int i = 0, n = entries.size(); i < n; i++) {
-        o = (Entry) itr.next();
+        Entry o = itr.next();
 
         // Parse the previous string back into a Date.
         final ParsePosition pos = new ParsePosition(0);
@@ -1888,7 +1865,7 @@ public class UsersController {
         sb.append(formatEntry(uc, o, currentDate, false));
       }
     } catch (final Exception e1) {
-      log.error("getTags: Exception is " + e1.getMessage() + '\n', e1);
+        log.error("getTags: Exception is {}\n", e1.getMessage(), e1);
     }
     return sb.toString();
   }

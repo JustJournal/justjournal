@@ -36,7 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
+import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Create an atom feed.
@@ -45,8 +46,8 @@ import org.springframework.stereotype.Service;
  * @version $Id: AtomFeed.java,v 1.5 2011/05/29 22:32:59 laffer1 Exp $
  */
 @Slf4j
-@Service
-@Scope(value = "request", proxyMode = ScopedProxyMode.TARGET_CLASS)
+@Component
+@Scope(value = WebApplicationContext.SCOPE_REQUEST, proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class AtomFeed {
 
   /*

@@ -40,7 +40,6 @@ import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -76,10 +75,9 @@ public class MailSender {
       props.put("mail.smtp.auth", "true");
 
       props.put("mail.smtp.port", set.getMailPort());
-      final Session s = Session.getInstance(props, new ForcedAuthenticator());
+      final Session s = Session.getInstance(props, new ForcedAuthenticator(set));
 
-      log.trace(
-          "MailSender: " + set.getMailUser() + "@" + set.getMailHost() + ":" + set.getMailPort());
+        log.trace("MailSender: {}@{}:{}", set.getMailUser(), set.getMailHost(), set.getMailPort());
 
       final Iterable<QueueMail> items = queueMailRepository.findAll();
 

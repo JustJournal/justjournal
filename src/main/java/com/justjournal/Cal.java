@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -63,16 +65,13 @@ public final class Cal {
     "November",
     "December"
   };
-  private Collection<Entry> entries;
+  private final Collection<Entry> entries;
+  @Setter
   private String baseUrl = null;
 
   public Cal(final Collection<Entry> entries) {
     this.entries = entries;
     this.calculateEntryCounts();
-  }
-
-  public void setBaseUrl(final String baseUrl) {
-    this.baseUrl = baseUrl;
   }
 
   private void calculateEntryCounts() {
@@ -158,11 +157,7 @@ public final class Cal {
       o = itr.next();
       sb.append("<table class=\"fullcalendar\" cellpadding=\"1\" cellspacing=\"1\">\n");
 
-      sb.append("<caption>");
-      sb.append(months[o.monthid]);
-      sb.append(" ");
-      sb.append(o.getYear());
-      sb.append("</caption>\n");
+      caption(sb, o.getYear(), o.monthid);
 
       sb.append("<thead>\n");
       tableRowOpen(sb);
@@ -256,6 +251,14 @@ public final class Cal {
     return sb.toString();
   }
 
+  private void caption(final StringBuilder sb, int year, int month) {
+    sb.append("\t\t<caption>");
+    sb.append(months[month]);
+    sb.append(" ");
+    sb.append(year);
+    sb.append("</caption>\n");
+  }
+
   public String renderMini() {
     final StringBuilder sb = new StringBuilder();
 
@@ -264,11 +267,7 @@ public final class Cal {
     for (final CalMonth o : monthList) {
       sb.append("\t<table class=\"minicalendar\" cellpadding=\"1\" cellspacing=\"1\">\n");
 
-      sb.append("\t\t<caption>");
-      sb.append(months[o.monthid]);
-      sb.append(" ");
-      sb.append(o.getYear());
-      sb.append("</caption>\n");
+      caption(sb, o.getYear(), o.monthid);
 
       sb.append("\t\t<thead>\n\t\t<tr>\n");
       for (int x = 0; x < 7; x++) {
