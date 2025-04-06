@@ -47,17 +47,17 @@ pipeline {
             steps {
                 sh 'mvn jacoco:report'
                 publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
+
+                recordCoverage(tools: [[parser: 'JACOCO']], id: 'jacoco', name: 'JaCoCo Coverage', sourceCodeRetention: 'EVERY_BUILD', enabledForFailure: true,
+        qualityGates: [
+                [threshold: 60.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                [threshold: 60.0, metric: 'BRANCH', baseline: 'PROJECT', unstable: true]])
             }
         }
        stage('Sonarqube') {
             steps {
                 withSonarQubeEnv('sonarcloud') {
-                    sh '''
-                	    mvn sonar:sonar \
-                	    -Dsonar.organization=laffer1-github \
-                	    -Dsonar.projectKey=laffer1_justjournal \
-                	    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
-                    '''
+                    sh 'mvn sonar:sonar -Dsonar.organization=laffer1-github -Dsonar.projectKey=laffer1_justjournal -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml'
                 }
                 timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
