@@ -25,15 +25,5 @@
   ],
   "dependencies": {
     "jquery": ">2"
-  },
-  "version": "2.11.5",
-  "_release": "2.11.5",
-  "_resolution": {
-    "type": "version",
-    "tag": "v2.11.5",
-    "commit": "de0698849bf7814dfdb5cce6aca78acc715c1750"
-  },
-  "_source": "https://github.com/lokesh/lightbox2.git",
-  "_target": "~2.11.5",
-  "_originalSource": "lightbox2"
+  }
 }
