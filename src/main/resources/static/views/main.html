@@ -34,7 +34,7 @@
 
                         <div class="col-sm-4">
                             <input type="text" name="username" id="iusername" size="18" maxlength="50"
-                                   class="form-control input-sm"
+                                   class="form-control input-sm" data-gramm="false"
                                    placeholder="Username" data-ng-model="username"
                                    required autofocus>
                         </div>
@@ -45,7 +45,7 @@
 
                         <div class="col-sm-4">
                             <input type="password" name="password" id="ipassword" size="18" maxlength="30"
-                                   class="form-control input-sm"
+                                   class="form-control input-sm" data-gramm="false"
                                    placeholder="Password" data-ng-model="password" required>
                         </div>
                     </div>
@@ -74,7 +74,7 @@
                         <label for="fname" class="col-sm-2 control-label">First Name</label>
 
                         <div class="col-sm-4">
-                            <input class="form-control input-sm"
+                            <input class="form-control input-sm" data-gramm="false"
                                    type="text" name="fname" id="fname" data-ng-model="create.firstName"
                                    maxlength="50" size="25" placeholder="First Name" required>
                         </div>
@@ -85,7 +85,7 @@
 
                         <div class="col-sm-4">
                             <input type="text" name="lname" id="lname" class="form-control input-sm"
-                                   data-ng-model="create.lastName" maxlength="50"
+                                   data-ng-model="create.lastName" maxlength="50" data-gramm="false"
                                    size="25" placeholder="Last Name">
                         </div>
                     </div>
@@ -96,7 +96,7 @@
                         <div class="col-sm-4">
                             <input
                                     type="text" name="email" id="email" class="form-control input-sm"
-                                    data-ng-model="create.email"
+                                    data-ng-model="create.email" data-gramm="false"
                                     maxlength="100" size="25" placeholder="E-mail" required>
                         </div>
                     </div>
@@ -118,7 +118,7 @@
                         <div class="col-sm-4">
                             <input
                                     type="password" name="password" id="password" class="form-control input-sm"
-                                    data-ng-model="create.password" placeholder="Password"
+                                    data-ng-model="create.password" placeholder="Password" data-gramm="false"
                                     maxlength="30" size="18" required>
                         </div>
                     </div>
@@ -126,7 +126,7 @@
                         <label for="password2" class="col-sm-2 control-label">Password (again)</label>
 
                         <div class="col-sm-4">
-                            <input class="form-control input-sm"
+                            <input class="form-control input-sm" data-gramm="false"
                                    type="password" name="password2" id="password2" maxlength="30" size="18" required
                                    placeholder="Password">
                         </div>
