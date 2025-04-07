@@ -25,15 +25,14 @@
  */
 package com.justjournal.ctl;
 
-import static com.justjournal.core.Constants.HEADER_PRAGMA;
-
 import com.justjournal.Cal;
 import com.justjournal.ErrorPage;
 import com.justjournal.Login;
 import com.justjournal.atom.AtomFeed;
-import com.justjournal.core.Constants;
 import com.justjournal.core.UserContext;
 import com.justjournal.core.UserContextService;
+import com.justjournal.exception.ForbiddenException;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.*;
 import com.justjournal.model.api.TrackbackTo;
@@ -59,15 +58,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.Iterator;
-import java.util.List;
-import java.util.TimeZone;
-import jakarta.servlet.ServletOutputStream;
+import java.util.*;
+
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
@@ -78,9 +70,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
@@ -121,8 +112,6 @@ public class UsersController {
   private static final String ENTRY_DATE_FORMAT = "EEE, d MMM yyyy";
   private static final String ENTRY_DATE_TIME_FORMAT = "yyyy-MM-dd hh:mm";
 
-  private static final String MEDIA_TYPE_PDF = "application/pdf";
-
   private final CommentRepository commentDao;
 
   private final EntryRepository entryDao;
@@ -150,6 +139,10 @@ public class UsersController {
   @Autowired private CachedHeadlineBean cachedHeadlineBean;
 
   @Autowired private UserContextService userContextService;
+
+  @Autowired private PdfFormatService pdfFormatService;
+
+  @Autowired private AtomFeed atom;
 
   @Autowired
   public UsersController(
@@ -385,7 +378,7 @@ public class UsersController {
       @PathVariable("year") final int year,
       final Model model,
       final HttpSession session,
-      final HttpServletResponse response) {
+      final HttpServletResponse response) throws ServiceException {
     final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
@@ -393,7 +386,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -420,7 +413,7 @@ public class UsersController {
       @PathVariable(PATH_MONTH) final int month,
       final Model model,
       final HttpSession session,
-      final HttpServletResponse response) {
+      final HttpServletResponse response) throws ServiceException {
     final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
@@ -456,7 +449,7 @@ public class UsersController {
       @PathVariable("day") final int day,
       final Model model,
       final HttpServletResponse response,
-      final HttpSession session) {
+      final HttpSession session) throws ServiceException {
     final UserContext userc = userContextService.getUserContext(username, session);
 
     if (userc == null) {
@@ -559,33 +552,33 @@ public class UsersController {
     }
   }
 
-  @GetMapping(value = "{username}/pdf", produces = MEDIA_TYPE_PDF)
-  public void pdf(
-      @PathVariable(PATH_USERNAME) final String username,
-      final HttpServletResponse response,
-      final HttpSession session) {
-    User authUser = null;
-    try {
-      authUser = userRepository.findByUsername(Login.currentLoginName(session));
-    } catch (final Exception e) {
-      log.trace(e.getMessage(), e);
+  private Optional<Journal> getFirstJournal(User user) {
+    return user.getJournals().stream().findFirst();
+  }
+
+  @GetMapping(value = "{username}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+  @ResponseBody
+  public ResponseEntity<byte[]> pdf(
+          @PathVariable(PATH_USERNAME) final String username,
+          final HttpServletResponse response,
+          final HttpSession session) throws ServiceException, IOException {
+
+    var userc = userContextService.getUserContext(username, session);
+    if (userc == null) {
+      throw new NotFoundException();
     }
 
-    try {
-      final User user = userRepository.findByUsername(username);
-
-      if (user == null) {
-        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        return;
-      }
-
-      final UserContext userc = new UserContext(user, authUser);
-      if (!new ArrayList<>(user.getJournals()).get(0).isOwnerViewOnly() || userc.isAuthBlog()) {
-        getPDF(response, userc);
-      } else response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-    } catch (final Exception e) {
-      log.error("unable to generate pdf", e);
-      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    var firstJournal = getFirstJournal(userc.getBlogUser());
+    if (userc.isAuthBlog() || firstJournal.isPresent() && !firstJournal.get().isOwnerViewOnly()) {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      pdfFormatService.write(userc, baos);
+      byte[] pdfBytes = baos.toByteArray();
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_PDF);
+      headers.setContentDisposition(ContentDisposition.attachment().filename(userc.getBlogUser().getUsername() + ".pdf").build());
+      return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+    } else {
+      throw new ForbiddenException();
     }
   }
 
@@ -737,43 +730,7 @@ public class UsersController {
     return VIEW_USERS;
   }
 
-  @Autowired private PdfFormatService pdfFormatService;
 
-  private void setCommonFileHeaders(
-      final HttpServletResponse response,
-      final UserContext uc,
-      String contentType,
-      String fileExtension) {
-    response.setContentType(contentType);
-    response.setHeader(Constants.HEADER_EXPIRES, "0");
-    response.setHeader(
-        Constants.HEADER_CACHE_CONTROL, "must-revalidate, post-check=0, pre-check=0");
-    response.setHeader(HEADER_PRAGMA, "public");
-    // RFC 1806
-    response.setHeader(
-        "Content-Disposition",
-        "attachment; filename=" + uc.getBlogUser().getUsername() + fileExtension);
-  }
-
-  private void getPDF(final HttpServletResponse response, final UserContext uc) {
-
-    try {
-      response.resetBuffer();
-      setCommonFileHeaders(response, uc, MEDIA_TYPE_PDF, ".pdf");
-
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      final ServletOutputStream os = response.getOutputStream();
-      pdfFormatService.write(uc, baos);
-      response.setContentLength(baos.size());
-      baos.writeTo(os);
-      os.close();
-    } catch (final IOException e1) {
-      log.error("Users.getPDF() IOException:" + e1.getMessage(), e1);
-    } catch (final Exception e) {
-      // user class caused this
-      log.error("Users.getPDF():" + e.getMessage(), e);
-    }
-  }
 
   private String getSubscriptions(final UserContext uc) {
     final StringBuilder sb = new StringBuilder();
@@ -1489,7 +1446,7 @@ public class UsersController {
    * @see com.justjournal.Cal
    * @see com.justjournal.CalMonth
    */
-  private String getCalendar(final int year, final UserContext uc) {
+  private String getCalendar(final int year, final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
     final GregorianCalendar calendar = new GregorianCalendar();
     final int yearNow = calendar.get(Calendar.YEAR);
@@ -1543,7 +1500,7 @@ public class UsersController {
 
     } catch (final Exception e1) {
       log.error("Calendar render failed: {}", e1.getMessage(), e1);
-      ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
+      throw new ServiceException("Calendar failed to render");
     }
 
     return sb.toString();
@@ -1557,7 +1514,7 @@ public class UsersController {
    * @param uc The UserContext we are working on including blog owner, authenticated user, and sb to
    *     write
    */
-  private String getCalendarMonth(final int year, final int month, final UserContext uc) {
+  private String getCalendarMonth(final int year, final int month, final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
 
     sb.append("<h2>Calendar: ");
@@ -1622,7 +1579,7 @@ public class UsersController {
 
     } catch (final Exception e1) {
       log.warn(e1.getMessage(), e1);
-      ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
+      throw new ServiceException("Calendar failed to render");
     }
     return sb.toString();
   }
@@ -1675,7 +1632,7 @@ public class UsersController {
    */
   @Transactional
   public String getCalendarDay(
-      final int year, final int month, final int day, final UserContext uc) {
+      final int year, final int month, final int day, final UserContext uc) throws ServiceException {
 
     final StringBuilder sb = new StringBuilder();
 
@@ -1728,7 +1685,7 @@ public class UsersController {
 
     } catch (final Exception e1) {
       log.warn(e1.getMessage(), e1);
-      ErrorPage.display(" Error", "An error has occurred rendering calendar.", sb);
+      throw new ServiceException("Calendar failed to render");
     }
 
     return sb.toString();
@@ -1762,8 +1719,6 @@ public class UsersController {
             .getContent());
     return rss.toXml();
   }
-
-  @Autowired private AtomFeed atom;
 
   /**
    * Handles requests for syndication content (Atom). Only returns public journal entries for the

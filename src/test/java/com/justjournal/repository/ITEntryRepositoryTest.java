@@ -45,6 +45,9 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import java.util.Date;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /** @author Lucas Holt */
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = Application.class)
@@ -65,16 +68,16 @@ class ITEntryRepositoryTest {
   @Test
   void list() {
     Iterable<Entry> list = entryRepository.findAll();
-    Assertions.assertNotNull(list);
-    Assertions.assertTrue(entryRepository.count() > 0);
+    assertNotNull(list);
+    assertTrue(entryRepository.count() > 0);
   }
 
   @Test
   void get() {
     Entry entry = entryRepository.findById(33661).orElse(null);
-    Assertions.assertNotNull(entry);
+    assertNotNull(entry);
     Assertions.assertEquals(33661, entry.getId());
-    Assertions.assertNotNull(entry.getSubject());
+    assertNotNull(entry.getSubject());
   }
 
   @Test
@@ -109,7 +112,7 @@ class ITEntryRepositoryTest {
     for (int i = 1; i < entries.size(); i++) {
       var e1 = entries.get(i-1).getDate();
       var e2 = entries.get(i).getDate();
-      Assertions.assertTrue(e1.equals(e2) || e1.after(e2));
+      assertTrue(e1.equals(e2) || e1.after(e2));
     }
   }
 
@@ -124,7 +127,7 @@ class ITEntryRepositoryTest {
     for (int i = 1; i < entries.size(); i++) {
       var e1 = entries.get(i-1).getDate();
       var e2 = entries.get(i).getDate();
-      Assertions.assertTrue(e1.equals(e2) || e1.after(e2));
+      assertTrue(e1.equals(e2) || e1.after(e2));
     }
   }
 
@@ -143,14 +146,16 @@ class ITEntryRepositoryTest {
     entry1.setLocation(locationRepository.findById(1).orElse(null));
     entry1.setModified(startDate);
     entry1.setMood(moodRepository.findAll().get(0));
-    entry1 = entryRepository.save(entry1);
+    entry1 = entryRepository.saveAndFlush(entry1);
+    assertNotNull(entry1);
+    assertTrue(entry1.getId() > 0);
 
     List<Entry> entries = entryRepository.findByUsernameAndDate("testuser", startDate, endDate);
     Assertions.assertFalse(entries.isEmpty());
     entries.forEach(entry -> {
       Assertions.assertEquals("testuser", entry.getUser().getUsername());
-      Assertions.assertTrue(entry.getDate().after(startDate) || entry.getDate().equals(startDate));
-      Assertions.assertTrue(entry.getDate().before(endDate) || entry.getDate().equals(endDate));
+      assertTrue(entry.getDate().after(startDate) || entry.getDate().equals(startDate));
+      assertTrue(entry.getDate().before(endDate) || entry.getDate().equals(endDate));
     });
 
     entryRepository.deleteById(entry1.getId());
@@ -162,15 +167,15 @@ class ITEntryRepositoryTest {
     int month = 5;
     String username = "testuser";
     Long count = entryRepository.calendarCount(year, month, username);
-    Assertions.assertNotNull(count);
-    Assertions.assertTrue(count >= 0);
+    assertNotNull(count);
+    assertTrue(count >= 0);
   }
 
   @Test
   void countBySecurity() {
     Long count = entryRepository.countBySecurity(Security.PUBLIC);
-    Assertions.assertNotNull(count);
-    Assertions.assertTrue(count > 0);
+    assertNotNull(count);
+    assertTrue(count > 0);
   }
 
 
