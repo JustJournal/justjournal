@@ -135,7 +135,7 @@ public class EntryController {
    * @return list of recent entries
    */
   @GetMapping(value = "{username}/recent", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<Iterable<RecentEntry>> getRecentEntries(
+  public ResponseEntity<Flux<RecentEntry>> getRecentEntries(
       @PathVariable(PARAM_USERNAME) final String username, final HttpSession session) {
     final Flux<RecentEntry> entries;
     try {
@@ -145,12 +145,12 @@ public class EntryController {
         entries = entryService.getRecentEntriesPublic(username);
       }
 
-      final Iterable<RecentEntry> e = entries.toIterable();
+      //final Iterable<RecentEntry> e = entries.toIterable();
 
       return ResponseEntity.ok()
           //     .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS))
-          .eTag(Integer.toString(e.hashCode()))
-          .body(e);
+          //.eTag(Integer.toString(e.hashCode()))
+          .body(entries);
     } catch (final ServiceException e) {
       log.error(e.getMessage(), e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
