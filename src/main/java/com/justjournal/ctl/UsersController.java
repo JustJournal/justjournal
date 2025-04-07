@@ -55,7 +55,6 @@ import com.justjournal.services.UserImageService;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -92,7 +91,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @RequestMapping("/users")
 public class UsersController {
   private static final int SEARCH_MAX_LENGTH = 20;
-  // constants
+
   private static final char ENDL = '\n';
   private static final String MODEL_USER = "user";
   private static final String MODEL_JOURNAL = "journal";
@@ -144,6 +143,8 @@ public class UsersController {
 
   @Autowired private AtomFeed atom;
 
+  @Autowired private MarkdownService markdownService;
+
   @Autowired
   public UsersController(
       final EntryService entryService,
@@ -187,7 +188,7 @@ public class UsersController {
       final Pageable pageable,
       final Model model,
       final HttpSession session,
-      final HttpServletResponse response) {
+      final HttpServletResponse response) throws ServiceException {
     final UserContext userContext = userContextService.getUserContext(username, session);
 
     if (userContext == null) {
@@ -514,7 +515,7 @@ public class UsersController {
         return VIEW_NOT_FOUND;
       }
 
-      if (new ArrayList<Journal>(user.getJournals()).get(0).isOwnerViewOnly()) {
+      if (new ArrayList<>(user.getJournals()).get(0).isOwnerViewOnly()) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         return "";
       }
@@ -561,7 +562,7 @@ public class UsersController {
   public ResponseEntity<byte[]> pdf(
           @PathVariable(PATH_USERNAME) final String username,
           final HttpServletResponse response,
-          final HttpSession session) throws ServiceException, IOException {
+          final HttpSession session) throws ServiceException {
 
     var userc = userContextService.getUserContext(username, session);
     if (userc == null) {
@@ -595,7 +596,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -742,12 +743,11 @@ public class UsersController {
       final Collection<RssSubscription> rssfeeds = rssSubscriptionsDAO.findByUser(uc.getBlogUser());
 
       /* Iterator */
-      RssSubscription o;
-      final Iterator itr = rssfeeds.iterator();
+      final Iterator<RssSubscription> itr = rssfeeds.iterator();
       for (int i = 0, n = rssfeeds.size(); i < n; i++) {
-        o = (RssSubscription) itr.next();
+        RssSubscription o = itr.next();
 
-        log.info("Fetching RSS feed: " + o.getUri());
+          log.info("Fetching RSS feed: {}", o.getUri());
         sb.append(cachedHeadlineBean.parse(o.getUri()));
         sb.append(ENDL);
       }
@@ -893,7 +893,7 @@ public class UsersController {
     return sb.toString();
   }
 
-  private String getEntries(final UserContext uc, final Pageable pageable) {
+  private String getEntries(final UserContext uc, final Pageable pageable) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
     final Page<Entry> entries;
 
@@ -939,10 +939,22 @@ public class UsersController {
         sb.append(formatEntry(uc, o, currentDate, false));
       }
     } catch (final Exception e1) {
-      ErrorPage.display("Error", "Unable to retrieve journal entries from data store.", sb);
-      log.error("getEntries: Exception is " + e1.getMessage(), e1);
+      log.error("getEntries: Exception is {}", e1.getMessage(), e1);
+      throw new ServiceException("Error retrieving journal entries.");
     }
     return sb.toString();
+  }
+
+  private boolean isMyFriend(final User me, final User you) {
+    if (me == null || you == null) {
+      return false;
+    }
+
+    return me.getFriends().stream().anyMatch(f -> f.getFriend().getId() == you.getId());
+  }
+
+  private boolean isReciprocalFriend(final User me, final User you) {
+    return isMyFriend(you, me) && isMyFriend(me, you);
   }
 
   private String getFavorites(final UserContext uc) throws ServiceException {
@@ -955,244 +967,244 @@ public class UsersController {
     for (final Favorite fav : favorites) {
       final Entry e = fav.getEntry();
 
-      // if the blog entry belongs to the user or it's public, render it.
-      // TODO: handle friends posts
+      // if the blog entry belongs to the user, it's owned by a friend, or it's public, render it.
       if (e.getSecurity() == Security.PUBLIC
-          || auth && (e.getUser().getId() == uc.getAuthenticatedUser().getId())) entries.add(e);
+              || (auth && e.getUser().getId() == uc.getAuthenticatedUser().getId())
+              || (auth && e.getSecurity() == Security.FRIENDS && isReciprocalFriend(uc.getAuthenticatedUser(), e.getUser()))
+      ) {
+        entries.add(e);
+      }
     }
 
-    sb.append("<h2>Favorites</h2>");
-    sb.append(ENDL);
+      sb.append("<h2>Favorites</h2>");
+      sb.append(ENDL);
 
-    try {
-      log.trace("getFavorites: Init Date Parsers.");
+      try {
+        log.trace("getFavorites: Init Date Parsers.");
 
-      // Format the current time.
-      final SimpleDateFormat formatter = new SimpleDateFormat(ENTRY_DATE_TIME_FORMAT);
-      final SimpleDateFormat formatmydate = new SimpleDateFormat(ENTRY_DATE_FORMAT);
-      final SimpleDateFormat formatmytime = new SimpleDateFormat("h:mm a");
-      String lastDate = "";
-      String curDate;
+        // Format the current time.
+        final SimpleDateFormat formatter = new SimpleDateFormat(ENTRY_DATE_TIME_FORMAT);
+        final SimpleDateFormat formatmydate = new SimpleDateFormat(ENTRY_DATE_FORMAT);
+        final SimpleDateFormat formatmytime = new SimpleDateFormat("h:mm a");
+        String lastDate = "";
+        String curDate;
 
-      /* Iterator */
-      Entry o;
-      final Iterator itr = entries.iterator();
+        /* Iterator */
+        final Iterator<Entry> itr = entries.iterator();
+        log.debug("getFavorites: Number of entries {}", entries.size());
+        if (entries.isEmpty()) sb.append("<p>No favorite entries found</p>.");
 
-      log.debug("getFavoritess: Number of entries " + entries.size());
+        for (int i = 0, n = entries.size(); i < n; i++) {
+          Entry o = itr.next();
 
-      if (entries.isEmpty()) sb.append("<p>No favorite entries found</p>.");
+          // Parse the previous string back into a Date.
+          final ParsePosition pos = new ParsePosition(0);
+          final Date currentDate = formatter.parse(new DateTimeBean(o.getDate()).toString(), pos);
 
-      for (int i = 0, n = entries.size(); i < n; i++) {
-        o = (Entry) itr.next();
+          curDate = formatmydate.format(currentDate);
 
-        // Parse the previous string back into a Date.
-        final ParsePosition pos = new ParsePosition(0);
-        final Date currentDate = formatter.parse(new DateTimeBean(o.getDate()).toString(), pos);
+          if (curDate.compareTo(lastDate) != 0) {
+            sb.append("<h2>");
+            sb.append(curDate);
+            sb.append("</h2>");
+            sb.append(ENDL);
+            lastDate = curDate;
+          }
 
-        curDate = formatmydate.format(currentDate);
-
-        if (curDate.compareTo(lastDate) != 0) {
-          sb.append("<h2>");
-          sb.append(curDate);
-          sb.append("</h2>");
+          sb.append("<div class=\"ebody\">");
           sb.append(ENDL);
-          lastDate = curDate;
-        }
 
-        sb.append("<div class=\"ebody\">");
-        sb.append(ENDL);
+          // final User p = o.getUser();
+          //  if (p.showAvatar()) {   TODO: avatar?
+          sb.append("<img alt=\"avatar\" style=\"float: right\" src=\"/image?id=");
+          sb.append(o.getUser().getId());
+          sb.append("\"/>");
+          sb.append(ENDL);
+          //  }
 
-        // final User p = o.getUser();
-        //  if (p.showAvatar()) {   TODO: avatar?
-        sb.append("<img alt=\"avatar\" style=\"float: right\" src=\"/image?id=");
-        sb.append(o.getUser().getId());
-        sb.append("\"/>");
-        sb.append(ENDL);
-        //  }
+          sb.append("<h3>");
+          sb.append("<a href=\"/users/");
+          sb.append(o.getUser().getUsername());
+          sb.append("\" title=\"");
+          sb.append(o.getUser().getUsername());
+          sb.append("\">");
+          sb.append(o.getUser().getUsername());
+          sb.append("</a> ");
 
-        sb.append("<h3>");
-        sb.append("<a href=\"/users/");
-        sb.append(o.getUser().getUsername());
-        sb.append("\" title=\"");
-        sb.append(o.getUser().getUsername());
-        sb.append("\">");
-        sb.append(o.getUser().getUsername());
-        sb.append("</a> ");
+          sb.append("<span class=\"time\">");
+          sb.append(formatmytime.format(currentDate));
+          sb.append("</span> - <span class=\"subject\">");
+          sb.append(Xml.cleanString(o.getSubject()));
+          sb.append("</span></h3> ");
+          sb.append(ENDL);
 
-        sb.append("<span class=\"time\">");
-        sb.append(formatmytime.format(currentDate));
-        sb.append("</span> - <span class=\"subject\">");
-        sb.append(Xml.cleanString(o.getSubject()));
-        sb.append("</span></h3> ");
-        sb.append(ENDL);
+          sb.append("<div class=\"ebody\">");
+          sb.append(ENDL);
 
-        sb.append("<div class=\"ebody\">");
-        sb.append(ENDL);
+          // Keep this synced with getEntries()
+          if (o.getFormat().equals(FormatType.TEXT)) {
+            sb.append("<p>");
+            if (o.getBody().contains("\n"))
+              sb.append(StringUtil.replace(o.getBody(), '\n', "<br />"));
+            else if (o.getBody().contains("\r"))
+              sb.append(StringUtil.replace(o.getBody(), '\r', "<br />"));
+            else
+              // we do not have any "new lines" but it might be
+              // one long line.
+              sb.append(o.getBody());
 
-        // Keep this synced with getEntries()
-        if (o.getFormat().equals(FormatType.TEXT)) {
+            sb.append("</p>");
+          } else if (o.getFormat().equals(FormatType.MARKDOWN))
+            sb.append(markdownService.convertToHtml(o.getBody()));
+          else sb.append(o.getBody());
+
+          sb.append(ENDL);
+          sb.append("</div>");
+          sb.append(ENDL);
+
           sb.append("<p>");
-          if (o.getBody().contains("\n"))
-            sb.append(StringUtil.replace(o.getBody(), '\n', "<br />"));
-          else if (o.getBody().contains("\r"))
-            sb.append(StringUtil.replace(o.getBody(), '\r', "<br />"));
-          else
-            // we do not have any "new lines" but it might be
-            // one long line.
-            sb.append(o.getBody());
 
-          sb.append("</p>");
-        } else if (o.getFormat().equals(FormatType.MARKDOWN))
-          sb.append(markdownService.convertToHtml(o.getBody()));
-        else sb.append(o.getBody());
+          if (o.getSecurity() == null || o.getSecurity() == Security.PRIVATE) {
+            sb.append("<span class=\"security\">security: ");
+            sb.append("<img src=\"/img/icon_private.gif\" alt=\"private\" /> ");
+            sb.append("private");
+            sb.append("</span><br />");
+            sb.append(ENDL);
+          } else if (o.getSecurity() == Security.FRIENDS) {
+            sb.append("<span class=\"security\">security: ");
+            sb.append("<img src=\"/img/icon_protected.gif\" alt=\"friends\" /> ");
+            sb.append(MODEL_FRIENDS);
+            sb.append("</span><br />");
+            sb.append(ENDL);
+          }
 
-        sb.append(ENDL);
-        sb.append("</div>");
-        sb.append(ENDL);
+          if (o.getLocation() != null && o.getLocation().getId() > 0) {
+            sb.append("<span class=\"location\">location: ");
+            sb.append(o.getLocation().getTitle());
+            sb.append("</span><br />");
+            sb.append(ENDL);
+          }
 
-        sb.append("<p>");
+          if (o.getMood() != null
+                  && !o.getMood().getTitle().isEmpty()
+                  && o.getMood().getId() != 12) {
+            final MoodThemeData emoto = emoticonDao.findByThemeIdAndMoodId(1, o.getMood().getId());
 
-        if (o.getSecurity() == null || o.getSecurity() == Security.PRIVATE) {
-          sb.append("<span class=\"security\">security: ");
-          sb.append("<img src=\"/img/icon_private.gif\" alt=\"private\" /> ");
-          sb.append("private");
-          sb.append("</span><br />");
-          sb.append(ENDL);
-        } else if (o.getSecurity() == Security.FRIENDS) {
-          sb.append("<span class=\"security\">security: ");
-          sb.append("<img src=\"/img/icon_protected.gif\" alt=\"friends\" /> ");
-          sb.append(MODEL_FRIENDS);
-          sb.append("</span><br />");
-          sb.append(ENDL);
-        }
+            if (emoto != null) {
+              sb.append("<span class=\"mood\">mood: <img src=\"/images/emoticons/1/");
+              sb.append(emoto.getFileName());
+              sb.append("\" width=\"");
+              sb.append(emoto.getWidth());
+              sb.append("\" height=\"");
+              sb.append(emoto.getHeight());
+              sb.append("\" alt=\"");
+              sb.append(o.getMood().getTitle());
+              sb.append("\" /> ");
+              sb.append(o.getMood().getTitle());
+              sb.append("</span><br>");
+              sb.append(ENDL);
+            }
+          }
 
-        if (o.getLocation() != null && o.getLocation().getId() > 0) {
-          sb.append("<span class=\"location\">location: ");
-          sb.append(o.getLocation().getTitle());
-          sb.append("</span><br />");
-          sb.append(ENDL);
-        }
-
-        if (o.getMood() != null
-            && !o.getMood().getTitle().isEmpty()
-            && o.getMood().getId() != 12) {
-          final MoodThemeData emoto = emoticonDao.findByThemeIdAndMoodId(1, o.getMood().getId());
-
-          if (emoto != null) {
-            sb.append("<span class=\"mood\">mood: <img src=\"/images/emoticons/1/");
-            sb.append(emoto.getFileName());
-            sb.append("\" width=\"");
-            sb.append(emoto.getWidth());
-            sb.append("\" height=\"");
-            sb.append(emoto.getHeight());
-            sb.append("\" alt=\"");
-            sb.append(o.getMood().getTitle());
-            sb.append("\" /> ");
-            sb.append(o.getMood().getTitle());
+          if (o.getMusic() != null && !o.getMusic().isEmpty()) {
+            sb.append("<span class=\"music\">music: ");
+            sb.append(Xml.cleanString(o.getMusic()));
             sb.append("</span><br>");
             sb.append(ENDL);
           }
-        }
 
-        if (o.getMusic() != null && !o.getMusic().isEmpty()) {
-          sb.append("<span class=\"music\">music: ");
-          sb.append(Xml.cleanString(o.getMusic()));
-          sb.append("</span><br>");
-          sb.append(ENDL);
-        }
-
-        sb.append("</p>");
-        sb.append(ENDL);
-
-        if (o.getTags() != null && !o.getTags().isEmpty()) {
-          sb.append("<p>tags:");
-          for (final EntryTag s : o.getTags()) {
-            sb.append(" ");
-            sb.append(s.getTag().getName());
-          }
           sb.append("</p>");
           sb.append(ENDL);
-        }
 
-        sb.append("<div>");
-        sb.append(ENDL);
-        sb.append("<table width=\"100%\"  border=\"0\">");
-        sb.append(ENDL);
-        sb.append("<tr>");
-        sb.append(ENDL);
+          if (o.getTags() != null && !o.getTags().isEmpty()) {
+            sb.append("<p>tags:");
+            for (final EntryTag s : o.getTags()) {
+              sb.append(" ");
+              sb.append(s.getTag().getName());
+            }
+            sb.append("</p>");
+            sb.append(ENDL);
+          }
 
-        if (uc.getAuthenticatedUser() != null
-            && uc.getAuthenticatedUser().getId() == o.getUser().getId()) {
-          sb.append("<td width=\"30\"><a title=\"Edit Entry\" href=\"/#/entry/").append(o.getId());
-          sb.append("\"><i class=\"fa fa-pencil-square-o\"></i></a></td>");
+          sb.append("<div>");
           sb.append(ENDL);
-          sb.append("<td width=\"30\"><a title=\"Delete Entry\" onclick=\"return" + " deleteEntry(")
-              .append(o.getId())
-              .append(")\"");
-          sb.append("><i class=\"fa fa-trash-o\"></i></a>");
-          sb.append("</td>");
+          sb.append("<table width=\"100%\"  border=\"0\">");
+          sb.append(ENDL);
+          sb.append("<tr>");
           sb.append(ENDL);
 
-          sb.append(
-              "<td width=\"30\"><a title=\"Remove Favorite\" onclick=\"return"
-                  + " deleteFavorite(");
-          sb.append(o.getId());
-          sb.append(")\"><i class=\"fa fa-heart-o\"></i></a></td>");
-          sb.append(ENDL);
-        } else if (uc.getAuthenticatedUser() != null) {
-          sb.append(
-              "<td width=\"30\"><a title=\"Add Favorite\" onclick=\"return" + " addFavorite(");
-          sb.append(o.getId());
-          sb.append(")\"><i class=\"fa fa-heart\"></i></a></td>");
-          sb.append(ENDL);
-        }
+          if (uc.getAuthenticatedUser() != null
+                  && uc.getAuthenticatedUser().getId() == o.getUser().getId()) {
+            sb.append("<td width=\"30\"><a title=\"Edit Entry\" href=\"/#/entry/").append(o.getId());
+            sb.append("\"><i class=\"fa fa-pencil-square-o\"></i></a></td>");
+            sb.append(ENDL);
+            sb.append("<td width=\"30\"><a title=\"Delete Entry\" onclick=\"return" + " deleteEntry(")
+                    .append(o.getId())
+                    .append(")\"");
+            sb.append("><i class=\"fa fa-trash-o\"></i></a>");
+            sb.append("</td>");
+            sb.append(ENDL);
 
-        sb.append("<td><div style=\"float: right\"><a href=\"/users/")
-            .append(o.getUser().getUsername())
-            .append("/entry/");
-        sb.append(o.getId());
-        sb.append("\" title=\"Link to this entry\">link</a> ");
-        sb.append('(');
-
-        switch (o.getComments().size()) {
-          case 0:
-            break;
-          case 1:
-            sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
+            sb.append(
+                    "<td width=\"30\"><a title=\"Remove Favorite\" onclick=\"return"
+                            + " deleteFavorite(");
             sb.append(o.getId());
-            sb.append("\" title=\"View Comment\">1 comment</a> | ");
-            break;
-          default:
-            sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
+            sb.append(")\"><i class=\"fa fa-heart-o\"></i></a></td>");
+            sb.append(ENDL);
+          } else if (uc.getAuthenticatedUser() != null) {
+            sb.append(
+                    "<td width=\"30\"><a title=\"Add Favorite\" onclick=\"return" + " addFavorite(");
             sb.append(o.getId());
-            sb.append("\" title=\"View Comments\">");
-            sb.append(o.getComments().size());
-            sb.append(" comments</a> | ");
+            sb.append(")\"><i class=\"fa fa-heart\"></i></a></td>");
+            sb.append(ENDL);
+          }
+
+          sb.append("<td><div style=\"float: right\"><a href=\"/users/")
+                  .append(o.getUser().getUsername())
+                  .append("/entry/");
+          sb.append(o.getId());
+          sb.append("\" title=\"Link to this entry\">link</a> ");
+          sb.append('(');
+
+          switch (o.getComments().size()) {
+            case 0:
+              break;
+            case 1:
+              sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
+              sb.append(o.getId());
+              sb.append("\" title=\"View Comment\">1 comment</a> | ");
+              break;
+            default:
+              sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
+              sb.append(o.getId());
+              sb.append("\" title=\"View Comments\">");
+              sb.append(o.getComments().size());
+              sb.append(" comments</a> | ");
+          }
+
+          sb.append("<a href=\"/#!/comment/");
+          sb.append(o.getId());
+          sb.append("\" title=\"Leave a comment on this entry\">comment on this</a>)");
+
+          sb.append("</div></td>");
+          sb.append(ENDL);
+          sb.append("</tr>");
+          sb.append(ENDL);
+          sb.append("</table>");
+          sb.append(ENDL);
+          sb.append("</div>");
+          sb.append(ENDL);
+
+          sb.append("</div>");
+          sb.append(ENDL);
         }
 
-        sb.append("<a href=\"/#!/comment/");
-        sb.append(o.getId());
-        sb.append("\" title=\"Leave a comment on this entry\">comment on this</a>)");
-
-        sb.append("</div></td>");
-        sb.append(ENDL);
-        sb.append("</tr>");
-        sb.append(ENDL);
-        sb.append("</table>");
-        sb.append(ENDL);
-        sb.append("</div>");
-        sb.append(ENDL);
-
-        sb.append("</div>");
-        sb.append(ENDL);
+      } catch (final Exception e1) {
+        log.error(e1.getMessage(), e1);
+        throw new ServiceException("Error retrieving favorite entries");
       }
-
-    } catch (final Exception e1) {
-      log.error(e1.getMessage(), e1);
-      ErrorPage.display(" Error", "Error retrieving favorite entries", sb);
+      return sb.toString();
     }
-    return sb.toString();
-  }
 
   /**
    * Displays friends entries for a particular user.
@@ -1818,8 +1830,6 @@ public class UsersController {
     }
     return sb.toString();
   }
-
-  @Autowired private MarkdownService markdownService;
 
   /**
    * Format a blog entry in HTML
