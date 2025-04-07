@@ -130,10 +130,11 @@ class ITEntryRepositoryTest {
 
   @Test
   void findByUsernameAndDate() {
-    Date startDate = new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+    var oneDayAgo = System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000;
+    Date startDate = new Date(oneDayAgo);
     Date endDate = new Date();
     Entry entry1 = new Entry();
-    entry1.setDate(new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000 + 10)); // 7 days ago
+    entry1.setDate(new Date(oneDayAgo + 120));
     entry1.setSubject("Test Entry");
     entry1.setBody("testing from entry repository tests");
     entry1.setUser(userRepository.findByUsername("testuser"));

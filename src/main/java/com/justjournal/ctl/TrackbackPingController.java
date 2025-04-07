@@ -77,7 +77,7 @@ public class TrackbackPingController {
   @ResponseBody
   public ResponseEntity<String> post(
       @RequestParam("entryID") Integer entryId, @ModelAttribute TrackbackPingRequest trackbackPingRequest) {
-    log.info("received trackback request: " + trackbackPingRequest);
+      log.info("received trackback request: {}", trackbackPingRequest);
     try {
       boolean istrackback = true;
 
@@ -92,7 +92,7 @@ public class TrackbackPingController {
 
       if (StringUtils.isEmpty(trackbackPingRequest.getUrl())
           || !DNSUtil.isUrlDomainValid(trackbackPingRequest.getUrl())) {
-        ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(trackbackService.generateResponse(1, "Missing required parameter \"url\"."));
       }
 
@@ -138,8 +138,6 @@ public class TrackbackPingController {
         tb.setAuthorEmail(trackbackPingRequest.getEmail());
       }
 
-      tb.setUrl(trackbackPingRequest.getUrl());
-
       if (istrackback) {
         tb.setType(TrackbackType.trackback);
       } else {
@@ -148,10 +146,7 @@ public class TrackbackPingController {
       // don't do pingbacks yet.
 
       tb.setBlogName(trackbackPingRequest.getBlog_name());
-      if (entryId > 0)
         tb.setEntryId(entryId);
-      else
-        tb.setEntryId(trackbackPingRequest.getEntryID());
       tb.setUrl(trackbackPingRequest.getUrl());
 
       if (trackbackService.save(tb) == null) {

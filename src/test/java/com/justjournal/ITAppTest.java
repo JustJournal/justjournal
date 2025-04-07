@@ -45,6 +45,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import static com.justjournal.core.Constants.LOGIN_ATTRID;
 import static com.justjournal.core.Constants.LOGIN_ATTRNAME;
@@ -84,6 +86,9 @@ class ITAppTest {
     trackbackRepository.deleteAll(
         trackbackRepository.findByEntryIdAndUrlOrderByDate(
             33661, "http://justjournal.com/users/jjsite"));
+    trackbackRepository.deleteAll(
+            trackbackRepository.findByEntryIdAndUrlOrderByDate(
+                    33661, "http://example.notarealdomainnameatallandshouldntresolve.com/bar"));
     trackBackIpRepository.deleteIpAddress("127.0.0.1").block();
   }
 
@@ -362,14 +367,23 @@ class ITAppTest {
 
   @Test
   void trackbackPingInvalid() throws Exception {
-    mockMvc.perform(post("/trackback?entryID=")   .accept(MediaType.TEXT_XML)
-            .contentType(MediaType.APPLICATION_FORM_URLENCODED)).andExpect(status().is4xxClientError());
+    mockMvc.perform(post("/trackback?entryID=")
+                    .accept(MediaType.TEXT_XML)
+            .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+            .andExpect(result -> {
+      Exception resolvedException = result.getResolvedException();
+      assertNotNull(resolvedException);
+      assertInstanceOf(MissingServletRequestParameterException.class, resolvedException);});
   }
 
   @Test
   void trackbackPingInvalid2() throws Exception {
     mockMvc.perform(post("/trackback?url=")   .accept(MediaType.TEXT_XML)
-            .contentType(MediaType.APPLICATION_FORM_URLENCODED)).andExpect(status().is4xxClientError());
+            .contentType(MediaType.APPLICATION_FORM_URLENCODED))
+            .andExpect(result -> {
+      Exception resolvedException = result.getResolvedException();
+      assertNotNull(resolvedException);
+      assertInstanceOf(MissingServletRequestParameterException.class, resolvedException);});
   }
 
   @Test
@@ -377,14 +391,13 @@ class ITAppTest {
     mockMvc
         .perform(
             post("/trackback")
-              //      .queryParam("entryID", "33661")
                     .param("entryID", "33661")
                     .param("title", "my title")
                     .param("url", "https://www.justjournal.com/users/jjsite")
                     .param("excerpt", "a cool blog")
                 .accept(MediaType.TEXT_XML)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-        .andExpect(status().isOk())
+        .andExpect(status().is2xxSuccessful())
         .andExpect(content().contentTypeCompatibleWith("text/xml;charset=UTF-8"));
   }
 
@@ -405,7 +418,7 @@ class ITAppTest {
                             .queryParams(requestParams)
                             .accept(MediaType.TEXT_XML)
                             .contentType(MediaType.APPLICATION_FORM_URLENCODED))
-            .andExpect(status().is5xxServerError())
+            .andExpect(status().is4xxClientError())
             .andExpect(content().contentTypeCompatibleWith("text/xml;charset=UTF-8"));
   }
 

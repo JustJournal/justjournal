@@ -25,6 +25,7 @@
  */
 package com.justjournal.utility;
 
+import org.apache.commons.lang3.StringUtils;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -39,6 +40,8 @@ public class DNSUtil {
   }
 
   public static boolean isUrlDomainValid(String uri) {
+    if (StringUtils.isEmpty(uri)) return false;
+
     try {
       final URI tmpuri = new URI(uri);
       return isDomainValid(tmpuri.getHost());
@@ -49,13 +52,13 @@ public class DNSUtil {
 
   public static String getDomainFromEmail(final String address) {
     final int at = address.lastIndexOf('@');
-    if (address.length() == at) return null;
+    if (address.length() < at + 1) return null;
 
     return address.substring(at + 1);
   }
 
   public static boolean isEmailDomainValid(final String address) {
-    if (address == null) return false;
+    if (address == null || address.length() < 3) return false;
 
     return isDomainValid(getDomainFromEmail(address));
   }
