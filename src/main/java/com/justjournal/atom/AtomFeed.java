@@ -25,13 +25,16 @@
  */
 package com.justjournal.atom;
 
-
+import com.justjournal.core.Settings;
 import com.justjournal.model.Entry;
 import com.justjournal.model.FormatType;
 import com.justjournal.services.MarkdownService;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.Xml;
 import java.util.*;
+
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -43,7 +46,6 @@ import org.springframework.web.context.WebApplicationContext;
  * Create an atom feed.
  *
  * @author Lucas Holt
- * @version $Id: AtomFeed.java,v 1.5 2011/05/29 22:32:59 laffer1 Exp $
  */
 @Slf4j
 @Component
@@ -76,23 +78,34 @@ public class AtomFeed {
     </feed>
     */
 
-  private MarkdownService markdownService;
+  private final MarkdownService markdownService;
+  private final Settings settings;
 
   private static final int MAX_LENGTH = 15;
 
+  @Setter
+  @Getter
   private String id;
+  @Setter
+  @Getter
   private String title;
+  @Setter
+  @Getter
   private String updated;
+  @Setter
   private String alternateLink;
+  @Setter
   private String selfLink;
+  @Setter
   private String authorName;
   private String userName;
 
-  private List<AtomEntry> items = new ArrayList<>(MAX_LENGTH);
+  private final List<AtomEntry> items = new ArrayList<>(MAX_LENGTH);
 
   @Autowired
-  public AtomFeed(final MarkdownService markdownService) {
+  public AtomFeed(final MarkdownService markdownService, final Settings settings) {
     this.markdownService = markdownService;
+    this.settings = settings;
   }
 
   public void populate(Collection<Entry> entries) {
@@ -112,11 +125,7 @@ public class AtomFeed {
         if (o.getFormat().equals(FormatType.MARKDOWN))
           item.setContent(markdownService.convertToText(o.getBody()));
         else item.setContent(o.getBody());
-        item.setLink(
-            "http://www.justjournal.com/users/"
-                + o.getUser().getUsername()
-                + "/entry/"
-                + o.getId());
+        item.setLink(settings.getBlogBaseUrl(o.getUser().getUsername()) + "/entry/" + o.getId());
         item.setPublished(DateConvert.encode3339(o.getDate()));
         item.setUpdated(DateConvert.encode3339(o.getDate()));
         add(item);
@@ -145,7 +154,7 @@ public class AtomFeed {
     sb.append(
         "<feed xmlns=\"http://www.w3.org/2005/Atom\"\n"
             + "      xml:lang=\"en\"\n"
-            + "      xml:base=\"http://www.justjournal.com\">\n");
+            + "      xml:base=\"https://www.justjournal.com\">\n");
     sb.append("\t<id>urn:jj:justjournal.com:atom1:");
     sb.append(userName);
     sb.append("</id>\n");
@@ -166,7 +175,7 @@ public class AtomFeed {
     sb.append(selfLink);
     sb.append("\"/>\n");
 
-    sb.append("<generator uri=\"https://github.com/laffer1/justjournal\" version=\"3.1.4\">JustJournal</generator>\n");
+    sb.append("<generator uri=\"https://github.com/laffer1/justjournal\" version=\"3.1.10\">JustJournal</generator>\n");
 
     sb.append("<updated>");
     sb.append(date());
@@ -236,51 +245,16 @@ public class AtomFeed {
     return DateConvert.encode3339(current);
   }
 
-  public String getId() {
-    return id;
-  }
-
-  public void setId(String id) {
-    this.id = id;
-  }
-
-  public String getTitle() {
-    return title;
-  }
-
-  public void setTitle(String title) {
-    this.title = title;
-  }
-
-  public String getUpdated() {
-    return updated;
-  }
-
-  public void setUpdated(String updated) {
-    this.updated = updated;
-  }
-
-  public String getAlternateLink() {
+    public String getAlternateLink() {
     return alternateLink;
   }
 
-  public void setAlternateLink(String alternateLink) {
-    this.alternateLink = alternateLink;
-  }
-
-  public String getSelfLink() {
+    public String getSelfLink() {
     return selfLink;
   }
 
-  public void setSelfLink(String selfLink) {
-    this.selfLink = selfLink;
-  }
-
-  public String getAuthorName() {
+    public String getAuthorName() {
     return authorName;
   }
 
-  public void setAuthorName(String authorName) {
-    this.authorName = authorName;
-  }
 }

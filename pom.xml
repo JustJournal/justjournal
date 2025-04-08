@@ -328,6 +328,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.github.justjournal</groupId>
+            <artifactId>xml-rpc</artifactId>
+            <version>fdfb3b9a91482b97cd74f0859ff2b6bc727780d2</version>
+        </dependency>
+
+        <dependency>
             <groupId>commons-fileupload</groupId>
             <artifactId>commons-fileupload</artifactId>
             <version>1.5</version>

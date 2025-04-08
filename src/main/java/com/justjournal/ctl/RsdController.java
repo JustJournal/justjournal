@@ -25,30 +25,27 @@
  */
 package com.justjournal.ctl;
 
-
+import com.justjournal.core.Settings;
 import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * An implementation of Really Simple Discovery (RSD).
  *
- * <p>A list of points that blogging clients can use to post entries by "autodiscovery". This is
+ * <p>A list of points that blogging clients can use to post-entries by "autodiscovery". This is
  * used by blog clients such as Microsoft's Live Writer.
  *
- * <p>http://cyber.law.harvard.edu/blogs/gems/tech/rsd.html
+ * TODO: remove Rsd entirely if we don't want xml-rpc?
  *
+ * <p>http://cyber.law.harvard.edu/blogs/gems/tech/rsd.html
+ *<p>TODO: add atompub?</p>
  * @author Lucas Holt
- * @version $Id: Rsd.java,v 1.5 2009/05/16 03:13:12 laffer1 Exp $
- *     <p>User: laffer1 Date: Apr 26, 2008 Time: 10:22:20 AM
  */
 @Slf4j
 @RestController
@@ -61,9 +58,11 @@ public class RsdController {
   private static final String RSD_FOOTER = "</rsd>\n";
 
   private final UserRepository userRepository;
+  private final Settings settings;
 
-  public RsdController(UserRepository userRepository) {
+  public RsdController(UserRepository userRepository, Settings settings) {
     this.userRepository = userRepository;
+    this.settings = settings;
   }
 
   @GetMapping(produces = "application/rsd+xml")
@@ -83,21 +82,19 @@ public class RsdController {
       sb.append(RSD_HEADER);
       sb.append("<service>\n");
       sb.append("\t<engineName>JustJournal</engineName>\n");
-      sb.append("\t<engineLink>http://www.justjournal.com</engineLink>\n");
-      sb.append("\t<homePageLink>http://www.justjournal.com/users/");
-      sb.append(user.getUsername()); // yeah we already know this but it's for output and
-      // thus safer.
-      sb.append("</homePageLink>\n");
+      sb.append("\t<engineLink>https://www.justjournal.com</engineLink>\n");
+      sb.append("\t<homePageLink>").append(settings.getBlogBaseUrl(user.getUsername()))
+              .append("</homePageLink>\n");
       // APIS we support.
       sb.append("\t<apis>\n");
       sb.append(
           "\t\t<api name=\"Blogger\" preferred=\"false\""
-              + " apiLink=\"http://www.justjournal.com/xml-rpc\" blogID=\"");
+              + " apiLink=\"" + settings.getBaseUri() + "xml-rpc\" blogID=\"");
       sb.append(user.getUsername());
       sb.append("\" />\n");
       sb.append(
           "\t\t<api name=\"MetaWeblog\" preferred=\"true\""
-              + " apiLink=\"http://www.justjournal.com/xml-rpc\" blogID=\"");
+              + " apiLink=\"" + settings.getBaseUri() + "xml-rpc\" blogID=\"");
       sb.append(user.getUsername());
       sb.append("\" />\n");
       sb.append("\t</apis>\n");

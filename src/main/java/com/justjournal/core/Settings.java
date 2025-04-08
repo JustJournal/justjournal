@@ -155,6 +155,24 @@ public class Settings {
     }
   }
 
+  /**
+   * Get the base URL for the user blog with the given username.
+   * @param username blog owner username
+   * @return full url minus the trailing slash.
+   */
+  public String getBlogBaseUrl(String username) {
+    return getBaseUri() + "/users/" +  username;
+  }
+
+  /**
+   * Get the email address and name of the webmaster based on site admin settings.
+   * Used for RSS feeds and other notifications.
+   * @return email address and name of the webmaster.
+   */
+  public String getWebmaster() {
+    return getSiteAdminEmail() + " (" + getSiteAdmin() + ")";
+  }
+
     public String getFsPath() {
     return fsPath;
   }

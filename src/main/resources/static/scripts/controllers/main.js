@@ -23,10 +23,11 @@ angular.module('wwwApp').controller('MainCtrl', ['$scope', '$http', '$window', f
         $http
                 .post('api/login', data)
                 .then(function onSuccess(response) {
+                    const login_error = 'Your login information was invalid. Please try again';
                     var data = response.data;
                     var status = response.status;
-                    if (status == 200 && data.status == 'JJ.LOGIN.OK') {
-                        gtag('event', 'login', {
+                    if (status === 200 && data.status === 'JJ.LOGIN.OK') {
+                        $window.gtag('event', 'login', {
                             'event_category': 'Authentication',
                             'event_label': 'Login'
                         });
@@ -34,11 +35,11 @@ angular.module('wwwApp').controller('MainCtrl', ['$scope', '$http', '$window', f
                         window.location.href = '/users/' + data.username;
                         return false;
                     } else {
-                        $window.alert("Your login information was invalid. Please try again");
+                        $window.alert(login_error);
                         return false;
                     }
                 }, function onError() {
-                    $window.alert("Your login information was invalid. Please try again");
+                    $window.alert(login_error);
                     return false;
                 });
     };
@@ -47,14 +48,14 @@ angular.module('wwwApp').controller('MainCtrl', ['$scope', '$http', '$window', f
         var data = $scope.create;
         $http.post('api/signup', data)
                 .then(function onSuccess() {
-                    gtag('event', 'sign_up', {
+                    $window.gtag('event', 'sign_up', {
                         'event_category': 'Account',
                         'event_label': 'Signup'
                     });
 
                     $scope.performLogin($scope.create.username, $scope.create.password);
 
-                    //alert('Your account has been created. You may login after responding to the verification email.');
+                    //alert('Your account has been created. You may log in after responding to the verification email.');
                     return false;
                 }, function onError() {
                     $window.alert('Unable to create this account. Please verify all fields and try again');

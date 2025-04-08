@@ -133,31 +133,37 @@ public class UsersController {
 
   private final Rss rss;
 
-  @Autowired private TrackbackService trackbackService;
+  private final TrackbackService trackbackService;
 
-  @Autowired private CachedHeadlineBean cachedHeadlineBean;
+  private final CachedHeadlineBean cachedHeadlineBean;
 
-  @Autowired private UserContextService userContextService;
+  private final UserContextService userContextService;
 
-  @Autowired private PdfFormatService pdfFormatService;
+  private final PdfFormatService pdfFormatService;
 
-  @Autowired private AtomFeed atom;
+  private final AtomFeed atom;
 
-  @Autowired private MarkdownService markdownService;
+  private final MarkdownService markdownService;
+
+  private final com.justjournal.core.Settings settings;
 
   @Autowired
   public UsersController(
-      final EntryService entryService,
-      final @Qualifier("commentRepository") CommentRepository commentDao,
-      final @Qualifier("entryRepository") EntryRepository entryDao,
-      final FavoriteRepository favoriteRepository,
-      final @Qualifier("moodThemeDataRepository") MoodThemeDataRepository emoticonDao,
-      final UserRepository userRepository,
-      final RssSubscriptionsRepository rssSubscriptionsDAO,
-      final UserImageService userImageService,
-      final UserPicRepository userPicRepository,
-      final BlogSearchService blogSearchService,
-      final Rss rss) {
+          final EntryService entryService,
+          final @Qualifier("commentRepository") CommentRepository commentDao,
+          final @Qualifier("entryRepository") EntryRepository entryDao,
+          final FavoriteRepository favoriteRepository,
+          final @Qualifier("moodThemeDataRepository") MoodThemeDataRepository emoticonDao,
+          final UserRepository userRepository,
+          final RssSubscriptionsRepository rssSubscriptionsDAO,
+          final UserImageService userImageService,
+          final UserPicRepository userPicRepository,
+          final BlogSearchService blogSearchService,
+          final Rss rss,
+          final MarkdownService markdownService,
+          final AtomFeed atom, TrackbackService trackbackService, CachedHeadlineBean cachedHeadlineBean,
+          UserContextService userContextService, PdfFormatService pdfFormatService,
+          com.justjournal.core.Settings settings) {
     this.entryService = entryService;
     this.commentDao = commentDao;
     this.entryDao = entryDao;
@@ -169,6 +175,13 @@ public class UsersController {
     this.userPicRepository = userPicRepository;
     this.blogSearchService = blogSearchService;
     this.rss = rss;
+    this.markdownService = markdownService;
+    this.atom = atom;
+    this.trackbackService = trackbackService;
+    this.cachedHeadlineBean = cachedHeadlineBean;
+    this.userContextService = userContextService;
+    this.pdfFormatService = pdfFormatService;
+    this.settings = settings;
   }
 
   /**
@@ -196,7 +209,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userContext.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userContext.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -234,7 +247,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userContext.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userContext.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -271,7 +284,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -360,7 +373,7 @@ public class UsersController {
     model.addAttribute(MODEL_AVATAR, avatar(userContext.getBlogUser().getId()));
 
     final Calendar cal = Calendar.getInstance();
-    final Integer year = cal.get(Calendar.YEAR);
+    final int year = cal.get(Calendar.YEAR);
 
     model.addAttribute("startYear", userContext.getBlogUser().getSince());
     model.addAttribute("currentYear", year);
@@ -422,7 +435,7 @@ public class UsersController {
       return VIEW_NOT_FOUND;
     }
 
-    Journal journal = new ArrayList<Journal>(userc.getBlogUser().getJournals()).get(0);
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
     model.addAttribute(MODEL_JOURNAL, journal);
 
     model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
@@ -540,7 +553,7 @@ public class UsersController {
         return VIEW_NOT_FOUND;
       }
 
-      if (new ArrayList<Journal>(user.getJournals()).get(0).isOwnerViewOnly()) {
+      if (new ArrayList<>(user.getJournals()).get(0).isOwnerViewOnly()) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         return "";
       }
@@ -560,9 +573,7 @@ public class UsersController {
   @GetMapping(value = "{username}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
   @ResponseBody
   public ResponseEntity<byte[]> pdf(
-          @PathVariable(PATH_USERNAME) final String username,
-          final HttpServletResponse response,
-          final HttpSession session) throws ServiceException {
+          @PathVariable(PATH_USERNAME) final String username, final HttpSession session) throws ServiceException {
 
     var userc = userContextService.getUserContext(username, session);
     if (userc == null) {
@@ -1707,20 +1718,21 @@ public class UsersController {
    * Handles requests for syndication content (RSS). Only returns public journal entries for the
    * specified user.
    *
-   * @param user
+   * @param user blog owner
    */
   @Transactional
   public String getRSS(final User user) {
     final GregorianCalendar calendar = new GregorianCalendar();
     calendar.setTime(new Date());
 
+    var blogbase = settings.getBlogBaseUrl(user.getUsername());
     rss.setTitle(user.getUsername());
-    rss.setLink("http://www.justjournal.com/users/" + user.getUsername());
-    rss.setSelfLink("http://www.justjournal.com/users/" + user.getUsername() + "/rss");
+    rss.setLink(blogbase);
+    rss.setSelfLink(blogbase + "/rss");
     rss.setDescription("Just Journal for " + user.getUsername());
     rss.setLanguage("en-us");
     rss.setCopyright("Copyright " + calendar.get(Calendar.YEAR) + ' ' + user.getFirstName());
-    rss.setWebMaster("webmaster@justjournal.com (Lucas)");
+    rss.setWebMaster(settings.getWebmaster());
     // RSS advisory board format
     rss.setManagingEditor(user.getUserContact().getEmail() + " (" + user.getFirstName() + ")");
 
@@ -1743,12 +1755,13 @@ public class UsersController {
     final GregorianCalendar calendarg = new GregorianCalendar();
     calendarg.setTime(new Date());
 
+    var blogbase = settings.getBlogBaseUrl(user.getUsername());
     atom.setUserName(user.getUsername());
-    atom.setAlternateLink("http://www.justjournal.com/users/" + user.getUsername());
+    atom.setAlternateLink(blogbase);
     atom.setAuthorName(user.getFirstName());
     atom.setUpdated(calendarg.toString());
-    atom.setTitle(new ArrayList<Journal>(user.getJournals()).get(0).getName());
-    atom.setId("http://www.justjournal.com/users/" + user.getUsername() + "/atom");
+    atom.setTitle(getFirstJournal(user).orElseThrow().getName());
+    atom.setId(blogbase + "/atom");
     atom.setSelfLink("/users/" + user.getUsername() + "/atom");
     final Pageable page = PageRequest.of(0, 15);
     atom.populate(
@@ -1769,13 +1782,14 @@ public class UsersController {
     final GregorianCalendar calendarg = new GregorianCalendar();
     calendarg.setTime(new Date());
 
-    rss.setTitle(user.getUsername() + "\'s pictures");
-    rss.setLink("http://www.justjournal.com/users/" + user.getUsername() + "/pictures");
-    rss.setSelfLink("http://www.justjournal.com/users/" + user.getUsername() + "/pictures/rss");
+    var blogbase = settings.getBlogBaseUrl(user.getUsername());
+    rss.setTitle(user.getUsername() + "'s pictures");
+    rss.setLink(blogbase + "/pictures");
+    rss.setSelfLink(blogbase + "/pictures/rss");
     rss.setDescription("Just Journal Pictures for " + user.getUsername());
     rss.setLanguage("en-us");
     rss.setCopyright("Copyright " + calendarg.get(Calendar.YEAR) + ' ' + user.getFirstName());
-    rss.setWebMaster("webmaster@justjournal.com (Luke)");
+    rss.setWebMaster(settings.getWebmaster());
     // RSS advisory board format
     rss.setManagingEditor(user.getUserContact().getEmail() + " (" + user.getFirstName() + ")");
     rss.populateImageList(user.getId(), user.getUsername());
@@ -1864,15 +1878,13 @@ public class UsersController {
       sb.append("xmlns:trackback=\"http://madskills.com/public/xml/rss/module/trackback/\">\n");
       sb.append("\t<rdf:Description ");
       sb.append("rdf:about=\"");
-      sb.append("http://www.justjournal.com/users/")
-          .append(o.getUser().getUsername())
+      sb.append(settings.getBlogBaseUrl(o.getUser().getUsername()))
           .append("/entry/");
       sb.append(o.getId());
       sb.append("#e");
       sb.append(o.getId());
       sb.append("\" dc:identifier=\"");
-      sb.append("http://www.justjournal.com/users/")
-          .append(o.getUser().getUsername())
+      sb.append(settings.getBlogBaseUrl(o.getUser().getUsername()))
           .append("/entry/");
       sb.append(o.getId());
       sb.append("#e");
@@ -1880,8 +1892,7 @@ public class UsersController {
       sb.append("\" dc:title=\"");
       sb.append(Xml.cleanString(o.getSubject()));
       sb.append("\" ");
-      sb.append("trackback:ping=\"https://www.justjournal.com/trackback?entryID=");
-      sb.append(o.getId());
+      sb.append("trackback:ping=\"").append(settings.getBaseUri()).append("/trackback?entryID=").append(o.getId());
       sb.append("\" />\n");
       sb.append("</rdf:RDF>\n");
     } else {
@@ -2035,7 +2046,9 @@ public class UsersController {
         // facebook
         sb.append(
                 "<div style=\"padding-right: 5px\" class=\"fb-share-button\""
-                    + " data-href=\"http://www.justjournal.com/users/")
+                    + " data-href=\"")
+                .append(settings.getBaseUri())
+                .append("users/")
             .append(o.getUser().getUsername())
             .append("/entry/");
         sb.append(o.getId());
