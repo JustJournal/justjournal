@@ -29,6 +29,7 @@ import static com.justjournal.core.Constants.LOGIN_ATTRID;
 import static com.justjournal.core.Constants.PARAM_ID;
 import static com.justjournal.core.Constants.PARAM_TITLE;
 
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.services.ImageService;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
@@ -227,7 +228,11 @@ public class AlbumImageController {
   @DeleteMapping(value = "/{id}")
   public ResponseEntity delete(@PathVariable(PARAM_ID) final int id, final HttpSession session) {
 
-    // Retreive user id
+    if (id < 1) {
+      throw new NotFoundException("Invalid image ID");
+    }
+
+    // Retrieve user id
     final Integer userIDasi = (Integer) session.getAttribute(LOGIN_ATTRID);
     // convert Integer to int type
     int userID = 0;
