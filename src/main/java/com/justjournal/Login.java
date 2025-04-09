@@ -30,10 +30,12 @@ import static com.justjournal.core.Constants.*;
 import com.justjournal.exception.HashNotSupportedException;
 import com.justjournal.model.PasswordType;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.repository.cache.TrackBackIpRepository;
 import com.justjournal.utility.StringUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpSession;
@@ -55,9 +57,12 @@ public class Login {
 
   private final UserRepository userRepository;
 
+  private final TrackBackIpRepository trackBackIpRepository;
+
   @Autowired
-  public Login(final UserRepository userRepository) {
+  public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
     this.userRepository = userRepository;
+    this.trackBackIpRepository = trackBackIpRepository;
   }
 
   public static boolean isAuthenticated(final HttpSession session) {
@@ -137,6 +142,20 @@ public class Login {
     return convertToHex(sha2hash);
   }
 
+  protected boolean isIpSketch() {
+    final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
+    if (trackBackIpRepository.getIpAddress(ip).blockOptional(Duration.ofMinutes(1)).isPresent()) {
+      log.warn("Multiple requests during timeout period from IP ADDRESS {} for TrackBack.", ip);
+      return true;
+    }
+    return false;
+  }
+
+  protected void blockIp() {
+    final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
+    trackBackIpRepository.saveIpAddress(ip, 60).block(Duration.ofMinutes(1));
+  }
+
   /**
    * Authenticate the user using clear text username and password.
    *
@@ -145,7 +164,13 @@ public class Login {
    * @return user id of the user who logged in or 0 if the login failed.
    */
   public int validate(final String userName, final String password) {
-    // the password is sha1 encrypted in the sql server
+
+    if (isIpSketch()) {
+      blockIp();
+      return BAD_USER_ID;
+    }
+
+    // the password is sha1 or sha256 hashed in the mysql server
 
     if (!StringUtil.lengthCheck(userName, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH))
       return BAD_USER_ID; // bad username
@@ -198,6 +223,11 @@ public class Login {
    */
   public boolean changePass(final String userName, final String password, final String newPass) {
 
+    if (isIpSketch()) {
+      blockIp();
+      return false;
+    }
+
     final int uid;
 
     try {
@@ -212,7 +242,7 @@ public class Login {
         return true;
       }
     } catch (final Exception e) {
-      log.error("changePass(): " + e.getMessage());
+        log.error("changePass(): {}", e.getMessage());
     }
 
     return false;

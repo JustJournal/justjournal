@@ -28,9 +28,9 @@ package com.justjournal.ctl;
 
 import com.justjournal.services.Blogger;
 import com.justjournal.services.MetaWeblog;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import redstone.xmlrpc.XmlRpcServlet;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import com.justjournal.xmlrpc.XmlRpcServlet;
 
 /**
  * XML RPC endpoints for blogger and metaweblog legacy APIs.

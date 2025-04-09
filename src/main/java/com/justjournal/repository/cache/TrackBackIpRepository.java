@@ -50,8 +50,12 @@ public class TrackBackIpRepository {
     this.valOperations = reactiveRedisTemplateString.opsForValue();
   }
 
+  public Mono<Boolean> saveIpAddress(String ip, int seconds) {
+    return valOperations.set(TRACKBACK_IP_KEY + ip, ip, Duration.ofSeconds(seconds));
+  }
+
   public Mono<Boolean> saveIpAddress(String ip) {
-    return valOperations.set(TRACKBACK_IP_KEY + ip, ip, Duration.ofSeconds(IP_CACHE_SECONDS));
+    return saveIpAddress(ip, IP_CACHE_SECONDS);
   }
 
   public Mono<String> getIpAddress(String ip) {

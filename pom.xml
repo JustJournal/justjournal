@@ -330,7 +330,7 @@
         <dependency>
             <groupId>com.github.justjournal</groupId>
             <artifactId>xml-rpc</artifactId>
-            <version>fdfb3b9a91482b97cd74f0859ff2b6bc727780d2</version>
+            <version>0bae1613d46215c37e8d97d345c5afc722167be4</version>
         </dependency>
 
         <dependency>

@@ -30,17 +30,11 @@ import static com.justjournal.core.Constants.*;
 import com.justjournal.Login;
 import com.justjournal.core.Settings;
 import com.justjournal.exception.ServiceException;
-import com.justjournal.model.Entry;
-import com.justjournal.model.EntryTag;
-import com.justjournal.model.Journal;
-import com.justjournal.model.PrefBool;
-import com.justjournal.model.Tag;
-import com.justjournal.model.User;
+import com.justjournal.model.*;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
-import com.justjournal.repository.SecurityRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.utility.HTMLUtil;
@@ -75,8 +69,6 @@ public class MetaWeblog extends BaseXmlRpcService {
   @Autowired private UserRepository userRepository;
 
   @Autowired private Login webLogin;
-
-  @Autowired private SecurityRepository securityDao;
 
   @Autowired private LocationRepository locationDao;
 
@@ -226,10 +218,10 @@ public class MetaWeblog extends BaseXmlRpcService {
         et.setBody(StringUtil.replace((String) content.get(DESC_KEY), '\'', "\\\'"));
         // et.setMusic(StringUtil.replace(music, '\'', "\\\'"));
         et.setMusic("");
-        et.setSecurity(Objects.requireNonNull(securityDao.findById(2).orElse(null))); // public
+        et.setSecurity(Security.PUBLIC); // public
         et.setLocation(
             Objects.requireNonNull(locationDao.findById(0).orElse(null))); // not specified
-        et.setMood(moodDao.findById(12).orElse(null)); // not specified
+        et.setMood(moodDao.findById(12)); // not specified
         et.setAutoFormat(PrefBool.N);
         et.setAllowComments(PrefBool.Y);
         et.setEmailComments(PrefBool.Y);
@@ -347,7 +339,7 @@ public class MetaWeblog extends BaseXmlRpcService {
           /* TODO: add date edit support */
           entryRepository.save(et2);
 
-          String tags[] = (String[]) content.get("categories");
+          String[] tags = (String[]) content.get("categories");
           for (final String tag : tags) {
             final Tag tag1 = tagDao.findByName(tag);
 
@@ -456,7 +448,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         for (EntryTag tag : e.getTags()) {
           list.add(tag.getTag().getName());
         }
-        String str[] = list.toArray(new String[list.size()]);
+        String[] str = list.toArray(new String[list.size()]);
         entry.put("categories", str); // according to microsoft it's a string array
         arr.add(entry);
       }
@@ -514,7 +506,7 @@ public class MetaWeblog extends BaseXmlRpcService {
     for (EntryTag entryTag : e.getTags()) {
       list.add(entryTag.getTag().getName());
     }
-    String str[] = list.toArray(new String[list.size()]);
+    String[] str = list.toArray(new String[list.size()]);
     entry.put("categories", str); // according to microsoft it's a string array
 
     return entry;

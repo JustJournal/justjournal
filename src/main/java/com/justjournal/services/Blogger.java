@@ -29,10 +29,7 @@ import static com.justjournal.core.Constants.PATH_USERS;
 
 import com.justjournal.Login;
 import com.justjournal.core.Settings;
-import com.justjournal.model.Entry;
-import com.justjournal.model.Journal;
-import com.justjournal.model.PrefBool;
-import com.justjournal.model.User;
+import com.justjournal.model.*;
 import com.justjournal.repository.*;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.HTMLUtil;
@@ -72,8 +69,6 @@ public class Blogger extends BaseXmlRpcService {
   @Autowired private MoodRepository moodDao;
 
   @Autowired private LocationRepository locationDao;
-
-  @Autowired private SecurityRepository securityDao;
 
   @Autowired private Settings settings;
 
@@ -230,9 +225,9 @@ public class Blogger extends BaseXmlRpcService {
       } else music = "";
       et.setMusic(StringUtil.replace(music, '\'', "\\\'"));
 
-      et.setSecurity(securityDao.findById(2).orElse(null)); // public
+      et.setSecurity(Security.PUBLIC); // public
       et.setLocation(locationDao.findById(0).orElse(null)); // not specified
-      et.setMood(moodDao.findById(12).orElse(null)); // not specified
+      et.setMood(moodDao.findById(12)); // not specified
       et.setAutoFormat(PrefBool.Y);
       et.setAllowComments(PrefBool.Y);
       et.setEmailComments(PrefBool.Y);
