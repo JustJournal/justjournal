@@ -41,6 +41,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -71,6 +73,7 @@ public class Login {
     return username != null && !username.isEmpty();
   }
 
+  @Nullable
   public static String currentLoginName(final HttpSession session) {
     return (String) session.getAttribute(LOGIN_ATTRNAME);
   }
@@ -111,6 +114,7 @@ public class Login {
     return m.matches(); // valid on true
   }
 
+  @NotNull
   private static String convertToHex(byte[] data) {
     final StringBuilder buf = new StringBuilder();
     for (final byte aData : data) {
@@ -125,6 +129,7 @@ public class Login {
     return buf.toString();
   }
 
+  @NotNull
   public static String sha1(final String text) throws NoSuchAlgorithmException {
     final MessageDigest md = MessageDigest.getInstance("SHA-1");
     byte[] sha1hash;
@@ -134,6 +139,7 @@ public class Login {
     return convertToHex(sha1hash);
   }
 
+  @NotNull
   public static String sha256(final String text) throws NoSuchAlgorithmException {
     final MessageDigest md = MessageDigest.getInstance("SHA-256");
     byte[] sha2hash;
@@ -145,7 +151,8 @@ public class Login {
 
   public boolean isIpSketch() {
     final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
-    if (trackBackIpRepository.getIpAddress(ip).blockOptional(Duration.ofMinutes(1)).isPresent()) {
+    var result = trackBackIpRepository.getIpAddress(ip).blockOptional(Duration.ofMinutes(1));
+    if (result.isPresent() && !"0.0.0.0".equals(result.get())) {
       log.warn("Multiple requests during timeout period from IP ADDRESS {} for TrackBack.", ip);
       return true;
     }
@@ -257,6 +264,7 @@ public class Login {
     return false;
   }
 
+  @NotNull
   public static String getHashedPassword(final String userName, final String password) {
     try {
       return sha256(userName + password);

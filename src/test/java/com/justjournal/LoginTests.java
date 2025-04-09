@@ -27,6 +27,7 @@ package com.justjournal;
 
 import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.repository.cache.TrackBackIpRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,11 +36,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.context.request.RequestContextHolder;
+import reactor.core.publisher.Mono;
 
 import java.security.NoSuchAlgorithmException;
 
 import static com.justjournal.core.Constants.BAD_USER_ID;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +54,12 @@ import static org.mockito.Mockito.when;
 class LoginTests {
 
   @Mock UserRepository userRepository;
+
+  @Mock
+  TrackBackIpRepository trackBackIpRepository;
+
+  @Mock
+  RequestContextHolder requestContextHolder;
 
   @InjectMocks private Login login;
 
@@ -101,24 +111,40 @@ class LoginTests {
 
   @Test
   void testValidateShortUser() {
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+    when(trackBackIpRepository.saveIpAddress(anyString(), anyInt())).thenReturn(Mono.fromSupplier(() -> true));
     int result = login.validate("a", "basic");
     assertEquals(BAD_USER_ID, result);
   }
 
   @Test
   void testValidateShortPass() {
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+    when(trackBackIpRepository.saveIpAddress(anyString(), anyInt())).thenReturn(Mono.fromSupplier(() -> true));
     int result = login.validate("abcdef", "a");
     assertEquals(BAD_USER_ID, result);
   }
 
   @Test
+  void testValidateSketchyIpUser() {
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.fromSupplier(() -> "8.8.8.8")); // sorry google dns
+    when(trackBackIpRepository.saveIpAddress(anyString(), anyInt())).thenReturn(Mono.fromSupplier(() -> true));
+    int result = login.validate("abcdef", "abcdefgad");
+    assertEquals(BAD_USER_ID, result);
+  }
+
+  @Test
   void testValidateBadUser() {
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+    when(trackBackIpRepository.saveIpAddress(anyString(), anyInt())).thenReturn(Mono.fromSupplier(() -> true));
     int result = login.validate("a@b", "basic");
     assertEquals(BAD_USER_ID, result);
   }
 
   @Test
   void testValidateBadPass() {
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+    when(trackBackIpRepository.saveIpAddress(anyString(), anyInt())).thenReturn(Mono.fromSupplier(() -> true));
     int result = login.validate("abb", "basic%");
     assertEquals(BAD_USER_ID, result);
   }
@@ -129,6 +155,7 @@ class LoginTests {
     user.setId(1);
     user.setUsername("abc");
     when(userRepository.findByUsernameAndPassword(anyString(), anyString())).thenReturn(user);
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
     int result = login.validate("abc", "basic");
     assertEquals(1, result);
 

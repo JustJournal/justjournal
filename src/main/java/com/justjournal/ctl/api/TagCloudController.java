@@ -58,7 +58,6 @@ public class TagCloudController {
   }
 
   @GetMapping(value = "{" + PARAM_USERNAME + "}", produces = MediaType.APPLICATION_JSON_VALUE)
-  @ResponseBody
   public ResponseEntity<Collection<Tag>> getTags(
       @PathVariable(PARAM_USERNAME) final String username) throws ServiceException {
     final ParallelFlux<Tag> o = tagService.getTags(username);

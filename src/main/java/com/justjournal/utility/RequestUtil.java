@@ -27,10 +27,12 @@ package com.justjournal.utility;
 
 
 import java.util.Arrays;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -52,10 +54,14 @@ public class RequestUtil {
     "REMOTE_ADDR"
   };
 
+  @NotNull
   public static String getRemoteIP() {
     try {
-      HttpServletRequest request =
-          ((ServletRequestAttributes) (RequestContextHolder.getRequestAttributes())).getRequest();
+
+      var attributes = RequestContextHolder.getRequestAttributes();
+      if (attributes == null) return "0.0.0.0";
+
+      HttpServletRequest request = ((ServletRequestAttributes) (attributes)).getRequest();
 
       String ip =
           Arrays.stream(IP_HEADER_NAMES)

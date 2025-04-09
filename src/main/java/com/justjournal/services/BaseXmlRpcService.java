@@ -26,6 +26,8 @@
 package com.justjournal.services;
 
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.Serializable;
 import java.util.HashMap;
 
@@ -40,6 +42,7 @@ public class BaseXmlRpcService {
   protected static final String FAULT_CODE = "faultCode";
   protected static final String FAULT_STRING = "faultString";
 
+  @NotNull
   protected HashMap<Object, Serializable> error(final String faultString) {
     final HashMap<Object, Serializable> s = new HashMap<>();
     s.put(FAULT_CODE, 4);

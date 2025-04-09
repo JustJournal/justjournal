@@ -25,6 +25,9 @@
  */
 package com.justjournal.utility;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -52,18 +55,21 @@ public final class DateConvert {
     return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssz");
   }
 
+  @NotNull
   public static String encode822() {
     SimpleDateFormat df822 = getDateFormat822();
     df822.setTimeZone(TimeZone.getTimeZone("GMT"));
     return df822.format(new Date());
   }
 
+  @NotNull
   public static String encode822(final Date data) {
     SimpleDateFormat df822 = getDateFormat822();
     df822.setTimeZone(TimeZone.getTimeZone("GMT"));
     return df822.format(data);
   }
 
+  @NotNull
   public static String encode822(final Date data, final TimeZone tz) {
     SimpleDateFormat df822 = getDateFormat822();
 
@@ -92,6 +98,7 @@ public final class DateConvert {
   Copyright 2007, Chad Okere (ceothrow1 at gmail dotcom)
   OMG NO WARRENTY EXPRESSED OR IMPLIED!!!1
   */
+  @Nullable
   public static Date decode3339(String input) throws java.text.ParseException {
     Date d;
 
@@ -133,18 +140,21 @@ public final class DateConvert {
     return d;
   }
 
+  @NotNull
   public static String encode3339() {
     final SimpleDateFormat df3339 = getDateFormat3339();
     df3339.setTimeZone(TimeZone.getTimeZone("UTC"));
     return df3339.format(new Date());
   }
 
+  @NotNull
   public static String encode3339(final Date data) {
     final SimpleDateFormat df3339 = getDateFormat3339();
     df3339.setTimeZone(TimeZone.getTimeZone("UTC"));
     return df3339.format(data);
   }
 
+  @Nullable
   public static Date decode8601(final String input) throws java.text.ParseException {
     final SimpleDateFormat df8601 = getDateFormat8601();
     String date = input;
@@ -160,10 +170,12 @@ public final class DateConvert {
     return df8601.parse(date);
   }
 
+  @NotNull
   public static String encode8601() {
     return encode8601(new Date());
   }
 
+  @NotNull
   public static String encode8601(final Date data) {
     final SimpleDateFormat df8601 = getDateFormat8601();
     df8601.setTimeZone(TimeZone.getTimeZone("UTC"));

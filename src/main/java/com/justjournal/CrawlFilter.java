@@ -44,6 +44,7 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.owasp.esapi.ESAPI;
 import org.owasp.esapi.errors.EncodingException;
 
@@ -54,6 +55,7 @@ public final class CrawlFilter implements Filter {
 
   private FilterConfig filterConfig = null;
 
+  @NotNull
   private static String rewriteQueryString(String queryString) throws EncodingException {
     StringBuilder queryStringSb = new StringBuilder(queryString);
     int i = queryStringSb.indexOf("&_escaped_fragment_");

@@ -28,6 +28,8 @@ package com.justjournal.repository.cache;
 import static com.justjournal.core.CacheKeys.TRACKBACK_IP_KEY;
 
 import java.time.Duration;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.ReactiveValueOperations;
@@ -44,6 +46,8 @@ public class TrackBackIpRepository {
 
   private final ReactiveValueOperations<String, String> valOperations;
 
+  private final Set<String> invalidIpAddresses = Set.of("127.0.0.1", "localhost", "0.0.0.0", "::1");
+
   @Autowired
   public TrackBackIpRepository(ReactiveRedisTemplate<String, String> reactiveRedisTemplateString) {
     this.reactiveRedisTemplateString = reactiveRedisTemplateString;
@@ -51,6 +55,9 @@ public class TrackBackIpRepository {
   }
 
   public Mono<Boolean> saveIpAddress(String ip, int seconds) {
+    if (ip == null || ip.isEmpty() || invalidIpAddresses.stream().anyMatch(ip::equalsIgnoreCase)) {
+      return Mono.fromSupplier(() -> false);
+    }
     return valOperations.set(TRACKBACK_IP_KEY + ip, ip, Duration.ofSeconds(seconds));
   }
 
