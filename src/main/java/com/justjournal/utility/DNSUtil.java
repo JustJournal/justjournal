@@ -64,7 +64,15 @@ public class DNSUtil {
   }
 
   public static boolean isDomainValid(final String domainName) {
-    if (domainName == null) return false;
+    if (domainName == null || domainName.isEmpty()) return false;
+
+    // Max FQDN length is between 1 and 253 characters.
+    if (domainName.length() > 253) return false;
+
+    var parts = domainName.split("\\.");
+    for (var part : parts) {
+      if (part.length() > 63) return false; // label part between dots max length is 63.
+    }
 
     try {
       final InetAddress inetAddress = InetAddress.getByName(domainName);

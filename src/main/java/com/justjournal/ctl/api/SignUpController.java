@@ -59,9 +59,14 @@ public class SignUpController {
 
   private final Settings settings;
 
-  public SignUpController(AccountService accountService, Settings settings) {
+  private final Login login;
+
+  private static final String EMAIL_INVALID = "Invalid email address.";
+
+  public SignUpController(AccountService accountService, Settings settings, Login login) {
     this.accountService = accountService;
     this.settings = settings;
+    this.login = login;
   }
 
   @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -73,20 +78,12 @@ public class SignUpController {
       return ErrorHandler.modelError(Constants.ERR_ADD_USER);
     }
 
-    if (!StringUtil.lengthCheck(user.getEmail(), 3, 100)) {
-      throw new IllegalArgumentException("Invalid email address");
+    if (!StringUtil.isEmailValid(user.getEmail()) || !DNSUtil.isEmailDomainValid((user.getEmail()))) {
+      throw new IllegalArgumentException(EMAIL_INVALID);
     }
 
-    if (!StringUtil.isEmailValid(user.getEmail())) {
-      throw new IllegalArgumentException("Invalid email address.");
-    }
-
-    if (!DNSUtil.isEmailDomainValid((user.getEmail()))) {
-      throw new IllegalArgumentException("Invalid email address. Domain not found.");
-    }
-
-    if (!Login.isUserName(user.getUsername())) {
-      log.warn("Username used for signup is invalid: " + user.getUsername());
+    if (!login.exists(user.getUsername())) {
+        log.warn("Username used for signup is invalid: {}", user.getUsername());
 
       throw new IllegalArgumentException("Username must be letters and numbers only");
     }

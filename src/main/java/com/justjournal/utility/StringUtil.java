@@ -113,6 +113,8 @@ public final class StringUtil {
   public static boolean isEmailValid(final String address) {
     if (address == null) return false;
 
+    if (!StringUtil.lengthCheck(address, 3, 100)) return false;
+
     // based on http://emailregex.com/
     final Pattern p =
         Pattern.compile(

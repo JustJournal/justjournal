@@ -72,8 +72,7 @@ public class LoginAccount extends JustJournalBaseServlet {
     userName = userName.toLowerCase();
 
     if (log.isDebugEnabled()) {
-      log.debug("User Agent is: " + userAgent + endl);
-      log.debug("mobile: " + mobile + endl);
+      log.debug("User Agent is: {} mobile: {}", userAgent, mobile);
     }
 
     try {

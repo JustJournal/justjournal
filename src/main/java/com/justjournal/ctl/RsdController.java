@@ -41,7 +41,6 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>A list of points that blogging clients can use to post-entries by "autodiscovery". This is
  * used by blog clients such as Microsoft's Live Writer.
  *
- * TODO: remove Rsd entirely if we don't want xml-rpc?
  *
  * <p>http://cyber.law.harvard.edu/blogs/gems/tech/rsd.html
  *<p>TODO: add atompub?</p>

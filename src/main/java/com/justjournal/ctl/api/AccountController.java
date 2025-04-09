@@ -155,6 +155,7 @@ public class AccountController {
       userDao.save(user);
       return java.util.Collections.singletonMap("id", Integer.toString(user.getId()));
     }
+    webLogin.blockIp(5);
     response.setStatus(HttpServletResponse.SC_FORBIDDEN);
     return ErrorHandler.modelError("Could not edit account.");
   }
@@ -162,6 +163,7 @@ public class AccountController {
   @DeleteMapping
   public Map<String, String> delete(final HttpServletResponse response, final HttpSession session) {
     if (!Login.isAuthenticated(session)) {
+      webLogin.blockIp(5);
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return ErrorHandler.modelError(Constants.ERR_INVALID_LOGIN);
     }
@@ -218,6 +220,7 @@ public class AccountController {
       final HttpServletResponse response) {
 
     if (!Login.isAuthenticated(session)) {
+      webLogin.blockIp(5);
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError(Constants.ERR_INVALID_LOGIN);
     }
@@ -230,6 +233,7 @@ public class AccountController {
       @RequestBody final User user, final HttpSession session, final HttpServletResponse response) {
 
     if (!Login.isAuthenticated(session)) {
+      webLogin.blockIp(5);
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError(Constants.ERR_INVALID_LOGIN);
     }

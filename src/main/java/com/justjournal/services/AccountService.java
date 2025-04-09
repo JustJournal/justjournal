@@ -77,6 +77,10 @@ public class AccountService {
   public User signup(final NewUser newUser) throws ServiceException {
     final Style style = styleService.getDefaultStyle();
 
+    if (userRepository.findByUsername(newUser.getUsername())!= null) {
+      throw new ServiceException("Unable to create user");
+    }
+
     User user = new User();
     user.setName(newUser.getFirstName());
     user.setLastName(newUser.getLastName());

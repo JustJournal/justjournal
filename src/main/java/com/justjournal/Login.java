@@ -29,6 +29,7 @@ import static com.justjournal.core.Constants.*;
 
 import com.justjournal.exception.HashNotSupportedException;
 import com.justjournal.model.PasswordType;
+import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.repository.cache.TrackBackIpRepository;
 import com.justjournal.utility.StringUtil;
@@ -58,11 +59,13 @@ public class Login {
   private final UserRepository userRepository;
 
   private final TrackBackIpRepository trackBackIpRepository;
+  private final UserBioRepository userBioRepository;
 
   @Autowired
-  public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
+  public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository, UserBioRepository userBioRepository) {
     this.userRepository = userRepository;
     this.trackBackIpRepository = trackBackIpRepository;
+    this.userBioRepository = userBioRepository;
   }
 
   public static boolean isAuthenticated(final HttpSession session) {
@@ -142,7 +145,7 @@ public class Login {
     return convertToHex(sha2hash);
   }
 
-  protected boolean isIpSketch() {
+  public boolean isIpSketch() {
     final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
     if (trackBackIpRepository.getIpAddress(ip).blockOptional(Duration.ofMinutes(1)).isPresent()) {
       log.warn("Multiple requests during timeout period from IP ADDRESS {} for TrackBack.", ip);
@@ -151,7 +154,7 @@ public class Login {
     return false;
   }
 
-  protected void blockIp(int seconds) {
+  public void blockIp(int seconds) {
     final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
     trackBackIpRepository.saveIpAddress(ip, seconds).block(Duration.ofMinutes(1));
   }
@@ -213,7 +216,7 @@ public class Login {
   }
 
   public void setLastLogin(final int id) {
-    /* verify its a real login */
+    /* verify it's a real login */
     if (id < 1) return;
 
     try {
@@ -263,6 +266,10 @@ public class Login {
       log.error("Invalid password hash algorithm?", e);
       throw new HashNotSupportedException();
     }
+  }
+
+  public boolean exists(final String userName) {
+      return isUserName(userName) && userRepository.findByUsername(userName) != null;
   }
 
   private com.justjournal.model.User lookupUser(final String userName, final String password) {
