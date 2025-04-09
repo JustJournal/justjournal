@@ -28,6 +28,7 @@ package com.justjournal;
 import com.justjournal.core.Settings;
 import com.justjournal.ctl.LoginAccount;
 import com.justjournal.ctl.UpdateJournal;
+import com.justjournal.ctl.XmlRpc;
 import com.justjournal.repository.*;
 import com.justjournal.services.BingService;
 import com.justjournal.services.TrackbackService;
@@ -78,5 +79,10 @@ public class Application extends SpringBootServletInitializer {
   @Bean
   public ServletRegistrationBean<LoginAccount> loginAccountServlet(Login webLogin) {
     return new ServletRegistrationBean<>(new LoginAccount(webLogin), "/loginAccount");
+  }
+
+  @Bean
+  public ServletRegistrationBean<XmlRpc> xmlrpc() {
+    return new ServletRegistrationBean<>(new XmlRpc(), "/xml-rpc/*");
   }
 }
