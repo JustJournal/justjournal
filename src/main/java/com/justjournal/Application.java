@@ -30,6 +30,7 @@ import com.justjournal.ctl.LoginAccount;
 import com.justjournal.ctl.UpdateJournal;
 import com.justjournal.ctl.XmlRpc;
 import com.justjournal.repository.*;
+import com.justjournal.repository.cache.TrackBackIpRepository;
 import com.justjournal.services.BingService;
 import com.justjournal.services.TrackbackService;
 import org.springframework.boot.SpringApplication;
@@ -66,8 +67,8 @@ public class Application extends SpringBootServletInitializer {
   }
 
   @Bean
-  public Login webLogin(UserRepository userRepository) {
-    return new Login(userRepository);
+  public Login webLogin(UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
+    return new Login(userRepository, trackBackIpRepository);
   }
 
   @Bean

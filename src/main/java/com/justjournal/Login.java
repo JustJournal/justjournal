@@ -59,13 +59,11 @@ public class Login {
   private final UserRepository userRepository;
 
   private final TrackBackIpRepository trackBackIpRepository;
-  private final UserBioRepository userBioRepository;
 
   @Autowired
-  public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository, UserBioRepository userBioRepository) {
+  public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
     this.userRepository = userRepository;
     this.trackBackIpRepository = trackBackIpRepository;
-    this.userBioRepository = userBioRepository;
   }
 
   public static boolean isAuthenticated(final HttpSession session) {
