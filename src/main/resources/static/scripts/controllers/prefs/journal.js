@@ -1,12 +1,13 @@
-angular.module('wwwApp').controller('PrefsJournalCtrl', ['$scope', 'LoginService', 'JournalService', 'StyleService',
-    function ($scope, LoginService, JournalService, StyleService) {
+angular.module('wwwApp').controller('PrefsJournalCtrl', ['$scope', 'LoginService',
+    'JournalService', 'StyleService', '$window',
+    function ($scope, LoginService, JournalService, StyleService, $window) {
         'use strict';
 
         $scope.ErrorMessage = '';
         $scope.journal = {};
 
         $scope.login = LoginService.get(null, function (login) {
-            $scope.styles = StyleService.query(null, function(style) {
+            $scope.styles = StyleService.query(null, function() {
                 JournalService.get({Id: login.username}, function (journal) {
                     $scope.journal = journal;
 
@@ -22,12 +23,15 @@ angular.module('wwwApp').controller('PrefsJournalCtrl', ['$scope', 'LoginService
 
 
         $scope.save = function () {
-            ga('send', 'event', 'Preferences', 'Journal');
+            $window.gtag('event', 'journal', {
+                'event_category': 'Preferences',
+                'event_label': 'Journal'
+            });
             $scope.journal.styleId = $scope.journal.style.id;
             
             $scope.result = JournalService.save($scope.journal,
                     function success() {
-                        alert('Journal Changed');
+                        $window.alert('Journal Changed');
                     },
                     function fail(response) {
                         if (typeof (response.data.error !== 'undefined')) {
@@ -42,6 +46,6 @@ angular.module('wwwApp').controller('PrefsJournalCtrl', ['$scope', 'LoginService
                         else {
                             $scope.ErrorMessage = 'Unknown error occurred. Response was ' + angular.toJson(response);
                         }
-                    })
+                    });
         };
     }]);

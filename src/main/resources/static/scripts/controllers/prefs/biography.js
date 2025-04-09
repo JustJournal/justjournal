@@ -1,5 +1,6 @@
-angular.module('wwwApp').controller('PrefsBiographyCtrl', ['$scope', 'LoginService', 'BiographyService',
-    function ($scope, LoginService, BiographyService) {
+angular.module('wwwApp').controller('PrefsBiographyCtrl', ['$scope',
+    'LoginService', 'BiographyService', '$window',
+    function ($scope, LoginService, BiographyService, $window) {
         'use strict';
 
         $scope.ErrorMessage = '';
@@ -14,8 +15,11 @@ angular.module('wwwApp').controller('PrefsBiographyCtrl', ['$scope', 'LoginServi
         $scope.save = function () {
             $scope.result = BiographyService.save($scope.biography,
                     function success() {
-                        ga('send', 'event', 'Preferences', 'BiographyUpdate');
-                        alert('Biography Changed');
+                        $window.gtag('event', 'biography_upload', {
+                            'event_category': 'Preferences',
+                            'event_label': 'BiographyUpdate'
+                        });
+                        $window.alert('Biography Changed');
                     },
                     function fail(response) {
                         if (typeof (response.data.error !== 'undefined')) {

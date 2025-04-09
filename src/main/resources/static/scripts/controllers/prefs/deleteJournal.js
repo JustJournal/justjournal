@@ -1,5 +1,6 @@
-angular.module('wwwApp').controller('PrefsJournalDeleteCtrl', ['$scope', 'LoginService', 'AccountService',
-    function ($scope, LoginService, AccountService) {
+angular.module('wwwApp').controller('PrefsJournalDeleteCtrl', ['$scope',
+    'LoginService', 'AccountService', '$window',
+    function ($scope, LoginService, AccountService, $window) {
         'use strict';
 
         $scope.ErrorMessage = '';
@@ -12,11 +13,14 @@ angular.module('wwwApp').controller('PrefsJournalDeleteCtrl', ['$scope', 'LoginS
         });
 
         $scope.deleteJournal = function () {
-            ga('send', 'event', 'Preferences', 'AccountDelete');
+            $window.gtag('event', 'account_delete', {
+                'event_category': 'Preferences',
+                'event_label': 'AccountDelete'
+            });
 
             $scope.result = AccountService.delete(
                     function success() {
-                        alert('Account Deleted');
+                        $window.alert('Account Deleted');
                     },
                     function fail(response) {
                         if (typeof (response.data.error !== 'undefined')) {

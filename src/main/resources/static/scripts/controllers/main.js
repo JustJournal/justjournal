@@ -23,9 +23,9 @@ angular.module('wwwApp').controller('MainCtrl', ['$scope', '$http', '$window', f
         $http
                 .post('api/login', data)
                 .then(function onSuccess(response) {
-                    const login_error = 'Your login information was invalid. Please try again';
-                    var data = response.data;
-                    var status = response.status;
+                    var login_error = 'Your login information was invalid. Please try again';
+                    const data = response.data;
+                    const status = response.status;
                     if (status === 200 && data.status === 'JJ.LOGIN.OK') {
                         $window.gtag('event', 'login', {
                             'event_category': 'Authentication',

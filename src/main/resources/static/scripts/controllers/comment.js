@@ -76,7 +76,7 @@ angular.module('wwwApp').controller('CommentCtrl', ['$scope', '$routeParams', '$
         });
 
         $scope.init = function () {
-            jQuery("#frmAddComment").validate();
+            jQuery('#frmAddComment').validate();
         };
         $scope.init();
     }]);

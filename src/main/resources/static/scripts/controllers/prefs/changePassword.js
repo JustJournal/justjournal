@@ -1,5 +1,6 @@
-angular.module('wwwApp').controller('PrefsChangePasswordCtrl', ['$scope', 'AccountService',
-    function ($scope, AccountService) {
+angular.module('wwwApp').controller('PrefsChangePasswordCtrl', ['$scope',
+    'AccountService', '$window',
+    function ($scope, AccountService, $window) {
         'use strict';
 
         $scope.ErrorMessage = '';
@@ -8,13 +9,16 @@ angular.module('wwwApp').controller('PrefsChangePasswordCtrl', ['$scope', 'Accou
         $scope.newPassword = '';
 
         $scope.save = function () {
-            ga('send', 'event', 'Authentication', 'PasswordReset');
+            $window.gtag('event', 'password_reset', {
+                'event_category': 'Authentication',
+                'event_label': 'PasswordReset'
+            });
             $scope.result = AccountService.password({
                         passCurrent: $scope.password,
                         passNew: $scope.newPassword
                     },
                     function success() {
-                        alert('Password Changed');
+                        $window.alert('Password Changed');
                     },
                     function fail(response) {
                         if (typeof (response.data.error !== 'undefined')) {

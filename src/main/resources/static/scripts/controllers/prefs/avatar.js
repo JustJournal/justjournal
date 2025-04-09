@@ -1,9 +1,13 @@
-angular.module('wwwApp').controller('PrefsAvatarCtrl', ['$scope', 'Upload', '$timeout',
-    function ($scope, Upload, $timeout) {
+angular.module('wwwApp').controller('PrefsAvatarCtrl', ['$scope', 'Upload',
+    '$timeout', '$window',
+    function ($scope, Upload, $timeout, $window) {
         'use strict';
 
         $scope.uploadPic = function(file) {
-            ga('send', 'event', 'Preferences', 'AvatarUpload');
+            $window.gtag('event', 'avatar_upload', {
+                'event_category': 'Preferences',
+                'event_label': 'AvatarUpload'
+            });
             
             file.upload = Upload.upload({
               url: '/Avatar',

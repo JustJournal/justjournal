@@ -9,6 +9,10 @@ angular.module('wwwApp').controller('wwwAppCtrl',
                     $scope.Login = null;
                 });
                 $scope.$on('$viewContentLoaded', function () {
-                    $window.ga('send', 'pageview');
+                    $window.gtag('event', 'page_view', {
+                        page_title: $location.path(),
+                        page_location: $window.location.href,
+                        page_path: $location.url()
+                    });
                 });
             }]);
