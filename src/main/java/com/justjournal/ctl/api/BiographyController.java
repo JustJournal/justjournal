@@ -30,6 +30,7 @@ import static com.justjournal.core.Constants.PARAM_USERNAME;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.User;
 import com.justjournal.model.UserBio;
 import com.justjournal.repository.UserBioRepository;
@@ -76,10 +77,14 @@ public class BiographyController {
       produces = MediaType.APPLICATION_JSON_VALUE)
   public UserBio get(
       @PathVariable(PARAM_USERNAME) String username, final HttpServletResponse response) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     final User user = userDao.findByUsername(username);
     if (user == null) {
-      response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      return null;
+      throw new NotFoundException();
     }
     return bioDao.findByUserId(user.getId());
   }

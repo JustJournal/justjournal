@@ -94,7 +94,11 @@ public class Login {
     session.removeAttribute(LOGIN_ATTRID);
   }
 
-  public static boolean isUserName(final CharSequence input) {
+  public static boolean isUserName(final String input) {
+    if (!StringUtil.lengthCheck(input, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)) {
+      return false;
+    }
+
     final Pattern p = Pattern.compile("[A-Za-z0-9_]+");
     final Matcher m = p.matcher(input);
 
@@ -104,12 +108,15 @@ public class Login {
   /**
    * Check if a password is valid in terms of characters used.
    *
-   * @param input clear text password
+   * @param password clear text password
    * @return true if valid, false otherwise
    */
-  public static boolean isPassword(final CharSequence input) {
+  public static boolean isPassword(final String password) {
+    if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)) {
+      return false;
+    }
     final Pattern p = Pattern.compile("[A-Za-z0-9_@.!&*#$?^ ]+");
-    final Matcher m = p.matcher(input);
+    final Matcher m = p.matcher(password);
 
     return m.matches(); // valid on true
   }
@@ -178,18 +185,6 @@ public class Login {
       return BAD_USER_ID;
     }
 
-    // the password is sha1 or sha256 hashed in the mysql server
-
-    if (!StringUtil.lengthCheck(userName, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)) {
-      blockIp(5);
-      return BAD_USER_ID; // bad username
-    }
-
-    if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)) {
-      blockIp(5);
-      return BAD_USER_ID;
-    }
-
     if (!isUserName(userName)) {
       blockIp(5);
       return BAD_USER_ID; // bad username
@@ -201,6 +196,7 @@ public class Login {
     }
 
     try {
+      // the password is sha1 or sha256 hashed in the mysql server
       final int userId = lookupUserId(userName, password);
       if (userId == BAD_USER_ID) {
         blockIp(5);

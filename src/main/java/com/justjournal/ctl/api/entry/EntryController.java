@@ -30,6 +30,7 @@ import static com.justjournal.core.Constants.*;
 import com.justjournal.Login;
 import com.justjournal.core.Settings;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Comment;
 import com.justjournal.model.Entry;
@@ -138,8 +139,13 @@ public class EntryController {
   public ResponseEntity<Flux<RecentEntry>> getRecentEntries(
       @PathVariable(PARAM_USERNAME) final String username, final HttpSession session) {
     final Flux<RecentEntry> entries;
+
+    if (!Login.isUserName(username)) {
+     throw new NotFoundException();
+    }
+
     try {
-      if (Login.isAuthenticated(session) && Login.isUserName(username)) {
+      if (Login.isAuthenticated(session) && username.equals(Login.currentLoginName(session))) {
         entries = entryService.getRecentEntries(username);
       } else {
         entries = entryService.getRecentEntriesPublic(username);
@@ -167,11 +173,16 @@ public class EntryController {
       final HttpServletRequest request,
       final HttpServletResponse response,
       final HttpSession session) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     final Page<Entry> entries;
     final Pageable pageable =
         PageRequest.of(page, size, Sort.by(new Sort.Order(Sort.Direction.DESC, "date")));
     try {
-      if (Login.isAuthenticated(session) && Login.isUserName(username)) {
+      if (Login.isAuthenticated(session) && username.equals(Login.currentLoginName(session))) {
         entries = entryService.getEntries(username, pageable);
       } else {
         entries = entryService.getPublicEntries(username, pageable);
@@ -206,6 +217,10 @@ public class EntryController {
       final HttpServletRequest request,
       final HttpServletResponse response,
       final HttpSession session) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
 
     return getEntries(username, DEFAULT_SIZE, page, request, response, session);
   }
@@ -263,6 +278,10 @@ public class EntryController {
   @GetMapping(value = "{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public Collection<EntryTo> getEntries(
       @PathVariable(PARAM_USERNAME) final String username, final HttpServletResponse response) {
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     Collection<EntryTo> entries = null;
     try {
       entries =
@@ -285,14 +304,13 @@ public class EntryController {
   @GetMapping(value = "", params = "username", produces = MediaType.APPLICATION_JSON_VALUE)
   public Collection<EntryTo> getEntriesByUsername(
       @RequestParam(PARAM_USERNAME) final String username, final HttpServletResponse response) {
-    Collection<EntryTo> entries = new ArrayList<>();
-    log.warn("in entriesByUsername with " + username);
 
-    if (username == null || username.isEmpty()) {
-      log.trace("Username was null or empty ");
-      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return entries;
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
     }
+
+    Collection<EntryTo> entries = new ArrayList<>();
+      log.warn("in entriesByUsername with {}", username);
 
     try {
       entries =

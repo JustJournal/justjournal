@@ -4,6 +4,7 @@ import com.justjournal.Login;
 import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -20,6 +21,10 @@ public class UserContextService {
     }
     @Transactional(propagation = Propagation.REQUIRED)
     public UserContext getUserContext(final String username, final HttpSession session) {
+        if (!Login.isUserName(username)) {
+            return null;
+        }
+
         User authUser = null;
         try {
             authUser = userRepository.findByUsername(Login.currentLoginName(session));

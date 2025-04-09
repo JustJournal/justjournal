@@ -38,6 +38,8 @@ import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.filter.ShallowEtagHeaderFilter;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -104,5 +106,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
   public RestTemplate restTemplate(RestTemplateBuilder builder) {
     // Do any additional configuration here
     return builder.build();
+  }
+
+  @Bean
+  public ShallowEtagHeaderFilter shallowEtagHeaderFilter() {
+    return new ShallowEtagHeaderFilter();
   }
 }

@@ -29,6 +29,7 @@ package com.justjournal.ctl.api;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Friend;
 import com.justjournal.model.User;
 import com.justjournal.repository.FriendsRepository;
@@ -80,6 +81,14 @@ public class FriendController {
   public ResponseEntity<Boolean> areWeFriends(
       @PathVariable(Constants.PARAM_USERNAME) final String username,
       @PathVariable("other") final String otherUsername) {
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
+    if (!Login.isUserName(otherUsername)) {
+      throw new NotFoundException();
+    }
+
     try {
       final User user = userRepository.findByUsername(username);
       if (user == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -103,6 +112,10 @@ public class FriendController {
   @GetMapping(value = "{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public Collection<User> getByUsername(
       @PathVariable(Constants.PARAM_USERNAME) String username, HttpServletResponse response) {
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     try {
       final ArrayList<User> friends = new ArrayList<>();
 
@@ -126,6 +139,10 @@ public class FriendController {
     if (!Login.isAuthenticated(session)) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError(Constants.ERR_INVALID_LOGIN);
+    }
+
+    if (!Login.isUserName(friend)) {
+      throw new NotFoundException();
     }
 
     try {

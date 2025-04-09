@@ -29,6 +29,7 @@ package com.justjournal.ctl.api;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Journal;
 import com.justjournal.model.Style;
 import com.justjournal.model.api.JournalTo;
@@ -82,6 +83,10 @@ public class JournalController {
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<Journal>> listByUser(
       @PathVariable(Constants.PARAM_USERNAME) final String username) {
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     try {
       return ResponseEntity.ok(journalRepository.findByUsername(username));
     } catch (final Exception e) {

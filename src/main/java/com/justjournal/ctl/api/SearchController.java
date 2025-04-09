@@ -29,7 +29,9 @@ import static com.justjournal.core.Constants.PARAM_USERNAME;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
+import com.justjournal.Login;
 import com.justjournal.ctl.api.assembler.BlogEntrySearchResourceAssembler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.search.BlogEntry;
 import com.justjournal.services.BlogSearchService;
 import lombok.extern.slf4j.Slf4j;
@@ -91,6 +93,10 @@ public class SearchController {
       @RequestParam("term") final String term,
       final Pageable page,
       final PagedResourcesAssembler<BlogEntry> assembler) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
 
     try {
       final Page<BlogEntry> entries = blogSearchService.publicSearch(term, username, page);

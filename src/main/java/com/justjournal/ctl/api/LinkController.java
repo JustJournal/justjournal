@@ -31,6 +31,7 @@ import static com.justjournal.core.Constants.PARAM_USERNAME;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.api.UserLinkTo;
 import com.justjournal.services.UserLinkService;
 import java.util.Collections;
@@ -76,6 +77,11 @@ public class LinkController {
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<UserLinkTo>> getByUser(
       @PathVariable(PARAM_USERNAME) final String username) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     final List<UserLinkTo> links = userLinkService.getByUser(username);
 
     return ResponseEntity.ok().body(links);

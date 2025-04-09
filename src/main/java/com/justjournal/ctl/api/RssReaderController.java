@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
+import com.justjournal.utility.DNSUtil;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,6 +80,11 @@ public class RssReaderController {
   //@Cacheable(value = "rsssubscription", key = "#username")
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Collection<RssSubscription>> getByUser(@PathVariable(PARAM_USERNAME) String username) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     User user = userRepository.findByUsername(username);
     if (user == null) {
       throw new NotFoundException("User not found");
@@ -89,7 +95,7 @@ public class RssReaderController {
 
   @PutMapping
   public ResponseEntity<Map<String, String>> create(@RequestBody final String uri, final HttpSession session) {
-    if (uri == null || uri.length() < RSS_URL_MIN_LENGTH || uri.length() > RSS_URL_MAX_LENGTH) {
+    if (uri == null || uri.length() < RSS_URL_MIN_LENGTH || uri.length() > RSS_URL_MAX_LENGTH || !DNSUtil.isUrlDomainValid(uri)) {
       throw new BadRequestException("Invalid URI length");
     }
 

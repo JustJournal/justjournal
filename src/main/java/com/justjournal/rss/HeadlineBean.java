@@ -27,6 +27,7 @@ package com.justjournal.rss;
 
 import static com.justjournal.core.Constants.endl;
 
+import com.justjournal.utility.DNSUtil;
 import com.justjournal.utility.Xml;
 import java.io.IOException;
 import java.util.Optional;
@@ -60,7 +61,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class HeadlineBean {
 
-  protected Optional<HeadlineContext> getRssDocument(final String uri) throws Exception {
+  protected Optional<HeadlineContext> getRssDocument(@NonNull final String uri) throws Exception {
 
     final HeadlineContext hc = new HeadlineContext();
 
@@ -87,6 +88,10 @@ public class HeadlineBean {
   }
 
   public String parse(@NonNull final String url) {
+
+    if (!DNSUtil.isUrlDomainValid(url)) {
+      return "<p>RSS Feed address is invalid</p>" + endl;
+    }
 
     try {
       log.info("Starting parse");

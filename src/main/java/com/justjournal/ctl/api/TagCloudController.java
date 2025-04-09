@@ -27,6 +27,8 @@ package com.justjournal.ctl.api;
 
 import static com.justjournal.core.Constants.PARAM_USERNAME;
 
+import com.justjournal.Login;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Tag;
 import com.justjournal.services.TagService;
@@ -60,6 +62,11 @@ public class TagCloudController {
   @GetMapping(value = "{" + PARAM_USERNAME + "}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Collection<Tag>> getTags(
       @PathVariable(PARAM_USERNAME) final String username) throws ServiceException {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     final ParallelFlux<Tag> o = tagService.getTags(username);
     final Collection<Tag> tags =
         o.collectSortedList(Comparator.comparingLong(Tag::getCount)).block();

@@ -47,6 +47,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.xml.sax.SAXParseException;
@@ -88,7 +89,7 @@ public class CachedHeadlineBean extends HeadlineBean {
     return createHeadlineContext(rss, hc);
   }
 
-  private RssCache fetchOrCreateRssCache(String uri) {
+  private RssCache fetchOrCreateRssCache(@NotNull String uri) {
     log.info("looking up rss cache repo uri");
     RssCache rss = rssCacheRepository.findByUri(uri);
     log.info("rss cache lookup done");
@@ -120,7 +121,7 @@ public class CachedHeadlineBean extends HeadlineBean {
   }
 
 
-  private void updateRssContent(RssCache rss, String uri, StringBuilder sbx) throws IOException {
+  private void updateRssContent(RssCache rss, @NotNull String uri, StringBuilder sbx) throws IOException {
     log.info("Updating RSS content for: {}", uri);
     rss.setLastUpdated(Calendar.getInstance().getTime());
 
@@ -144,7 +145,7 @@ public class CachedHeadlineBean extends HeadlineBean {
     rssCacheRepository.saveAndFlush(rss);
   }
 
-  private int fetchContentFromUrl(String uri, StringBuilder sbx) throws IOException {
+  private int fetchContentFromUrl(@NotNull String uri, StringBuilder sbx) throws IOException {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       final HttpGet httpGet = new HttpGet(uri);
       try (CloseableHttpResponse response = httpClient.execute(httpGet)) {

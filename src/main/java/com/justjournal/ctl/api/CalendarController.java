@@ -28,6 +28,8 @@ package com.justjournal.ctl.api;
 import static com.justjournal.core.Constants.PARAM_USERNAME;
 import static com.justjournal.core.Constants.PARAM_YEAR;
 
+import com.justjournal.Login;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.CalendarCount;
 import com.justjournal.model.User;
 import com.justjournal.repository.EntryRepository;
@@ -70,10 +72,13 @@ public class CalendarController {
   public Collection<CalendarCount> getYearCounts(
       @PathVariable(PARAM_USERNAME) final String username, final HttpServletResponse response) {
 
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
+
     final User user = userRepository.findByUsername(username);
     if (user == null) {
-      response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      return Collections.emptyList();
+      throw new NotFoundException();
     }
 
     final GregorianCalendar calendarg = new GregorianCalendar();
@@ -102,13 +107,15 @@ public class CalendarController {
   @GetMapping(value = "/counts/{username}/{year}", produces = MediaType.APPLICATION_JSON_VALUE)
   public Collection<CalendarCount> getMonthCounts(
       @PathVariable(PARAM_USERNAME) final String username,
-      @PathVariable(PARAM_YEAR) final int year,
-      final HttpServletResponse response) {
+      @PathVariable(PARAM_YEAR) final int year) {
+
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
 
     final User user = userRepository.findByUsername(username);
     if (user == null) {
-      response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-      return Collections.emptyList();
+      throw new NotFoundException();
     }
 
     final Collection<CalendarCount> counts = new ArrayList<>();

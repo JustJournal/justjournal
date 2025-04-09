@@ -26,7 +26,9 @@
 package com.justjournal.ctl.api;
 
 
+import com.justjournal.Login;
 import com.justjournal.core.Constants;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Statistics;
 import com.justjournal.model.UserStatistics;
@@ -90,11 +92,11 @@ public class StatisticsController {
   public ResponseEntity<UserStatistics> getById(
       @PathVariable(Constants.PARAM_USERNAME) final String username) {
 
-    try {
-      if (username == null || username.length() < 3) {
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-      }
+    if (!Login.isUserName(username)) {
+      throw new NotFoundException();
+    }
 
+    try {
       final UserStatistics us = statisticsService.getUserStatistics(username);
       if (us == null) {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
