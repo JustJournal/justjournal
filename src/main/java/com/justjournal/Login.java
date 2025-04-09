@@ -151,9 +151,9 @@ public class Login {
     return false;
   }
 
-  protected void blockIp() {
+  protected void blockIp(int seconds) {
     final String ip = com.justjournal.utility.RequestUtil.getRemoteIP();
-    trackBackIpRepository.saveIpAddress(ip, 60).block(Duration.ofMinutes(1));
+    trackBackIpRepository.saveIpAddress(ip, seconds).block(Duration.ofMinutes(1));
   }
 
   /**
@@ -166,25 +166,39 @@ public class Login {
   public int validate(final String userName, final String password) {
 
     if (isIpSketch()) {
-      blockIp();
+      blockIp(30); // second+ attempt, bump block time.
       return BAD_USER_ID;
     }
 
     // the password is sha1 or sha256 hashed in the mysql server
 
-    if (!StringUtil.lengthCheck(userName, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH))
+    if (!StringUtil.lengthCheck(userName, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)) {
+      blockIp(5);
       return BAD_USER_ID; // bad username
+    }
 
-    if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH))
+    if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)) {
+      blockIp(5);
       return BAD_USER_ID;
+    }
 
-    if (!isUserName(userName)) return BAD_USER_ID; // bad username
+    if (!isUserName(userName)) {
+      blockIp(5);
+      return BAD_USER_ID; // bad username
+    }
 
-    if (!isPassword(password)) return BAD_USER_ID; // bad password
+    if (!isPassword(password)) {
+      blockIp(5);
+      return BAD_USER_ID; // bad password
+    }
 
     try {
       final int userId = lookupUserId(userName, password);
-      setLastLogin(userId);
+      if (userId == BAD_USER_ID) {
+        blockIp(5);
+      } else {
+        setLastLogin(userId);
+      }
       return userId;
     } catch (final Exception e) {
       log.error("validate(): {}", e.getMessage());
@@ -209,7 +223,7 @@ public class Login {
       user.setLastLogin(new java.util.Date());
       userRepository.saveAndFlush(user);
     } catch (final Exception e) {
-      log.error("setLastLogin(): " + e.getMessage());
+        log.error("setLastLogin(): {}", e.getMessage());
     }
   }
 
@@ -222,12 +236,6 @@ public class Login {
    * @return true if the password change worked.
    */
   public boolean changePass(final String userName, final String password, final String newPass) {
-
-    if (isIpSketch()) {
-      blockIp();
-      return false;
-    }
-
     final int uid;
 
     try {
