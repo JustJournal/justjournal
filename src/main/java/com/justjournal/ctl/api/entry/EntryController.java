@@ -365,7 +365,7 @@ public class EntryController {
     final Entry entry = new Entry(entryTo);
     entry.setUser(user);
     entry.setLocation(getLocation(entryTo.getLocation()));
-    entry.setSecurity(entryTo.getSecurity());
+    entry.setSecurity(entryTo.getSecurity().getSecurity());
     entry.setMood(getMood(entryTo.getMood()));
     entry.setTags(new HashSet<>());
 
@@ -468,7 +468,7 @@ public class EntryController {
     entry.setUser(user);
 
     entry.setLocation(getLocation(entryTo.getLocation()));
-    entry.setSecurity(entryTo.getSecurity());
+    entry.setSecurity(entryTo.getSecurity().getSecurity());
     entry.setMood(getMood(entryTo.getMood()));
 
     final Entry entry2 = entryRepository.findById(entryTo.getEntryId()).orElse(null);

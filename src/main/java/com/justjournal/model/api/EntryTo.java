@@ -91,8 +91,10 @@ public class EntryTo extends EntityModel<EntryTo> implements Serializable {
   @Serial
   private static final long serialVersionUID = 6558001750470601777L;
 
+  @Builder.Default
   @Getter @Setter private int entryId = 0;
 
+  @Builder.Default
   @Getter @Setter private Date date = new Date();
 
   @Getter @Setter private Date modified;
@@ -103,51 +105,60 @@ public class EntryTo extends EntityModel<EntryTo> implements Serializable {
 
   @Getter @Setter private String user;
 
-  @JsonSerialize(using = SecuritySerializer.class)
-  @JsonDeserialize(using = SecurityDeserializer.class)
-  @Getter @Setter private Security security;
+  @Getter @Setter private SecurityTo security;
 
+  @Builder.Default
   @Getter @Setter private String subject = "";
 
+  @Builder.Default
   @Getter @Setter private String body = "";
 
+  @Builder.Default
   @Getter @Setter private String music = "";
 
   @Getter @Setter private String trackback;
 
+  @Builder.Default
   @Getter @Setter private String format = "TEXT";
 
   @Getter
   @Setter
+  @Builder.Default
   @JsonProperty("autoFormat")
   private Boolean autoFormat = true;
 
   @Getter
   @Setter
+  @Builder.Default
   @JsonProperty("allowComments")
   private Boolean allowComments = true;
 
   @Getter
   @Setter
+  @Builder.Default
   @JsonProperty("emailComments")
   private Boolean emailComments = true;
 
+  @Builder.Default
   @Getter @Setter private Boolean draft = false;
 
   /** For backward compatibility with front end */
   @Deprecated
   @Getter
   @Setter
+  @Builder.Default
   @JsonProperty("tag")
   private String tag = "";
 
   @Getter
   @Setter
+  @Builder.Default
   @JsonProperty("tags")
   private Set<String> tags = new HashSet<>();
 
   @Getter
   @Setter
+  @Builder.Default
   @JsonProperty("comments")
   private Set<CommentTo> comments = new HashSet<>();
 

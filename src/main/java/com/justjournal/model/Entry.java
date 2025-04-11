@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.justjournal.model.api.SecurityTo;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -81,6 +82,7 @@ public class Entry implements Serializable {
   @Temporal(value = TemporalType.TIMESTAMP)
   private Date modified;
 
+  @Getter
   @JsonProperty("location")
   @ManyToOne
   @JoinColumn(name = "location")
@@ -90,6 +92,7 @@ public class Entry implements Serializable {
   @Column(name = "location", insertable = false, updatable = false)
   private int locationId = 0;
 
+  @Getter
   @JsonProperty("mood")
   @ManyToOne
   @JoinColumn(name = "mood")
@@ -196,14 +199,6 @@ public class Entry implements Serializable {
     setLocationId(location.getId());
   }
 
-  public Location getLocation() {
-    return location;
-  }
-
-  public Mood getMood() {
-    return mood;
-  }
-
     public void setMood(final Mood mood) {
     this.mood = mood;
 
@@ -222,6 +217,8 @@ public class Entry implements Serializable {
 
     setLocationId(entryTo.getLocation());
     setMoodId(entryTo.getMood());
+
+    setSecurity(entryTo.getSecurity().getSecurity());
 
     setMusic(entryTo.getMusic());
     setModified(Calendar.getInstance().getTime());
@@ -245,12 +242,13 @@ public class Entry implements Serializable {
   }
 
   public EntryTo toEntryTo() {
+
     final EntryTo entryTo =
         EntryTo.builder()
             .subject(getSubject())
             .body(getBody())
             .location(getLocationId())
-            .security(getSecurity())
+            .security(new SecurityTo(getSecurity()))
             .mood(getMoodId())
             .format(getFormat().toString())
             .date(getDate())
