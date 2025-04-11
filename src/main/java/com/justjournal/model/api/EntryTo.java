@@ -105,7 +105,10 @@ public class EntryTo extends EntityModel<EntryTo> implements Serializable {
 
   @Getter @Setter private String user;
 
-  @Getter @Setter private SecurityTo security;
+  @JsonSerialize(using = SecuritySerializer.class)
+  @JsonDeserialize(using = SecurityDeserializer.class)
+  @Getter @Setter
+  private Security security;
 
   @Builder.Default
   @Getter @Setter private String subject = "";

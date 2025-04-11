@@ -218,7 +218,7 @@ public class Entry implements Serializable {
     setLocationId(entryTo.getLocation());
     setMoodId(entryTo.getMood());
 
-    setSecurity(entryTo.getSecurity().getSecurity());
+    setSecurity(entryTo.getSecurity());
 
     setMusic(entryTo.getMusic());
     setModified(Calendar.getInstance().getTime());
@@ -248,7 +248,7 @@ public class Entry implements Serializable {
             .subject(getSubject())
             .body(getBody())
             .location(getLocationId())
-            .security(new SecurityTo(getSecurity()))
+            .security(getSecurity())
             .mood(getMoodId())
             .format(getFormat().toString())
             .date(getDate())
