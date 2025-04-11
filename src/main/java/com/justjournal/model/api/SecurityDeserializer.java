@@ -21,8 +21,19 @@ public class SecurityDeserializer extends StdDeserializer<Security> {
 
     @Override
     public Security deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+        int value;
         JsonNode node = jp.getCodec().readTree(jp);
-        int value = node.get("id").asInt();
+        if (node.isInt()) {
+            value = node.asInt();
+        } else if (node.isTextual()) {
+            try {
+            value = Integer.parseInt(node.asText());
+            } catch (NumberFormatException e) {
+                return Security.PRIVATE;
+            }
+        } else {
+            return Security.PRIVATE;
+        }
         return Security.fromValue(value);
     }
 }
