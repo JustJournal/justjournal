@@ -8,7 +8,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta property="og:site_name" content="Just Journal" />
     <meta property="og:type" content="article" />
-    <meta property="og:image" th:content="@{'http://www.justjournal.com/image?id=' + ${user.id}}" />
+    <meta property="og:image" th:content="@{'http://www.justjournal.com/Avatar/' + ${user.id}}" />
 
     <meta th:if="${entry != null}" property="og:url"   th:content="@{'https://www.justjournal.com/users/' + ${user.username} + '/entry/' + ${entry.getId()}}" />
     <meta th:if="${entry != null}" property="og:title" th:content="${entry.getSubject()}" />

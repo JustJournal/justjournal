@@ -146,7 +146,7 @@ public class AvatarController {
     }
 
     /* Make sure we are logged in */
-    if (userID < 1) {
+    if (userID < 1 || userID!= id) {
       throw new ForbiddenException("You must be logged in to delete an avatar");
     }
 

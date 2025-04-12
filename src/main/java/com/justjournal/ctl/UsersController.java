@@ -37,21 +37,10 @@ import com.justjournal.exception.ServiceException;
 import com.justjournal.model.*;
 import com.justjournal.model.api.TrackbackTo;
 import com.justjournal.model.search.BlogEntry;
-import com.justjournal.repository.CommentRepository;
-import com.justjournal.repository.EntryRepository;
-import com.justjournal.repository.FavoriteRepository;
-import com.justjournal.repository.MoodThemeDataRepository;
-import com.justjournal.repository.RssSubscriptionsRepository;
-import com.justjournal.repository.UserPicRepository;
-import com.justjournal.repository.UserRepository;
+import com.justjournal.repository.*;
 import com.justjournal.rss.CachedHeadlineBean;
 import com.justjournal.rss.Rss;
-import com.justjournal.services.BlogSearchService;
-import com.justjournal.services.EntryService;
-import com.justjournal.services.MarkdownService;
-import com.justjournal.services.PdfFormatService;
-import com.justjournal.services.TrackbackService;
-import com.justjournal.services.UserImageService;
+import com.justjournal.services.*;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
 import java.io.ByteArrayOutputStream;
@@ -127,7 +116,7 @@ public class UsersController {
 
   private final UserImageService userImageService;
 
-  private final UserPicRepository userPicRepository;
+  private final AvatarService avatarService;
 
   private final BlogSearchService blogSearchService;
 
@@ -157,7 +146,7 @@ public class UsersController {
           final UserRepository userRepository,
           final RssSubscriptionsRepository rssSubscriptionsDAO,
           final UserImageService userImageService,
-          final UserPicRepository userPicRepository,
+          final AvatarService avatarService,
           final BlogSearchService blogSearchService,
           final Rss rss,
           final MarkdownService markdownService,
@@ -172,7 +161,7 @@ public class UsersController {
     this.userRepository = userRepository;
     this.rssSubscriptionsDAO = rssSubscriptionsDAO;
     this.userImageService = userImageService;
-    this.userPicRepository = userPicRepository;
+    this.avatarService = avatarService;
     this.blogSearchService = blogSearchService;
     this.rss = rss;
     this.markdownService = markdownService;
@@ -184,15 +173,6 @@ public class UsersController {
     this.settings = settings;
   }
 
-  /**
-   * Do we have an avatar?
-   *
-   * @param userId user id
-   * @return true if avatar, false otherwise
-   */
-  private boolean avatar(final int userId) {
-    return userPicRepository.existsById(userId);
-  }
 
   @Transactional(readOnly = true)
   @GetMapping(value = "{username}", produces = MediaType.TEXT_HTML_VALUE)
@@ -223,7 +203,7 @@ public class UsersController {
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userContext));
     model.addAttribute(MODEL_PICTURES, null);
 
-    model.addAttribute(MODEL_AVATAR, avatar(userContext.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userContext.getBlogUser()));
 
     model.addAttribute("pageable", pageable);
 
@@ -265,7 +245,7 @@ public class UsersController {
     model.addAttribute(MODEL_ENTRY, entry);
     model.addAttribute(MODEL_ENTRY + "_format", getSingleEntry(entry, userContext));
 
-    model.addAttribute(MODEL_AVATAR, avatar(userContext.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userContext.getBlogUser()));
 
     return VIEW_USERS;
   }
@@ -297,7 +277,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
     model.addAttribute(MODEL_PICTURES, null);
-    model.addAttribute(MODEL_AVATAR, avatar(userc.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userc.getBlogUser()));
 
     try {
       model.addAttribute(MODEL_FAVORITES, getFavorites(userc));
@@ -333,7 +313,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
     model.addAttribute(MODEL_PICTURES, null);
-    model.addAttribute(MODEL_AVATAR, avatar(userc.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userc.getBlogUser()));
 
     try {
       model.addAttribute(MODEL_FRIENDS, getFriends(userc));
@@ -370,7 +350,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userContext));
     model.addAttribute(MODEL_PICTURES, null);
-    model.addAttribute(MODEL_AVATAR, avatar(userContext.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userContext.getBlogUser()));
 
     final Calendar cal = Calendar.getInstance();
     final int year = cal.get(Calendar.YEAR);
@@ -413,7 +393,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
     model.addAttribute(MODEL_PICTURES, null);
-    model.addAttribute(MODEL_AVATAR, avatar(userc.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userc.getBlogUser()));
 
     model.addAttribute(MODEL_CALENDAR, getCalendar(year, userc));
 
@@ -448,7 +428,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
     model.addAttribute(MODEL_PICTURES, null);
-    model.addAttribute(MODEL_AVATAR, avatar(userc.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userc.getBlogUser()));
 
     model.addAttribute(MODEL_CALENDAR, getCalendarMonth(year, month, userc));
 
@@ -484,7 +464,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
     model.addAttribute(MODEL_PICTURES, null);
-    model.addAttribute(MODEL_AVATAR, avatar(userc.getBlogUser().getId()));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userc.getBlogUser()));
 
     model.addAttribute(MODEL_CALENDAR, getCalendarDay(year, month, day, userc));
 
@@ -592,6 +572,16 @@ public class UsersController {
     } else {
       throw new ForbiddenException();
     }
+  }
+
+  // temporary to stop bots from indexing it.
+  @GetMapping(value = "{username}/rtf", produces = MediaType.TEXT_PLAIN_VALUE)
+  @ResponseBody
+  public ResponseEntity<byte[]> rtf(
+          @PathVariable(PATH_USERNAME) final String username) {
+
+    log.debug("RTF requested for user: {}", username);
+   throw new NotFoundException("RTF is no longer supported as a blog format. Use the PDF format instead.");
   }
 
   @GetMapping(value = "{username}/pictures", produces = "text/html")
@@ -1025,13 +1015,13 @@ public class UsersController {
           sb.append("<div class=\"ebody\">");
           sb.append(ENDL);
 
-          // final User p = o.getUser();
-          //  if (p.showAvatar()) {   TODO: avatar?
-          sb.append("<img alt=\"avatar\" style=\"float: right\" src=\"/image?id=");
-          sb.append(o.getUser().getId());
-          sb.append("\"/>");
-          sb.append(ENDL);
-          //  }
+
+          if (avatarService.isAvatarAvailable(o.getUser())) {
+            sb.append("<img alt=\"avatar\" style=\"float: right\" src=\"/Avatar/");
+            sb.append(o.getUser().getId());
+            sb.append("\"/>");
+            sb.append(ENDL);
+          }
 
           sb.append("<h3>");
           sb.append("<a href=\"/users/");
@@ -1233,8 +1223,7 @@ public class UsersController {
             entries = entryDao.viewFriends(uc.getBlogUser().getUserId(), 0);
     */
     entries = entryService.getFriendsEntries(uc.getBlogUser().getUsername());
-    sb.append("<h2>Friends</h2>");
-    sb.append(ENDL);
+    sb.append("<h2>Friends</h2>\n");
 
     try {
       if (log.isDebugEnabled()) log.debug("getFriends: Init Date Parsers.");
@@ -1272,13 +1261,12 @@ public class UsersController {
         sb.append("<div class=\"ebody\">");
         sb.append(ENDL);
 
-        // final User p = o.getUser();
-        //  if (p.showAvatar()) {   TODO: avatar?
-        sb.append("<img alt=\"avatar\" style=\"float: right\" src=\"/image?id=");
+        if (avatarService.isAvatarAvailable(o.getUser())) {
+        sb.append("<img alt=\"avatar\" style=\"float: right\" src=\"/Avatar/");
         sb.append(o.getUser().getId());
         sb.append("\"/>");
         sb.append(ENDL);
-        //  }
+        }
 
         sb.append("<h3>");
         sb.append("<a href=\"/users/");
