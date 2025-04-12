@@ -32,6 +32,8 @@ import com.justjournal.ctl.XmlRpc;
 import com.justjournal.repository.*;
 import com.justjournal.repository.cache.TrackBackIpRepository;
 import com.justjournal.services.BingService;
+import com.justjournal.services.Blogger;
+import com.justjournal.services.MetaWeblog;
 import com.justjournal.services.TrackbackService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -83,7 +85,7 @@ public class Application extends SpringBootServletInitializer {
   }
 
   @Bean
-  public ServletRegistrationBean<XmlRpc> xmlrpc() {
-    return new ServletRegistrationBean<>(new XmlRpc(), "/xml-rpc/*");
+  public ServletRegistrationBean<XmlRpc> xmlrpc(Blogger blogger, MetaWeblog metaWeblog) {
+    return new ServletRegistrationBean<>(new XmlRpc(blogger, metaWeblog), "/xml-rpc/*");
   }
 }

@@ -31,23 +31,38 @@ import com.justjournal.services.MetaWeblog;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import com.justjournal.xmlrpc.XmlRpcServlet;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 /**
  * XML RPC endpoints for blogger and metaweblog legacy APIs.
  *
  * @author Lucas Holt
  */
+@Slf4j
+@Component
 public final class XmlRpc extends XmlRpcServlet {
   private static final String BLOGGER = "blogger";
   private static final String METAWEBLOG = "metaWeblog";
+
+  private final transient Blogger bloggerService;
+
+  private final transient MetaWeblog metaWeblogService;
+
+  public XmlRpc(Blogger bloggerService, MetaWeblog metaWeblogService) {
+    this.bloggerService = bloggerService;
+    this.metaWeblogService = metaWeblogService;
+  }
 
   @Override
   public void init(final ServletConfig servletConfig) throws ServletException {
     super.init(servletConfig);
 
+    log.info("Initializing XML RPC endpoints for blogger and metaWeblog legacy APIs...");
+
     // This is blogger 1.0 api which is no longer used by Google, but still popular with older
     // blogging clients.
-    getXmlRpcServer().addInvocationHandler(BLOGGER, new Blogger());
-    getXmlRpcServer().addInvocationHandler(METAWEBLOG, new MetaWeblog());
+    getXmlRpcServer().addInvocationHandler(BLOGGER, bloggerService);
+    getXmlRpcServer().addInvocationHandler(METAWEBLOG, metaWeblogService);
   }
 }

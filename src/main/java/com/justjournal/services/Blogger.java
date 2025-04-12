@@ -107,13 +107,11 @@ public class Blogger extends BaseXmlRpcService {
         }
       } catch (final Exception e) {
         blnError = true;
-        log.debug(e.getMessage(), e);
+        log.error( "Error finding blog user {}: {}", username, e.getMessage(), e);
       }
 
     if (blnError) {
-      s.clear();
-      s.put("faultCode", 4);
-      s.put("faultString", "User authentication failed: " + username);
+      return error(ERROR_USER_AUTH + username);
     }
 
     return s;
@@ -130,12 +128,12 @@ public class Blogger extends BaseXmlRpcService {
    * @param password the account secret
    * @return A list of hash maps for each blog
    */
-  public ArrayList<HashMap<Object, Serializable>> getUsersBlogs(
+  public ArrayList<HashMap<String, Serializable>> getUsersBlogs(
       String appkey, String username, String password) {
     int userId;
     boolean blnError = false;
-    ArrayList<HashMap<Object, Serializable>> a = new ArrayList<>();
-    HashMap<Object, Serializable> s = new HashMap<>();
+    ArrayList<HashMap<String, Serializable>> a = new ArrayList<>();
+    HashMap<String, Serializable> s = new HashMap<>();
 
     userId = webLogin.validate(username, password);
     if (userId < 1) blnError = true;
@@ -147,19 +145,19 @@ public class Blogger extends BaseXmlRpcService {
         if (user != null) {
           s.put("url", settings.getBaseUri() + "users/" + user.getUsername());
           s.put("blogid", userId);
-          s.put("blogName", new ArrayList<Journal>(user.getJournals()).get(0).getName());
+          s.put("blogName", new ArrayList<>(user.getJournals()).get(0).getName());
         } else {
           blnError = true;
         }
       } catch (final Exception e) {
         blnError = true;
-        log.debug(e.getMessage());
+        log.error( "Error finding blog user {}: {}", username, e.getMessage(), e);
       }
 
     if (blnError) {
       s.clear();
       s.put("faultCode", 4);
-      s.put("faultString", "User authentication failed: " + username);
+      s.put("faultString", ERROR_USER_AUTH + username);
     }
 
     a.add(s);
@@ -247,11 +245,11 @@ public class Blogger extends BaseXmlRpcService {
 
     } catch (final Exception e) {
       blnError = true;
-      log.debug(e.getMessage());
+      log.error( "Error adding new post for blog user {}: {}", username, e.getMessage(), e);
     }
 
     if (blnError) {
-      return error(ERROR_USER_AUTH + username);
+      return error("Error adding new post");
     }
 
     return result;
@@ -293,7 +291,6 @@ public class Blogger extends BaseXmlRpcService {
 
         if (entry.getUser().getId() == userId) entryRepository.deleteById(eid);
       } catch (final Exception e) {
-        log.debug(e.getMessage());
         return error(ERROR_ENTRY_ID + postid);
       }
     }
@@ -306,7 +303,7 @@ public class Blogger extends BaseXmlRpcService {
   }
 
   /**
-   * Modify a blog entry using the limited feautres of the blogger api.
+   * Modify a blog entry using the limited features of the blogger api.
    *
    * @param appkey Ignored but required
    * @param postid entry id as a string
@@ -330,7 +327,9 @@ public class Blogger extends BaseXmlRpcService {
     int eid = 0;
 
     userId = webLogin.validate(username, password);
-    if (userId < 1) return error(ERROR_USER_AUTH + username);
+    if (userId < 1) {
+      return error(ERROR_USER_AUTH + username);
+    }
 
     try {
       eid = Integer.parseInt(postid);
@@ -458,12 +457,11 @@ public class Blogger extends BaseXmlRpcService {
    * @param password the password of the entry
    * @return a signle entry as a hashmap for consumption by xml-rpc
    */
-  public HashMap<Object, Serializable> getPost(
+  public HashMap<String, Serializable> getPost(
       String appkey, String postid, String username, String password) {
     boolean blnError = false;
     int userId;
-    HashMap<Object, Serializable> s = new HashMap<>();
-    HashMap<Object, Serializable> entry = new HashMap<>();
+    HashMap<String, Serializable> entry = new HashMap<>();
     Entry e;
 
     userId = webLogin.validate(username, password);
@@ -476,9 +474,7 @@ public class Blogger extends BaseXmlRpcService {
       return error(ERROR_ENTRY_ID + postid);
     }
     if (userId != e.getUser().getId()) {
-      s.put(BaseXmlRpcService.FAULT_CODE, 4);
-      s.put(BaseXmlRpcService.FAULT_STRING, BaseXmlRpcService.ERROR_USER_AUTH + username);
-      return s;
+      return error( BaseXmlRpcService.ERROR_USER_AUTH + username);
     }
 
     entry.put(

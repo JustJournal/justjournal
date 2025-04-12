@@ -80,11 +80,8 @@ public class MetaWeblog extends BaseXmlRpcService {
 
   @Autowired private EntryTagsRepository entryTagsRepository;
 
-  private EntryService entryService = null;
+  @Autowired private EntryService entryService;
 
-  public void setEntryService(EntryService entryService) {
-    this.entryService = entryService;
-  }
 
   /**
    * Fetch the users personal information including their username, userid, email address and name.
@@ -120,7 +117,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         s.put("firstname", user.getFirstName());
       } catch (final Exception e) {
         blnError = true;
-        log.debug(e.getMessage());
+        log.error( "Error finding blog user {}: {}", username, e.getMessage(), e);
       }
 
     if (blnError) {
@@ -166,7 +163,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         s.put("blogName", journal.getName());
       } catch (final Exception e) {
         blnError = true;
-        log.debug(e.getMessage());
+        log.error( "Error finding blog user {}: {}", username, e.getMessage(), e);
       }
 
     if (blnError) {
@@ -242,7 +239,7 @@ public class MetaWeblog extends BaseXmlRpcService {
 
       } catch (final Exception e) {
         blnError = true;
-        log.debug(e.getMessage());
+        log.error( "Error finding blog user {}: {}", username, e.getMessage(), e);
       }
 
     if (blnError) {
@@ -273,20 +270,26 @@ public class MetaWeblog extends BaseXmlRpcService {
     int eid = 0;
 
     userId = webLogin.validate(username, password);
-    if (userId < 1) return error(ERROR_USER_AUTH + username);
+    if (userId < 1) {
+      log.error( "Error validating blog user {}", username);
+      return error(ERROR_USER_AUTH + username);
+    }
 
     try {
       eid = Integer.parseInt(postid);
       if (eid < 1) {
+        log.debug( "Entry id invalid {}", postid);
         return error(ERROR_ENTRY_ID + postid);
       }
     } catch (final IllegalFormatException ex) {
+      log.debug( "Entry id invalid {}", postid);
       return error(ERROR_ENTRY_ID + postid);
     }
 
     try {
       final Entry entry = entryRepository.findById(eid).orElse(null);
       if (entry == null) {
+        log.warn( "Entry id invalid {}", postid);
         return error(ERROR_ENTRY_ID + postid);
       }
 
@@ -471,16 +474,19 @@ public class MetaWeblog extends BaseXmlRpcService {
 
     userId = webLogin.validate(username, password);
     if (userId < 1) {
+      log.warn( "Unable to validate user {}", username);
       return error(ERROR_USER_AUTH + username);
     }
 
     e = entryRepository.findById(Integer.parseInt(postid)).orElse(null);
 
     if (e == null) {
+      log.debug( "Entry id invalid {}", postid);
       return error(ERROR_ENTRY_ID + postid);
     }
 
     if (e.getUser().getId() != userId) {
+      log.warn( "user does not own entry {} blog user {}", postid, username);
       return error(ERROR_USER_AUTH + username);
     }
 
@@ -506,7 +512,7 @@ public class MetaWeblog extends BaseXmlRpcService {
     for (EntryTag entryTag : e.getTags()) {
       list.add(entryTag.getTag().getName());
     }
-    String[] str = list.toArray(new String[list.size()]);
+    String[] str = list.toArray(new String[0]);
     entry.put("categories", str); // according to microsoft it's a string array
 
     return entry;
@@ -519,6 +525,7 @@ public class MetaWeblog extends BaseXmlRpcService {
 
     userId = webLogin.validate(username, password);
     if (userId < 1) {
+      log.warn( "Unable to validate user {}", username);
       return error(ERROR_USER_AUTH + username);
     }
 
@@ -536,7 +543,7 @@ public class MetaWeblog extends BaseXmlRpcService {
               })
           .subscribe();
     } catch (final ServiceException se) {
-      log.error(se.getMessage(), se);
+      log.error("Could not load categories {}", se.getMessage(), se);
     }
     return arr;
   }

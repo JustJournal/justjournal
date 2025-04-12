@@ -26,12 +26,14 @@
 package com.justjournal.services;
 
 
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
 import java.util.HashMap;
 
 /** @author Lucas Holt */
+@Slf4j
 public class BaseXmlRpcService {
   protected static final String ERROR_USER_AUTH = "User authentication failed: ";
   protected static final String ERROR_ENTRY_ID = "Invalid entry id ";
@@ -43,10 +45,12 @@ public class BaseXmlRpcService {
   protected static final String FAULT_STRING = "faultString";
 
   @NotNull
-  protected HashMap<Object, Serializable> error(final String faultString) {
-    final HashMap<Object, Serializable> s = new HashMap<>();
+  protected HashMap<String, Serializable> error(final String faultString) {
+    final HashMap<String, Serializable> s = new HashMap<>();
     s.put(FAULT_CODE, 4);
     s.put(FAULT_STRING, faultString);
+
+    log.info("Preparing to write fault code 4: " + faultString);
     return s;
   }
 }
