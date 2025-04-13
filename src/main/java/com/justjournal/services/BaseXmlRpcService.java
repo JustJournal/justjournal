@@ -26,6 +26,8 @@
 package com.justjournal.services;
 
 
+import com.justjournal.model.FormatType;
+import com.justjournal.utility.HTMLUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
@@ -44,13 +46,28 @@ public class BaseXmlRpcService {
   protected static final String FAULT_CODE = "faultCode";
   protected static final String FAULT_STRING = "faultString";
 
+  protected final MarkdownService markdownService;
+
+  public BaseXmlRpcService(MarkdownService markdownService) {
+    this.markdownService = markdownService;
+  }
+
   @NotNull
   protected HashMap<String, Serializable> error(final String faultString) {
     final HashMap<String, Serializable> s = new HashMap<>();
     s.put(FAULT_CODE, 4);
     s.put(FAULT_STRING, faultString);
 
-    log.info("Preparing to write fault code 4: " + faultString);
+    log.info("Preparing to write fault code 4: {}", faultString);
     return s;
+  }
+
+  protected String convertBody(FormatType format, String body) {
+    if (format == FormatType.MARKDOWN) {
+      body = markdownService.convertToText(body);
+    } else if (format == FormatType.HTML) {
+      body = HTMLUtil.textFromHTML(body);
+    }
+    return body;
   }
 }

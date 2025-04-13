@@ -72,6 +72,10 @@ public class Blogger extends BaseXmlRpcService {
 
   @Autowired private Settings settings;
 
+  public Blogger(MarkdownService markdownService) {
+    super(markdownService);
+  }
+
   /**
    * Fetch the users personal information including their username, userid, email address and name.
    *
@@ -426,15 +430,15 @@ public class Blogger extends BaseXmlRpcService {
       if (it.hasNext()) {
         HashMap<Object, Serializable> entry = new HashMap<>();
         Entry e = it.next();
+        String body = convertBody(e.getFormat(), e.getBody());
         entry.put("link", settings.getBlogBaseUrl(username) + "/entry/" + e.getId());
         entry.put(
             "permaLink", settings.getBlogBaseUrl(username) + "/entry/" + e.getId());
         entry.put("userid", Integer.toString(e.getUser().getId()));
         entry.put("mt_allow_pings", 0); /* TODO: on or off? */
         entry.put("mt_allow_comments", 1); /* TODO: on or off? */
-        entry.put(
-            "description", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? no html */
-        entry.put("content", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? no html */
+        entry.put("description", body);
+        entry.put("content", body);
         entry.put("mt_convert_breaks", 0); /* TODO: research what these are... */
         entry.put("postid", Integer.toString(e.getId()));
         entry.put("mt_excerpt", HTMLUtil.textFromHTML(e.getBody()));
@@ -477,6 +481,7 @@ public class Blogger extends BaseXmlRpcService {
       return error( BaseXmlRpcService.ERROR_USER_AUTH + username);
     }
 
+    String body = convertBody(e.getFormat(), e.getBody());
     entry.put(
         "link", settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
     entry.put(
@@ -485,11 +490,11 @@ public class Blogger extends BaseXmlRpcService {
     entry.put("userid", Integer.toString(userId));
     entry.put("mt_allow_pings", 0); /* TODO: on or off? */
     entry.put("mt_allow_comments", 1); /* TODO: on or off? */
-    entry.put("description", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? */
-    entry.put("content", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? */
+    entry.put("description", body);
+    entry.put("content", body);
     entry.put("mt_convert_breaks", 0); /* TODO: research what these are... */
     entry.put("postid", Integer.toString(e.getId()));
-    entry.put("mt_excerpt", HTMLUtil.textFromHTML(e.getBody()));
+    entry.put("mt_excerpt", body);
     entry.put("mt_keywords", "");
     entry.put("title", e.getSubject());
     entry.put("mt_text_more", "");

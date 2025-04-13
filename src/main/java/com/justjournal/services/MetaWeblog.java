@@ -37,6 +37,7 @@ import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.StringUtil;
 import java.io.Serializable;
@@ -81,6 +82,10 @@ public class MetaWeblog extends BaseXmlRpcService {
   @Autowired private EntryTagsRepository entryTagsRepository;
 
   @Autowired private EntryService entryService;
+
+    public MetaWeblog(MarkdownService markdownService) {
+      super(markdownService);
+    }
 
 
   /**
@@ -428,6 +433,8 @@ public class MetaWeblog extends BaseXmlRpcService {
       if (it.hasNext()) {
         HashMap<Object, Serializable> entry = new HashMap<>();
         Entry e = it.next();
+        String body = convertBody(e.getFormat(), e.getBody());
+
         entry.put(
             "link",
                 settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
@@ -438,15 +445,15 @@ public class MetaWeblog extends BaseXmlRpcService {
         entry.put("mt_allow_pings", 0); /* TODO: on or off? */
         entry.put("mt_allow_comments", 1); /* TODO: on or off? */
 
-        entry.put("description", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? */
-        entry.put("content", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? */
+        entry.put("description", body);
+        entry.put("content", body);
         entry.put("mt_convert_breaks", 0); /* TODO: research what these are... */
         entry.put("postid", Integer.toString(e.getId()));
-        entry.put("mt_excerpt", HTMLUtil.textFromHTML(e.getBody()));
+        entry.put("mt_excerpt", body);
         entry.put("mt_keywords", "");
         entry.put("title", e.getSubject());
         entry.put("mt_text_more", "");
-        entry.put("dateCreated", e.getDate()); /* TODO: needs to be iso8601 */
+        entry.put("dateCreated", DateConvert.encode8601(e.getDate()));
         Collection<String> list = new ArrayList<>();
         for (EntryTag tag : e.getTags()) {
           list.add(tag.getTag().getName());
@@ -490,6 +497,8 @@ public class MetaWeblog extends BaseXmlRpcService {
       return error(ERROR_USER_AUTH + username);
     }
 
+    String body = convertBody(e.getFormat(), e.getBody());
+
     entry.put(
         "link",
             settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
@@ -499,15 +508,15 @@ public class MetaWeblog extends BaseXmlRpcService {
     entry.put("userid", Integer.toString(e.getUser().getId()));
     entry.put("mt_allow_pings", 0); /* TODO: on or off? */
     entry.put("mt_allow_comments", 1); /* TODO: on or off? */
-    entry.put("description", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? */
-    entry.put("content", HTMLUtil.textFromHTML(e.getBody())); /* TODO: change format? */
+    entry.put("description", body);
+    entry.put("content", body);
     entry.put("mt_convert_breaks", 0); /* TODO: research what these are... */
     entry.put("postid", Integer.toString(e.getId()));
-    entry.put("mt_excerpt", HTMLUtil.textFromHTML(e.getBody()));
+    entry.put("mt_excerpt", body);
     entry.put("mt_keywords", "");
     entry.put("title", e.getSubject());
     entry.put("mt_text_more", "");
-    entry.put("dateCreated", e.getDate()); /* TODO: needs to be iso8601 */
+    entry.put("dateCreated", DateConvert.encode8601(e.getDate()));
     Collection<String> list = new ArrayList<>();
     for (EntryTag entryTag : e.getTags()) {
       list.add(entryTag.getTag().getName());
