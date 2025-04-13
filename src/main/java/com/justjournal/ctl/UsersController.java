@@ -525,7 +525,7 @@ public class UsersController {
                       .getContent();
       String avatar = null;
       if (avatarService.isAvatarAvailable(user)) {
-        avatar = settings.getBaseUri() + "/Avatar/" + user.getId();
+        avatar = settings.getBaseUri() + "Avatar/" + user.getId();
       }
       Feed feed = Feed.builder()
        .title(journal.getName())
@@ -548,7 +548,7 @@ public class UsersController {
                               .date_published(DateConvert.encode8601(entry.getDate()))
                               .date_modified(DateConvert.encode8601(entry.getModified()))
                               .tags(entry.getTags().stream().map(t -> t.getTag().getName()).toList())
-                              .build()).collect(Collectors.toList()))
+                              .build()).toList())
               .build();
 
       return ResponseEntity
