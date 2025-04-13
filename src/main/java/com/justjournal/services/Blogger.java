@@ -426,9 +426,9 @@ public class Blogger extends BaseXmlRpcService {
       if (it.hasNext()) {
         HashMap<Object, Serializable> entry = new HashMap<>();
         Entry e = it.next();
-        entry.put("link", "http://www.justjournal.com/users/" + username + "/entry/" + e.getId());
+        entry.put("link", settings.getBlogBaseUrl(username) + "/entry/" + e.getId());
         entry.put(
-            "permaLink", "http://www.justjournal.com/users/" + username + "/entry/" + e.getId());
+            "permaLink", settings.getBlogBaseUrl(username) + "/entry/" + e.getId());
         entry.put("userid", Integer.toString(e.getUser().getId()));
         entry.put("mt_allow_pings", 0); /* TODO: on or off? */
         entry.put("mt_allow_comments", 1); /* TODO: on or off? */
@@ -478,11 +478,10 @@ public class Blogger extends BaseXmlRpcService {
     }
 
     entry.put(
-        "link",
-        settings.getBaseUri() + "users/" + e.getUser().getUsername() + "/entry/" + e.getId());
+        "link", settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
     entry.put(
         "permaLink",
-        settings.getBaseUri() + "users/" + e.getUser().getUsername() + "/entry/" + e.getId());
+            settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
     entry.put("userid", Integer.toString(userId));
     entry.put("mt_allow_pings", 0); /* TODO: on or off? */
     entry.put("mt_allow_comments", 1); /* TODO: on or off? */

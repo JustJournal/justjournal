@@ -41,7 +41,7 @@ class BaseXmlRpcServiceTests {
 
   @Test
   void testError() {
-    HashMap<Object, Serializable> result = baseXmlRpcService.error("my string");
+    HashMap<String, Serializable> result = baseXmlRpcService.error("my string");
     Assertions.assertEquals(4, result.get(FAULT_CODE));
     Assertions.assertEquals("my string", result.get(FAULT_STRING));
   }

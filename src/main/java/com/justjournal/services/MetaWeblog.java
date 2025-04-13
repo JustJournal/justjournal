@@ -430,10 +430,10 @@ public class MetaWeblog extends BaseXmlRpcService {
         Entry e = it.next();
         entry.put(
             "link",
-            settings.getBaseUri() + PATH_USERS + e.getUser().getUsername() + "/entry/" + e.getId());
+                settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
         entry.put(
             "permaLink",
-            settings.getBaseUri() + PATH_USERS + e.getUser().getUsername() + "/entry/" + e.getId());
+                settings.getBlogBaseUrl(e.getUser().getUsername())+ "/entry/" + e.getId());
         entry.put("userid", Integer.toString(e.getUser().getId()));
         entry.put("mt_allow_pings", 0); /* TODO: on or off? */
         entry.put("mt_allow_comments", 1); /* TODO: on or off? */
@@ -467,9 +467,9 @@ public class MetaWeblog extends BaseXmlRpcService {
    * @param password the password of the entry
    * @return a signle entry as a hashmap for consumption by xml-rpc
    */
-  public HashMap<Object, Serializable> getPost(String postid, String username, String password) {
+  public HashMap<String, Serializable> getPost(String postid, String username, String password) {
     final int userId;
-    final HashMap<Object, Serializable> entry = new HashMap<>();
+    final HashMap<String, Serializable> entry = new HashMap<>();
     final Entry e;
 
     userId = webLogin.validate(username, password);
@@ -492,10 +492,10 @@ public class MetaWeblog extends BaseXmlRpcService {
 
     entry.put(
         "link",
-        settings.getBaseUri() + PATH_USERS + e.getUser().getUsername() + "/entry/" + e.getId());
+            settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
     entry.put(
         "permaLink",
-        settings.getBaseUri() + PATH_USERS + e.getUser().getUsername() + "/entry/" + e.getId());
+            settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
     entry.put("userid", Integer.toString(e.getUser().getId()));
     entry.put("mt_allow_pings", 0); /* TODO: on or off? */
     entry.put("mt_allow_comments", 1); /* TODO: on or off? */
