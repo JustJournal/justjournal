@@ -5,7 +5,6 @@
     <title th:text="${journal.name}"></title>
     <meta th:if="${journal.allowSpider == false}" name="robots" content="noindex, nofollow, noarchive" />
     <meta th:if="${journal.allowSpider == false}" name="googlebot" content="nosnippet" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta property="og:site_name" content="Just Journal" />
     <meta property="og:type" content="article" />
     <meta property="og:image" th:content="@{'http://www.justjournal.com/Avatar/' + ${user.id}}" />
@@ -24,10 +23,14 @@
     <link rel="stylesheet" type="text/css" href="//use.fontawesome.com/releases/v5.5.0/css/v4-shims.css" />
     <link rel="stylesheet" type="text/css" media="screen"
           href="/static/components/lightbox2/dist/css/lightbox.css" th:href="@{/components/lightbox2/dist/css/lightbox.css}" />
+
+    <link th:if="${entry != null}"  rel="canonical" th:href="@{'https://www.justjournal.com/users/' + ${user.username} + '/entry/' + ${entry.getId()}}" />
     <link rel="alternate" type="application/rss+xml" title="RSS"
           th:href="@{'https://www.justjournal.com/users/' + ${user.username} +'/rss'}" />
     <link rel="alternate" type="application/atom+xml" title="Atom"
           th:href="@{'https://www.justjournal.com/users/' + ${user.username} +'/atom'}" />
+    <link rel="alternate" type="application/feed+json" title="JSON Feed"
+          th:href="@{'https://www.justjournal.com/users/' + ${user.username} +'/json'}" />
     <link rel="EditURI" type="application/rsd+xml" title="RSD"
           th:href="@{'https://www.justjournal.com/rsd?blogID=' + ${user.username}}" />
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2V0XXDEWN2"></script>
@@ -112,6 +115,11 @@
                                            th:href="@{'/users/' + ${user.username} + '/atom'}"><i
                                             class="fa fa-rss"></i>
                                         ATOM</a></li>
+                                    <li>
+                                        <a rel="alternate" type="application/feed+json"
+                                              th:href="@{'/users/' + ${user.username} +'/json'}"><i
+                                                class="fa fa-fa-file-alt"></i> JSON</a>
+                                    </li>
                                     <li>
                                         <a th:href="@{'/users/' + ${user.username} + '/pdf'}"><i
                                                 class="fa fa-download"></i> PDF</a>

@@ -31,6 +31,7 @@ import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.Xml;
 import java.util.Collections;
 import java.util.Comparator;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -314,5 +316,32 @@ public class EntryService {
 
       entryTagsRepository.delete(ets);
     }
+  }
+
+  @Autowired
+  private MarkdownService markdownService;
+
+  /**
+   * Converts body to text
+   * @param format
+   * @param body
+   * @return
+   */
+  public String convertBody(FormatType format, String body) {
+    if (format == FormatType.MARKDOWN) {
+      body = markdownService.convertToText(body);
+    } else if (format == FormatType.HTML) {
+      body = HTMLUtil.textFromHTML(body);
+    }
+    return body;
+  }
+
+  public String convertBodyToHtml(FormatType format, String body) {
+    if (format == FormatType.MARKDOWN) {
+      body = markdownService.convertToText(body);
+    } else if (format == FormatType.TEXT) {
+      body = body.replaceAll("\\n", "<br/>"); // TODO: match users controller formatting style
+    }
+    return body;
   }
 }

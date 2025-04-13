@@ -38,7 +38,6 @@ import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.utility.DateConvert;
-import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.StringUtil;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -83,9 +82,6 @@ public class MetaWeblog extends BaseXmlRpcService {
 
   @Autowired private EntryService entryService;
 
-    public MetaWeblog(MarkdownService markdownService) {
-      super(markdownService);
-    }
 
 
   /**
@@ -362,7 +358,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         }
       } catch (final Exception e) {
         blnError = true;
-        log.debug(e.getMessage());
+        log.warn("Failed to edit post {}", e.getMessage(), e);
       }
     }
 
@@ -435,7 +431,7 @@ public class MetaWeblog extends BaseXmlRpcService {
       if (it.hasNext()) {
         HashMap<Object, Serializable> entry = new HashMap<>();
         Entry e = it.next();
-        String body = convertBody(e.getFormat(), e.getBody());
+        String body = entryService.convertBody(e.getFormat(), e.getBody());
 
         entry.put(
             "link",
@@ -499,7 +495,7 @@ public class MetaWeblog extends BaseXmlRpcService {
       return error(ERROR_USER_AUTH + username);
     }
 
-    String body = convertBody(e.getFormat(), e.getBody());
+    String body = entryService.convertBody(e.getFormat(), e.getBody());
 
     entry.put(
         "link",

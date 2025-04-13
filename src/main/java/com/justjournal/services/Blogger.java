@@ -72,9 +72,8 @@ public class Blogger extends BaseXmlRpcService {
 
   @Autowired private Settings settings;
 
-  public Blogger(MarkdownService markdownService) {
-    super(markdownService);
-  }
+  @Autowired private EntryService entryService;
+
 
   /**
    * Fetch the users personal information including their username, userid, email address and name.
@@ -432,7 +431,7 @@ public class Blogger extends BaseXmlRpcService {
       if (it.hasNext()) {
         HashMap<Object, Serializable> entry = new HashMap<>();
         Entry e = it.next();
-        String body = convertBody(e.getFormat(), e.getBody());
+        String body = entryService.convertBody(e.getFormat(), e.getBody());
         entry.put("link", settings.getBlogBaseUrl(username) + "/entry/" + e.getId());
         entry.put(
             "permaLink", settings.getBlogBaseUrl(username) + "/entry/" + e.getId());
@@ -483,7 +482,7 @@ public class Blogger extends BaseXmlRpcService {
       return error( BaseXmlRpcService.ERROR_USER_AUTH + username);
     }
 
-    String body = convertBody(e.getFormat(), e.getBody());
+    String body = entryService.convertBody(e.getFormat(), e.getBody());
     entry.put(
         "link", settings.getBlogBaseUrl(e.getUser().getUsername()) + "/entry/" + e.getId());
     entry.put(

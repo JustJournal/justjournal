@@ -34,6 +34,9 @@ import com.justjournal.core.UserContextService;
 import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
+import com.justjournal.jsonfeed.Author;
+import com.justjournal.jsonfeed.Feed;
+import com.justjournal.jsonfeed.Item;
 import com.justjournal.model.*;
 import com.justjournal.model.api.TrackbackTo;
 import com.justjournal.model.search.BlogEntry;
@@ -41,12 +44,15 @@ import com.justjournal.repository.*;
 import com.justjournal.rss.CachedHeadlineBean;
 import com.justjournal.rss.Rss;
 import com.justjournal.services.*;
+import com.justjournal.utility.DateConvert;
+import com.justjournal.utility.ETag;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
 import java.io.ByteArrayOutputStream;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -496,6 +502,65 @@ public class UsersController {
     }
   }
 
+  @GetMapping(value = "{username}/json", produces = "application/feed+json")
+  @ResponseBody
+  public ResponseEntity<Feed> jsonfeed(
+      @PathVariable(PATH_USERNAME) final String username, @RequestParam(value = "page", defaultValue = "0") final int pageId) {
+    try {
+      final User user = userRepository.findByUsername(username);
+
+      if (user == null || pageId < 0) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+      }
+
+      var journal = new ArrayList<>(user.getJournals()).get(0);
+      if (journal.isOwnerViewOnly()) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+      }
+
+      final Pageable page = PageRequest.of(pageId, 15);
+
+      var entries = entryDao
+                      .findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page)
+                      .getContent();
+      String avatar = null;
+      if (avatarService.isAvatarAvailable(user)) {
+        avatar = settings.getBaseUri() + "/Avatar/" + user.getId();
+      }
+      Feed feed = Feed.builder()
+       .title(journal.getName())
+              .home_page_url(settings.getBlogBaseUrl(user.getUsername()))
+              .feed_url(settings.getBlogBaseUrl(user.getUsername()) + "/json")
+              .icon(avatar)
+              .authors(List.of(Author.builder()
+                      .name(user.getFirstName())
+                      .avatar(avatar)
+                      .build()))
+              // TODO: don't do an endless loop of pages if we run out of stuff
+              .next_url(settings.getBlogBaseUrl(user.getUsername()) + "/json?page=" + (pageId + 1))
+              .items(entries.stream()
+                      .map(entry -> Item.builder()
+                              .id(Integer.toString(entry.getId()))
+                              .url(settings.getBlogBaseUrl(user.getUsername()) + "/entry/" + entry.getId())
+                              .title(entry.getSubject())
+                              .content_text(entryService.convertBody(entry.getFormat(), entry.getBody()))
+                              .content_html(entryService.convertBodyToHtml(entry.getFormat(), entry.getBody()))
+                              .date_published(DateConvert.encode8601(entry.getDate()))
+                              .date_modified(DateConvert.encode8601(entry.getModified()))
+                              .tags(entry.getTags().stream().map(t -> t.getTag().getName()).toList())
+                              .build()).collect(Collectors.toList()))
+              .build();
+
+      return ResponseEntity
+              .ok()
+              .header("Link", "<" + settings.getBlogBaseUrl(user.getUsername()) + "/json>; rel=\"canonical\"")
+              .body(feed);
+    } catch (final Exception e) {
+      log.error("Unable to generate JSON", e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
   @GetMapping(value = "{username}/rss", produces = "application/rss+xml; charset=ISO-8859-1")
   @ResponseBody
   public String rss(
@@ -567,6 +632,7 @@ public class UsersController {
       byte[] pdfBytes = baos.toByteArray();
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_PDF);
+      headers.set("Link", "<" + settings.getBlogBaseUrl(userc.getBlogUser().getUsername()) + "/pdf>; rel=\"canonical\"");
       headers.setContentDisposition(ContentDisposition.attachment().filename(userc.getBlogUser().getUsername() + ".pdf").build());
       return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     } else {
