@@ -19,8 +19,8 @@
     <link rel="stylesheet" type="text/css" media="screen"
           th:href="${journal.style.id > 16} ? '/static/styles/' + ${journal.style.id} + '.css' : '/static/styles/bootstrap-theme.min.css'" />
 
-    <link rel="stylesheet" type="text/css" href="//use.fontawesome.com/releases/v5.5.0/css/all.css" />
-    <link rel="stylesheet" type="text/css" href="//use.fontawesome.com/releases/v5.5.0/css/v4-shims.css" />
+    <link rel="stylesheet" type="text/css" href="/static/components/Font-Awesome/css/all.css" th:href="@{/components/Font-Awesome/css/all.css}" />
+    <link rel="stylesheet" type="text/css" href="/static/components/Font-Awesome/css/v4-shims.css" th:href="@{/components/Font-Awesome/css/v4-shims.css}" />
     <link rel="stylesheet" type="text/css" media="screen"
           href="/static/components/lightbox2/dist/css/lightbox.css" th:href="@{/components/lightbox2/dist/css/lightbox.css}" />
 
@@ -118,7 +118,7 @@
                                     <li>
                                         <a rel="alternate" type="application/feed+json"
                                               th:href="@{'/users/' + ${user.username} +'/json'}"><i
-                                                class="fa fa-fa-file-alt"></i> JSON</a>
+                                                class="fa fa-file-alt"></i> JSON</a>
                                     </li>
                                     <li>
                                         <a th:href="@{'/users/' + ${user.username} + '/pdf'}"><i
