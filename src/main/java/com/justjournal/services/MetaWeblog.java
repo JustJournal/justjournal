@@ -227,12 +227,13 @@ public class MetaWeblog extends BaseXmlRpcService {
         et.setAutoFormat(PrefBool.N);
         et.setAllowComments(PrefBool.Y);
         et.setEmailComments(PrefBool.Y);
+        et.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.Y : PrefBool.N);
 
         entryRepository.save(et);
         result = Integer.toString(et.getId());
         log.debug("Result is: " + result);
 
-        Journal journal = new ArrayList<Journal>(user.getJournals()).get(0);
+        Journal journal = new ArrayList<>(user.getJournals()).get(0);
 
         if (!journal.isOwnerViewOnly() && journal.isPingServices()) {
           RestPing rp = new RestPing("http://ping.blo.gs/");
@@ -344,6 +345,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         if (et2.getUser().getId() == userId) {
           et2.setSubject((String) content.get(TITLE_KEY));
           et2.setBody(StringUtil.replace((String) content.get(DESC_KEY), '\'', "\\\'"));
+          et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.Y : PrefBool.N);
           /* TODO: add date edit support */
           entryRepository.save(et2);
 

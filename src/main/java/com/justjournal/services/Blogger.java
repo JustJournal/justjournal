@@ -233,6 +233,7 @@ public class Blogger extends BaseXmlRpcService {
       et.setAutoFormat(PrefBool.Y);
       et.setAllowComments(PrefBool.Y);
       et.setEmailComments(PrefBool.Y);
+      et.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.Y : PrefBool.N);
       et.setUser(userRepository.findById(userId).orElse(null));
 
       et = entryRepository.save(et);
@@ -350,6 +351,7 @@ public class Blogger extends BaseXmlRpcService {
 
         if (userId == et2.getUser().getId()) {
           et2.setBody(StringUtil.replace(content, '\'', "\\\'"));
+          et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.Y : PrefBool.N);
           entryRepository.save(et2);
         } else return error(ERROR_USER_AUTH + username);
       } catch (final Exception e) {
