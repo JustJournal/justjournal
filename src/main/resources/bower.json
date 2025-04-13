@@ -13,7 +13,8 @@
     "jquery-ui": "1.12.1",
     "jquery.validation": "1.21.0",
     "lightbox2": "~2.11.5",
-    "ng-file-upload-shim": "^12.2.13"
+    "ng-file-upload-shim": "^12.2.13",
+    "Font-Awesome": "^6.7.2"
   },
   "homepage": "https://github.com/laffer1/justjournal",
   "authors": [
