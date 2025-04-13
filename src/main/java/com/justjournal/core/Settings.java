@@ -161,7 +161,7 @@ public class Settings {
    * @return full url minus the trailing slash.
    */
   public String getBlogBaseUrl(String username) {
-    return getBaseUri() + "/users/" +  username;
+    return getBaseUri() + Constants.PATH_USERS +  username;
   }
 
   /**
