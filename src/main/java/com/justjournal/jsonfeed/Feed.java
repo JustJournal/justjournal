@@ -19,9 +19,8 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 // names are intentional, to match the jsonfeed spec.
 public class Feed {
-    private static final String JSON_FEED_VERSION = "https://jsonfeed.org/version/1.1";
 
-    private String version = JSON_FEED_VERSION;
+    private final String version = "https://jsonfeed.org/version/1.1";
 
     private String title;
 
