@@ -227,7 +227,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         et.setAutoFormat(PrefBool.N);
         et.setAllowComments(PrefBool.Y);
         et.setEmailComments(PrefBool.Y);
-        et.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.Y : PrefBool.N);
+        et.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
 
         entryRepository.save(et);
         result = Integer.toString(et.getId());
@@ -345,7 +345,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         if (et2.getUser().getId() == userId) {
           et2.setSubject((String) content.get(TITLE_KEY));
           et2.setBody(StringUtil.replace((String) content.get(DESC_KEY), '\'', "\\\'"));
-          et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.Y : PrefBool.N);
+          et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
           /* TODO: add date edit support */
           entryRepository.save(et2);
 
