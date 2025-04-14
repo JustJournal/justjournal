@@ -1,6 +1,7 @@
 package com.justjournal.jsonfeed;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.justjournal.core.CustomObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.assertj.core.api.SoftAssertions;
