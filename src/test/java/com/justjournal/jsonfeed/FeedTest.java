@@ -1,15 +1,12 @@
 package com.justjournal.jsonfeed;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.justjournal.core.CustomObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.assertj.core.api.SoftAssertions;
 
 import java.util.Arrays;
 import java.util.Collections;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class FeedTest {
 
