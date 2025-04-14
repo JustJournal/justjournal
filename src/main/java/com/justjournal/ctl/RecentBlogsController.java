@@ -36,22 +36,20 @@ import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.rss.Rss;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Controller;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Display recent blog entries in RSS format.
@@ -60,7 +58,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
  * @version $Id: RecentBlogs.java,v 1.15 2011/07/01 11:54:31 laffer1 Exp $
  */
 @Slf4j
-@Controller
+@RestController
 @RequestMapping("/RecentBlogs")
 public class RecentBlogsController {
 
@@ -79,15 +77,17 @@ public class RecentBlogsController {
     this.recentBlogsRepository = recentBlogsRepository;
   }
 
-  @GetMapping(produces = MIME_TYPE_RSS)
-  @ResponseBody
-  public String get(final HttpServletResponse response) {
-    response.setContentType(MIME_TYPE_RSS + ";charset=UTF-8");
-    response.setDateHeader(HEADER_EXPIRES, System.currentTimeMillis() + 1000 * 60);
-    response.setHeader(HEADER_CACHE_CONTROL, "max-age=60, private, proxy-revalidate");
+  @GetMapping(produces = MIME_TYPE_RSS + ";charset=UTF-8")
+  public ResponseEntity<String> get() {
+    long expiresTime = System.currentTimeMillis() + 1000 * 60;
 
     Optional<String> blogs = recentBlogsRepository.getBlogs().blockOptional(Duration.ofMinutes(1));
-    if (blogs.isPresent()) return blogs.get();
+    if (blogs.isPresent()) {
+      return ResponseEntity.ok()
+              .header(HEADER_CACHE_CONTROL, "max-age=60, private, proxy-revalidate")
+              .header(HEADER_EXPIRES, String.valueOf(expiresTime))
+              .body(blogs.get());
+    }
 
     // Create an RSS object, set the required
     // properties (title, description language, url)
@@ -110,7 +110,7 @@ public class RecentBlogsController {
       rss.setManagingEditor(set.getSiteAdminEmail() + " (" + set.getSiteAdmin() + ")");
       rss.setSelfLink(set.getBaseUri() + "RecentBlogs");
 
-      final Pageable pageable = PageRequest.of(1, 15);
+      final Pageable pageable = PageRequest.of(1, 20);
       final Page<Entry> entries = entryRepository.findBySecurityOrderByDateDesc(Security.PUBLIC, pageable);
 
       final Map<String, Entry> map = new HashMap<>();
@@ -131,25 +131,21 @@ public class RecentBlogsController {
       rss.populate(map.values());
 
       final Date d = rss.getNewestEntryDate();
-
-      if (d != null) response.setDateHeader(HEADER_LAST_MODIFIED, d.getTime());
-      else response.setDateHeader(HEADER_LAST_MODIFIED, System.currentTimeMillis());
-
       String result = rss.toXml();
       recentBlogsRepository.setBlogs(result).subscribe();
-      return result;
+
+      return ResponseEntity.ok()
+              .header(HEADER_CACHE_CONTROL, "max-age=60, private, proxy-revalidate")
+              .header(HEADER_EXPIRES, String.valueOf(expiresTime))
+              .header(HEADER_LAST_MODIFIED, d != null ? String.valueOf(d.getTime()) : String.valueOf(System.currentTimeMillis()))
+              .body(result);
     } catch (final Exception e) {
-      // oops we goofed somewhere.  Its not in the original spec
+      // oops, we goofed somewhere.  It's not in the original spec
       // how to handle error conditions with rss.
       // html back isn't good, but what do we do?
       log.error("Could not generate recent blogs", e);
-      try {
-        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-      } catch (final IOException e1) {
-        log.error("Could not send error code for recentblogs", e1);
-      }
     }
 
-    return "";
+    return ResponseEntity.internalServerError().body("Could not generate recent blogs");
   }
 }
