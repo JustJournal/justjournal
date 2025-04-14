@@ -26,6 +26,7 @@
 package com.justjournal.utility;
 
 
+import jakarta.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -50,7 +51,8 @@ public final class Xml {
    * @param input dirty xml unescaped document
    * @return A string with xml friendly escaped sequences.
    */
-  public static String cleanString(final String input) {
+  @Nullable
+  public static String cleanString(@Nullable final String input) {
     if (input == null) return "";
 
     String work = input;

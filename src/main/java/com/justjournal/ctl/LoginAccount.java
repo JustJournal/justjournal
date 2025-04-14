@@ -48,7 +48,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LoginAccount extends JustJournalBaseServlet {
 
-  private Login webLogin;
+  private final Login webLogin;
 
   @Autowired
   public LoginAccount(Login webLogin) {

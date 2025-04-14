@@ -37,6 +37,7 @@ public class TrackbackPingRequest {
   private String url;
   private String title;
   private String name;
+  @SuppressWarnings("java:S116")
   private String blog_name; // spec requirement
   private String excerpt;
   private String comment;

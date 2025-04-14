@@ -25,12 +25,12 @@
  */
 package com.justjournal.ctl;
 
-
 import com.justjournal.services.Blogger;
 import com.justjournal.services.MetaWeblog;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import com.justjournal.xmlrpc.XmlRpcServlet;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -49,7 +49,7 @@ public final class XmlRpc extends XmlRpcServlet {
 
   private final transient MetaWeblog metaWeblogService;
 
-  public XmlRpc(Blogger bloggerService, MetaWeblog metaWeblogService) {
+  public XmlRpc(@NotNull Blogger bloggerService, @NotNull MetaWeblog metaWeblogService) {
     this.bloggerService = bloggerService;
     this.metaWeblogService = metaWeblogService;
   }
