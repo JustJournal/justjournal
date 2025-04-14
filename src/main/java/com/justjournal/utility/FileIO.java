@@ -26,6 +26,8 @@
 package com.justjournal.utility;
 
 
+import jakarta.validation.constraints.NotNull;
+
 import java.io.*;
 
 /**
@@ -35,7 +37,7 @@ import java.io.*;
  */
 public final class FileIO {
 
-  public static String readTextFile(final String filePath) throws IOException {
+  public static String readTextFile(@NotNull final String filePath) throws IOException {
     int myC;
     final StringWriter myInput = new StringWriter();
     try (FileReader myFR = new FileReader(filePath)) {
@@ -51,29 +53,29 @@ public final class FileIO {
     return myInput.toString();
   }
 
-  public static void writeTextFile(final String filePath, final String dataToWrite)
+  public static void writeTextFile(@NotNull final String filePath, @NotNull final String dataToWrite)
       throws IOException {
     try (FileWriter myFW = new FileWriter(filePath, false)) {
       myFW.write(dataToWrite);
     }
   }
 
-  public boolean makeDirectory(final String path) {
+  public boolean makeDirectory(@NotNull final String path) {
     final File dir = new File(path);
     return dir.mkdir();
   }
 
-  public boolean deleteDirectory(final String path) {
+  public boolean deleteDirectory(@NotNull final String path) {
     final File dir = new File(path);
     return dir.isDirectory() && dir.delete();
   }
 
-  public boolean deleteFile(final String path) {
+  public boolean deleteFile(@NotNull final String path) {
     final File f = new File(path);
     return f.isFile() && f.delete();
   }
 
-  public boolean touchFile(final String path) {
+  public boolean touchFile(@NotNull final String path) {
     final File f = new File(path);
 
     try {
@@ -83,24 +85,24 @@ public final class FileIO {
     }
   }
 
-  public long fileLength(final String path) {
+  public long fileLength(@NotNull final String path) {
     final File f = new File(path);
     return f.length();
   }
 
-  public long fileLastModified(final String path) {
+  public long fileLastModified(@NotNull final String path) {
     final File f = new File(path);
     return f.lastModified();
   }
 
-  public boolean renameFile(final String source, final String destination) {
+  public boolean renameFile(@NotNull final String source, final String destination) {
     final File s = new File(source);
     final File d = new File(destination);
 
     return s.renameTo(d);
   }
 
-  public String[] listFiles(final String path) {
+  public String[] listFiles(@NotNull final String path) {
     final File dir = new File(path);
     return dir.list();
   }

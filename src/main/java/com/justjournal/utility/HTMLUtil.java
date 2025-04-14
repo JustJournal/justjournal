@@ -61,6 +61,9 @@ import java.util.ResourceBundle;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -93,7 +96,7 @@ public final class HTMLUtil {
    * @return the resulting, possibly modified, string
    * @see #convertCharacterEntities
    */
-  public static String stripHTMLTags(final String s) {
+  public static String stripHTMLTags(@NotNull final String s) {
     final char[] ch = s.toCharArray();
     boolean inElement = false;
     final StringBuilder buf = new StringBuilder();
@@ -127,7 +130,7 @@ public final class HTMLUtil {
    * @return the resulting, possibly modified, string
    * @see #stripHTMLTags
    */
-  public static String convertCharacterEntities(String s) {
+  public static String convertCharacterEntities(@NotNull String s) {
     // The resource bundle contains the mappings for symbolic entity
     // names like "amp". Note: Must protect matching and MatchResult in
     // a critical section, for thread-safety.
@@ -216,7 +219,7 @@ public final class HTMLUtil {
    * @see #convertCharacterEntities
    * @see #stripHTMLTags
    */
-  public static String textFromHTML(final String s) {
+  public static String textFromHTML(@NotNull final String s) {
     return convertCharacterEntities(stripHTMLTags(s));
   }
 
@@ -240,7 +243,7 @@ public final class HTMLUtil {
    * @param input Text containing URIs
    * @return Text with HTML a tags added.
    */
-  public static String uriToLink(String input) {
+  public static String uriToLink(@NotNull String input) {
     final String url2 = "(((ftp|https?)://(.*?))[\\s\\r\\n|,|$])";
     final Pattern UrlRegex = Pattern.compile(url2);
 
@@ -250,7 +253,7 @@ public final class HTMLUtil {
     return input;
   }
 
-  public static List<String> getURIs(String input) {
+  public static List<String> getURIs(@NotNull String input) {
     List<String> list = new ArrayList<>();
     final String url2 = "(((ftp|https?)://(.*?))[\\s\\r\\n|,|$])";
     final Pattern UrlRegex = Pattern.compile(url2);
@@ -275,7 +278,7 @@ public final class HTMLUtil {
    * @param userAgent The USER_AGENT HTTP Header for a request
    * @return Correct XHTML mime type for the user agent.
    */
-  public static String determineMimeType(String httpAccept, String userAgent) {
+  public static String determineMimeType(@NotNull String httpAccept, @NotNull String userAgent) {
 
     String mimeType = "text/html";
     // String testpattern = "/application\\/html\\+xml;q=0(\\.[1-9]+)/i";
@@ -317,8 +320,8 @@ public final class HTMLUtil {
    * @param fullDocument full document or just body tag contents
    * @return XHTML strict output
    */
-  public static String clean(final String input, final boolean fullDocument) {
-    if (input == null || input.length() < 1) return "";
+  public static String clean(@Nullable final String input, final boolean fullDocument) {
+    if (input == null || input.isEmpty()) return "";
 
     final ByteArrayInputStream bais = new ByteArrayInputStream(input.getBytes());
     final ByteArrayOutputStream baos = new ByteArrayOutputStream();

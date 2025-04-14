@@ -5,7 +5,7 @@ import lombok.*;
 
 /**
  * Attachment information for items.
- * https://jsonfeed.org/version/1.1#attachment-object
+ * <a href="https://jsonfeed.org/version/1.1#attachment-object">...</a>
  *
  * Note: The size_in_bytes and duration_in_seconds properties are optional and should only be included if available.
  */

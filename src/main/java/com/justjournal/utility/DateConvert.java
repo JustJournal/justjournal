@@ -63,14 +63,14 @@ public final class DateConvert {
   }
 
   @NotNull
-  public static String encode822(final Date data) {
+  public static String encode822(@NotNull final Date data) {
     SimpleDateFormat df822 = getDateFormat822();
     df822.setTimeZone(TimeZone.getTimeZone("GMT"));
     return df822.format(data);
   }
 
   @NotNull
-  public static String encode822(final Date data, final TimeZone tz) {
+  public static String encode822(@NotNull final Date data, @NotNull final TimeZone tz) {
     SimpleDateFormat df822 = getDateFormat822();
 
     df822.setTimeZone(tz);
@@ -99,7 +99,7 @@ public final class DateConvert {
   OMG NO WARRENTY EXPRESSED OR IMPLIED!!!1
   */
   @Nullable
-  public static Date decode3339(String input) throws java.text.ParseException {
+  public static Date decode3339(@NotNull String input) throws java.text.ParseException {
     Date d;
 
     // if there is no time zone, we don't need to do any special parsing.
@@ -109,8 +109,7 @@ public final class DateConvert {
         d = s.parse(input);
       } catch (final java.text.ParseException pe) { // try again with optional decimals
         SimpleDateFormat s =
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"); // spec for RFC3339 (with
-        // fractional seconds)
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"); // spec for RFC3339 with fractional seconds
         s.setLenient(true);
         d = s.parse(input);
       }
@@ -148,14 +147,14 @@ public final class DateConvert {
   }
 
   @NotNull
-  public static String encode3339(final Date data) {
+  public static String encode3339(@NotNull final Date data) {
     final SimpleDateFormat df3339 = getDateFormat3339();
     df3339.setTimeZone(TimeZone.getTimeZone("UTC"));
     return df3339.format(data);
   }
 
   @Nullable
-  public static Date decode8601(final String input) throws java.text.ParseException {
+  public static Date decode8601(@NotNull final String input) throws java.text.ParseException {
     final SimpleDateFormat df8601 = getDateFormat8601();
     String date = input;
     if (date.endsWith("Z")) {
@@ -164,7 +163,7 @@ public final class DateConvert {
       date =
           date.substring(0, date.length() - TZ_8601_OFFSET)
               + "GMT"
-              + date.substring(date.length() - TZ_8601_OFFSET, date.length());
+              + date.substring(date.length() - TZ_8601_OFFSET);
     }
 
     return df8601.parse(date);
@@ -176,13 +175,13 @@ public final class DateConvert {
   }
 
   @NotNull
-  public static String encode8601(final Date data) {
+  public static String encode8601(@NotNull final Date data) {
     final SimpleDateFormat df8601 = getDateFormat8601();
     df8601.setTimeZone(TimeZone.getTimeZone("UTC"));
     final String s = df8601.format(data);
 
     String result =
-        s.substring(0, s.length() - 9) + s.substring(s.length() - TZ_8601_OFFSET, s.length());
+        s.substring(0, s.length() - 9) + s.substring(s.length() - TZ_8601_OFFSET);
     result = result.replace("UTC", "+00:00");
 
     return result;

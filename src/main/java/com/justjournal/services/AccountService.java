@@ -45,7 +45,6 @@ import com.justjournal.repository.UserRepository;
 import java.util.Calendar;
 import java.util.Date;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** @author Lucas Holt */

@@ -27,6 +27,8 @@ package com.justjournal.search;
 
 import java.util.*;
 
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -56,26 +58,26 @@ public class BaseSearch {
     maxresults = results;
   }
 
-  public void setBaseQuery(final String base) {
+  public void setBaseQuery(@Nullable final String base) {
     if (base != null && !base.isEmpty()) baseQuery = base;
   }
 
-  public void setFields(final String fields) {
+  public void setFields(@NotNull final String fields) {
     final String[] q = fields.split("\\s");
     fieldlist.addAll(Arrays.asList(q));
   }
 
-  public void setSortAscending(final String field) {
+  public void setSortAscending(@Nullable final String field) {
     if (field != null && !field.isEmpty()) sort = "ORDER BY " + field;
   }
 
-  public void setSortDescending(final String field) {
+  public void setSortDescending(@Nullable final String field) {
     if (field != null && !field.isEmpty()) sort = "ORDER BY " + field + " DESC";
   }
 
   public List<Map<String, Object>> search(final String query) {
     if (log.isDebugEnabled()) {
-      log.debug("search() called with " + query);
+        log.debug("search() called with {}", query);
     }
     final List<Map<String, Object>> result;
     parseQuery(query);
@@ -85,7 +87,7 @@ public class BaseSearch {
     return result;
   }
 
-  protected void parseQuery(final String query) {
+  protected void parseQuery(@NotNull final String query) {
     final String[] q = query.split("\\s");
     final int qLen = java.lang.reflect.Array.getLength(q);
 
@@ -112,14 +114,13 @@ public class BaseSearch {
 
     try {
       if (log.isDebugEnabled()) {
-        log.debug("realSearch() called on " + sqlStmt);
+          log.debug("realSearch() called on {}", sqlStmt);
       }
 
       return jdbcTemplate.queryForList(sqlStmt.toString());
 
     } catch (final Exception e) {
-      log.error(
-          "Error executing search with query: " + sqlStmt + "; and error " + e.getMessage(), e);
+        log.error("Error executing search with query: {}; and error {}", sqlStmt, e.getMessage(), e);
     }
 
     return Collections.emptyList();

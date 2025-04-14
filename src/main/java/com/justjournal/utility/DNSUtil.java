@@ -25,6 +25,8 @@
  */
 package com.justjournal.utility;
 
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 
 import java.net.InetAddress;
@@ -39,7 +41,7 @@ public class DNSUtil {
     super();
   }
 
-  public static boolean isUrlDomainValid(String uri) {
+  public static boolean isUrlDomainValid(@Nullable String uri) {
     if (StringUtils.isEmpty(uri)) return false;
 
     try {
@@ -50,20 +52,20 @@ public class DNSUtil {
     }
   }
 
-  public static String getDomainFromEmail(final String address) {
+  public static String getDomainFromEmail(@NotNull final String address) {
     final int at = address.lastIndexOf('@');
     if (address.length() < at + 1) return null;
 
     return address.substring(at + 1);
   }
 
-  public static boolean isEmailDomainValid(final String address) {
+  public static boolean isEmailDomainValid(@Nullable final String address) {
     if (address == null || address.length() < 3) return false;
 
     return isDomainValid(getDomainFromEmail(address));
   }
 
-  public static boolean isDomainValid(final String domainName) {
+  public static boolean isDomainValid(@Nullable final String domainName) {
     if (domainName == null || domainName.isEmpty()) return false;
 
     // Max FQDN length is between 1 and 253 characters.
