@@ -31,6 +31,7 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
+import lombok.Getter;
 
 @XmlAccessorType(value = XmlAccessType.NONE)
 @XmlRootElement(name = "url")
@@ -53,6 +54,7 @@ public class Url {
     }
   }
 
+  @Getter
   public enum ChangeFreqency {
     ALWAYS("always"),
     HOURLY("hourly"),
@@ -62,15 +64,12 @@ public class Url {
     YEARLY("yearly"),
     NEVER("never");
 
-    private String value;
+    private final String value;
 
     ChangeFreqency(final String value) {
       this.value = value;
     }
 
-    public String getValue() {
-      return value;
-    }
   }
 
   @XmlElement private String loc;
