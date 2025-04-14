@@ -26,13 +26,10 @@
 package com.justjournal.ctl;
 
 
-import com.justjournal.core.Constants;
 import com.justjournal.model.*;
-import com.justjournal.repository.SettingsRepository;
+import com.justjournal.core.Settings;
 import com.justjournal.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -44,52 +41,36 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class SitemapController {
 
-  private final SettingsRepository settingsRepository;
+  private final Settings settings;
 
   private final UserRepository userRepository;
 
-  public SitemapController(SettingsRepository settingsRepository, UserRepository userRepository) {
-    this.settingsRepository = settingsRepository;
+  public SitemapController(Settings settings, UserRepository userRepository) {
+    this.settings = settings;
     this.userRepository = userRepository;
   }
 
   @GetMapping(value = "/sitemap.xml", produces = "text/xml")
   public UrlSet get() {
 
-    final Settings baseUri = settingsRepository.findByName("baseuri");
-
+    final String baseUri = settings.getBaseUri();
     final UrlSet xmlUrlSet = new UrlSet();
-    create(xmlUrlSet, baseUri.getValue(), Url.Priority.HIGH, Url.ChangeFreqency.MONTHLY);
+    create(xmlUrlSet, baseUri, Url.Priority.HIGH, Url.ChangeFreqency.MONTHLY);
 
-    create(
-        xmlUrlSet, baseUri.getValue() + "RecentBlogs", Url.Priority.LOW, Url.ChangeFreqency.DAILY);
-    create(
-        xmlUrlSet, baseUri.getValue() + "#!/sitemap", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
-    create(
-        xmlUrlSet, baseUri.getValue() + "#!/sitemap", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
-    create(
-        xmlUrlSet, baseUri.getValue() + "#!/search", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
-    create(
-        xmlUrlSet, baseUri.getValue() + "#!/privacy", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
-    create(
-        xmlUrlSet, baseUri.getValue() + "#!/members", Url.Priority.LOW, Url.ChangeFreqency.DAILY);
-    create(
-        xmlUrlSet, baseUri.getValue() + "#!/support", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
-    create(
-        xmlUrlSet,
-        baseUri.getValue() + "#!/support/bugs",
-        Url.Priority.LOW,
-        Url.ChangeFreqency.YEARLY);
-    create(
-        xmlUrlSet,
-        baseUri.getValue() + "#!/moodlist",
-        Url.Priority.LOW,
-        Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "RecentBlogs", Url.Priority.LOW, Url.ChangeFreqency.DAILY);
+    create(xmlUrlSet, baseUri + "#!/sitemap", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "#!/sitemap", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "#!/search", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "#!/privacy", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "#!/members", Url.Priority.LOW, Url.ChangeFreqency.DAILY);
+    create(xmlUrlSet, baseUri + "#!/support", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "#!/support/bugs", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "#!/moodlist", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
 
     for (final User user : userRepository.findAll()) {
       for (final Journal journal : user.getJournals()) {
         if (journal.isAllowSpider() && !journal.isOwnerViewOnly()) {
-          final String users = baseUri.getValue() + Constants.PATH_USERS + user.getUsername();
+          final String users = settings.getBlogBaseUrl(user.getUsername());
 
           create(xmlUrlSet, users, Url.Priority.HIGH, Url.ChangeFreqency.DAILY);
           create(xmlUrlSet, users + "/calendar", Url.Priority.MEDIUMLOW, Url.ChangeFreqency.MONTHLY);
@@ -98,6 +79,7 @@ public class SitemapController {
           create(xmlUrlSet, users + "/favorites", Url.Priority.LOW, Url.ChangeFreqency.WEEKLY);
           create(xmlUrlSet, users + "/rss", Url.Priority.MEDIUM, Url.ChangeFreqency.DAILY);
           create(xmlUrlSet, users + "/atom", Url.Priority.MEDIUM, Url.ChangeFreqency.DAILY);
+          create(xmlUrlSet, users + "/json", Url.Priority.MEDIUM, Url.ChangeFreqency.DAILY);
         }
       }
     }
@@ -111,13 +93,13 @@ public class SitemapController {
    * @param xmlUrlSet link set
    * @param link link to add to sitemap
    * @param priority indexing priority
-   * @param changeFreqency how often link gets updated/changed
+   * @param changeFrequency how often link gets updated/changed
    */
   private void create(
       final UrlSet xmlUrlSet,
       final String link,
       final Url.Priority priority,
-      final Url.ChangeFreqency changeFreqency) {
-    xmlUrlSet.addUrl(new Url(link, priority, changeFreqency));
+      final Url.ChangeFreqency changeFrequency) {
+    xmlUrlSet.addUrl(new Url(link, priority, changeFrequency));
   }
 }
