@@ -4,19 +4,52 @@
         <Property name="LOG_PATTERN">
             %d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${hostName} --- [%15.15t] %-40.40c{1.} : %m%n%ex
         </Property>
+        <Property name="LOG_FILE_PATH">/var/log/jj.log</Property>
+        <Property name="ERROR_LOG_FILE_PATH">/var/log/jj-error.log</Property>
     </Properties>
     <Appenders>
         <Console name="ConsoleAppender" target="SYSTEM_OUT" follow="true">
             <PatternLayout pattern="${LOG_PATTERN}"/>
         </Console>
+        <RollingFile name="FileAppender" fileName="${LOG_FILE_PATH}" filePattern="${LOG_FILE_PATH}.%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        <RollingFile name="ErrorFileAppender" fileName="${ERROR_LOG_FILE_PATH}" filePattern="${ERROR_LOG_FILE_PATH}.%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+
+        <Async name="AsyncFileAppender" bufferSize="80">
+            <AppenderRef ref="FileAppender"/>
+        </Async>
     </Appenders>
     <Loggers>
         <AsyncLogger name="com.justjournal" level="debug" additivity="false">
             <AppenderRef ref="ConsoleAppender" />
+            <AppenderRef ref="AsyncFileAppender" />
+        </AsyncLogger>
+
+        <AsyncLogger name="com.justjournal.dao" level="info" additivity="false">
+            <AppenderRef ref="AsyncFileAppender" />
+        </AsyncLogger>
+
+        <AsyncLogger name="org.springframework" level="info" additivity="false">
+            <AppenderRef ref="AsyncFileAppender" />
         </AsyncLogger>
 
         <Root level="info">
             <AppenderRef ref="ConsoleAppender" />
+            <AppenderRef ref="AsyncFileAppender" />
+            <AppenderRef ref="ErrorFileAppender" level="error"/>
         </Root>
     </Loggers>
 </Configuration>
