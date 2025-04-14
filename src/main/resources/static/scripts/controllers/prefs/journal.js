@@ -1,3 +1,4 @@
+
 angular.module('wwwApp').controller('PrefsJournalCtrl', ['$scope', 'LoginService',
     'JournalService', 'StyleService', '$window',
     function ($scope, LoginService, JournalService, StyleService, $window) {

@@ -1,0 +1,105 @@
+<div class="row">
+    <div class="col-md-12">
+
+        <h2>Contact Preferences</h2>
+
+        <form id="frmContact" name="ContactPreferences" role="form" class="form-horizontal">
+            <fieldset>
+                <legend><strong>Contact Information</strong><br/></legend>
+
+                <p>Share only the information you're comfortable with friends seeing. This information will be visible
+                    on your profile page to logged-in users who are your friends.</p>
+
+                <div class="form-group">
+                    <label for="email" class="col-sm-2 control-label">Email</label>
+                    <div class="col-sm-8">
+                        <input type="email" name="email" id="email" class="form-control input-sm"
+                               placeholder="Email" data-ng-model="contact.email" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone" class="col-sm-2 control-label">Phone</label>
+                    <div class="col-sm-8">
+                        <input type="tel" name="phone" id="phone" class="form-control input-sm"
+                               placeholder="Phone" data-ng-model="contact.phone">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="x" class="col-sm-2 control-label">X (Twitter)</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="x" id="x" class="form-control input-sm"
+                               placeholder="X username" data-ng-model="contact.x">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="instagram" class="col-sm-2 control-label">Instagram</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="instagram" id="instagram" class="form-control input-sm"
+                               placeholder="Instagram username" data-ng-model="contact.instagram">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="facebook" class="col-sm-2 control-label">Facebook</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="facebook" id="facebook" class="form-control input-sm"
+                               placeholder="Facebook username" data-ng-model="contact.facebook">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="telegram" class="col-sm-2 control-label">Telegram</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="telegram" id="telegram" class="form-control input-sm"
+                               placeholder="Telegram username" data-ng-model="contact.telegram">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="linkedin" class="col-sm-2 control-label">LinkedIn</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="linkedin" id="linkedin" class="form-control input-sm"
+                               placeholder="LinkedIn profile username" data-ng-model="contact.linkedin">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="reddit" class="col-sm-2 control-label">Reddit</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="reddit" id="reddit" class="form-control input-sm"
+                               placeholder="Reddit username" data-ng-model="contact.reddit">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="hpTitle" class="col-sm-2 control-label">Homepage Title</label>
+                    <div class="col-sm-8">
+                        <input type="text" name="hpTitle" id="hpTitle" class="form-control input-sm"
+                               placeholder="Homepage Title" data-ng-model="contact.hpTitle">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="hpUri" class="col-sm-2 control-label">Homepage URL</label>
+                    <div class="col-sm-8">
+                        <input type="url" name="hpUri" id="hpUri" class="form-control input-sm"
+                               placeholder="Homepage URL" data-ng-model="contact.hpUri">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button class="btn btn-primary btn-md" name="save"
+                                data-ng-click="save()">Save
+                        </button>
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+
+        <div class="alert" ng-hide="ErrorMessage == null">{{ ErrorMessage }}</div>
+    </div>
+</div>

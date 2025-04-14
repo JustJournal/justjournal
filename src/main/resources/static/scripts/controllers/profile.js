@@ -1,6 +1,7 @@
 angular.module('wwwApp').controller('ProfileCtrl', ['$scope', '$routeParams', 'AccountService',
-    'BiographyService', 'StatisticsService', 'FriendService', 'JournalService',
-    function ($scope, $routeParams, AccountService, BiographyService, StatisticsService, FriendService, JournalService) {
+    'BiographyService', 'StatisticsService', 'FriendService', 'JournalService', 'ContactService',
+    function ($scope, $routeParams, AccountService, BiographyService, StatisticsService, FriendService, JournalService,
+              ContactService) {
         'use strict';
 
         $scope.username = $routeParams.username;
@@ -14,4 +15,7 @@ angular.module('wwwApp').controller('ProfileCtrl', ['$scope', '$routeParams', 'A
         $scope.friends = FriendService.query({Id: $scope.username});
 
         $scope.biography = BiographyService.get({Id: $scope.username});
+
+        $scope.contact = ContactService.get({Id: $scope.username});
+
     }]);

@@ -35,5 +35,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface UserContactRepository extends JpaRepository<UserContact, Integer> {
 
+  UserContact findByUser(User user);
+
   void deleteByUser(User user);
 }

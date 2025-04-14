@@ -12,6 +12,7 @@
         <br>name: {{ account.firstName }}
         <br>my journals:
         <span ng-repeat="j in journal">{{ j.name }}</span>
+        <br>Member since: {{ account.since }}
     </p>
 
     <h3>Biography</h3>
@@ -27,6 +28,19 @@
             <br>
         </span>
     </p>
+
+    <div ng-if="contact">
+        <h3>Contact Information</h3>
+        <p ng-if="contact.email"><i class="fa fa-envelope"></i> Email: <a ng-href="mailto:{{contact.email}}">{{contact.email}}</a></p>
+        <p ng-if="contact.phone"><i class="fa fa-phone"></i> Phone: {{contact.phone}}</p>
+        <p ng-if="contact.x"><i class="fa fa-twitter"></i> X (Twitter): <a ng-href="https://twitter.com/{{contact.x}}" target="_blank">{{contact.x}}</a></p>
+        <p ng-if="contact.instagram"><i class="fa fa-instagram"></i> Instagram: <a ng-href="https://www.instagram.com/{{contact.instagram}}" target="_blank">{{contact.instagram}}</a></p>
+        <p ng-if="contact.facebook"><i class="fa fa-facebook"></i> Facebook: <a ng-href="https://www.facebook.com/{{contact.facebook}}" target="_blank">{{contact.facebook}}</a></p>
+        <p ng-if="contact.telegram"><i class="fa fa-telegram"></i> Telegram: <a ng-href="https://t.me/{{contact.telegram}}" target="_blank">{{contact.telegram}}</a></p>
+        <p ng-if="contact.linkedin"><i class="fa fa-linkedin"></i> LinkedIn: <a ng-href="https://www.linkedin.com/in/{{contact.linkedin}}" target="_blank">{{contact.linkedin}}</a></p>
+        <p ng-if="contact.reddit"><i class="fa fa-reddit"></i> Reddit: <a ng-href="https://www.reddit.com/user/{{contact.reddit}}" target="_blank">{{contact.reddit}}</a></p>
+        <p ng-if="contact.hpUri"><i class="fa fa-globe"></i> Homepage: <a ng-href="{{contact.hpUri}}" ng-bind="contact.hpTitle || contact.hpUri" target="_blank">{{contact.hpTitle}}</a></p>
+    </div>
 
     <h3>Statistics</h3>
 

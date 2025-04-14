@@ -30,14 +30,21 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.io.Serial;
 import java.io.Serializable;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 /** User contact information including IM accounts, email and homepage */
+@Getter
+@Setter
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 @Entity
 @Table(name = "user_contact")
 public class UserContact implements Serializable {
+  @Serial
   private static final long serialVersionUID = 1152818084136626047L;
 
   @Id
@@ -46,21 +53,26 @@ public class UserContact implements Serializable {
 
   @Column private String email;
 
-  @Column private String icq;
-
-  @Column private String aim;
-
-  @Column private String yahoo;
-
-  @Column private String msn;
-
   @Column private String phone;
 
+  // home page title
   @Column(name = "hp_title")
   private String hpTitle;
-
+  // home page address
   @Column(name = "hp_uri")
   private String hpUri;
+
+  @Column private String x;
+
+  @Column private String instagram;
+
+  @Column private String facebook;
+
+  @Column private String telegram;
+
+  @Column private String linkedin;
+
+  @Column private String reddit;
 
   @JsonBackReference
   @JsonIgnore
@@ -71,85 +83,5 @@ public class UserContact implements Serializable {
   @JsonCreator
   public UserContact() {
     super();
-  }
-
-  public String getEmail() {
-    return this.email;
-  }
-
-  public void setEmail(String email) {
-    this.email = email;
-  }
-
-  public String getIcq() {
-    return this.icq;
-  }
-
-  public void setIcq(String icq) {
-    this.icq = icq;
-  }
-
-  public String getAim() {
-    return this.aim;
-  }
-
-  public void setAim(String aim) {
-    this.aim = aim;
-  }
-
-  public String getYahoo() {
-    return this.yahoo;
-  }
-
-  public void setYahoo(String yahoo) {
-    this.yahoo = yahoo;
-  }
-
-  public String getMsn() {
-    return this.msn;
-  }
-
-  public void setMsn(String msn) {
-    this.msn = msn;
-  }
-
-  public String getPhone() {
-    return this.phone;
-  }
-
-  public void setPhone(String phone) {
-    this.phone = phone;
-  }
-
-  public String getHpTitle() {
-    return this.hpTitle;
-  }
-
-  public void setHpTitle(String hpTitle) {
-    this.hpTitle = hpTitle;
-  }
-
-  public String getHpUri() {
-    return this.hpUri;
-  }
-
-  public void setHpUri(String hpUri) {
-    this.hpUri = hpUri;
-  }
-
-  public int getId() {
-    return id;
-  }
-
-  public void setId(int id) {
-    this.id = id;
-  }
-
-  public User getUser() {
-    return user;
-  }
-
-  public void setUser(User user) {
-    this.user = user;
   }
 }

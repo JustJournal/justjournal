@@ -14,6 +14,10 @@
 
     <link rel="stylesheet" href="static/components/angular-ui/build/angular-ui.css" th:href="@{components/angular-ui/build/angular-ui.css}"/>
     <link rel="stylesheet" href="static/styles/main.css" th:href="@{static/styles/main.css}" />
+
+    <link rel="stylesheet" type="text/css" href="/static/components/Font-Awesome/css/all.css" th:href="@{/components/Font-Awesome/css/all.css}" />
+    <link rel="stylesheet" type="text/css" href="/static/components/Font-Awesome/css/v4-shims.css" th:href="@{/components/Font-Awesome/css/v4-shims.css}" />
+
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2V0XXDEWN2"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -80,7 +84,6 @@
 <script type="text/javascript" th:src="@{ckeditor/plugins/markdown/js/to-markdown.js}"
         src="static/ckeditor/plugins/markdown/js/to-markdown.js"></script>
 
-
 <!-- build:js scripts/scripts.js -->
 <script type="text/javascript" src="static/scripts/app.js" th:src="@{scripts/app.js}"></script>
 <script type="text/javascript" src="static/scripts/controllers/wwwApp.js" th:src="@{scripts/controllers/wwwApp.js}"></script>
@@ -104,13 +107,14 @@
 <script type="text/javascript" src="static/scripts/controllers/prefs/avatar.js" th:src="@{scripts/controllers/prefs/avatar.js}"></script>
 <script type="text/javascript" src="static/scripts/controllers/prefs/biography.js" th:src="@{scripts/controllers/prefs/biography.js}"></script>
 <script type="text/javascript" src="static/scripts/controllers/prefs/changePassword.js" th:src="@{scripts/controllers/prefs/changePassword.js}"></script>
+<script type="text/javascript" src="static/scripts/controllers/prefs/contact.js" th:src="@{scripts/controllers/prefs/contact.js}"></script>
 <script type="text/javascript" src="static/scripts/controllers/prefs/image.js" th:src="@{scripts/controllers/prefs/image.js}"></script>
 <script type="text/javascript" src="static/scripts/controllers/prefs/journal.js" th:src="@{scripts/controllers/prefs/journal.js}"></script>
 <script type="text/javascript" src="static/scripts/controllers/prefs/deleteJournal.js" th:src="@{scripts/controllers/prefs/deleteJournal.js}"></script>
-
 <script type="text/javascript" src="static/scripts/services/AccountService.js" th:src="@{scripts/services/AccountService.js}"></script>
 <script type="text/javascript" src="static/scripts/services/BiographyService.js" th:src="@{scripts/services/BiographyService.js}"></script>
 <script type="text/javascript" src="static/scripts/services/CommentService.js" th:src="@{scripts/services/CommentService.js}"></script>
+<script type="text/javascript" src="static/scripts/services/ContactService.js" th:src="@{scripts/services/ContactService.js}"></script>
 <script type="text/javascript" src="static/scripts/services/EntryService.js" th:src="@{scripts/services/EntryService.js}"></script>
 <script type="text/javascript" src="static/scripts/services/FriendService.js" th:src="@{scripts/services/FriendService.js}"></script>
 <script type="text/javascript" src="static/scripts/services/JournalService.js" th:src="@{scripts/services/JournalService.js}"></script>
