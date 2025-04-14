@@ -88,6 +88,7 @@ public class User implements Serializable {
   @Column(name = "password", length = 40, nullable = false)
   private String password = "";
 
+  @JsonIgnore // don't show password type in output
   @Setter
   @Getter
   @Column(name = "password_type", length = 10, nullable = false)
