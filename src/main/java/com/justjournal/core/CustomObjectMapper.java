@@ -28,6 +28,8 @@ package com.justjournal.core;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.hibernate5.jakarta.Hibernate5JakartaModule;
+import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationModule;
 
 /**
  * See
@@ -37,7 +39,11 @@ import com.fasterxml.jackson.databind.SerializationFeature;
  */
 public final class CustomObjectMapper extends ObjectMapper {
   public CustomObjectMapper() {
-    configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-    // defaults to 8601 date format
+    // hybernate/jaxb/xmlbind
+    this.registerModule(new Hibernate5JakartaModule());
+    JakartaXmlBindAnnotationModule jakartaXmlBindAnnotationModule = new JakartaXmlBindAnnotationModule();
+    this.registerModule(jakartaXmlBindAnnotationModule);
+
+    this.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // defaults to 8601 date format
   }
 }
