@@ -29,16 +29,12 @@ import static com.justjournal.core.Constants.LOGIN_ATTRID;
 import static com.justjournal.core.Constants.PARAM_ID;
 import static com.justjournal.core.Constants.PARAM_TITLE;
 
-import com.justjournal.exception.NotFoundException;
 import com.justjournal.services.ImageService;
 import java.awt.image.BufferedImage;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.util.Optional;
+
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +44,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -62,13 +59,13 @@ import org.springframework.web.multipart.MultipartFile;
  * Display individual images in the user's photo album.
  *
  * @author Lucas Holt
- * @version $Id: AlbumImage.java,v 1.9 2012/07/04 18:48:28 laffer1 Exp $
  */
 @Slf4j
 @RequestMapping("/AlbumImage")
 @Controller
 public class AlbumImageController {
 
+  private static final int MIN_FILE_SIZE = 500;
   private final JdbcTemplate jdbcTemplate;
   private final ImageService imageService;
 
@@ -82,154 +79,103 @@ public class AlbumImageController {
   public ResponseEntity<byte[]> getThumbnail(@PathVariable(PARAM_ID) final int id)
       throws IOException {
 
-    // TODO: refactor into service
     final ResponseEntity<byte[]> out = get(id);
+    if (out.getStatusCode() != HttpStatus.OK) {
+      return out;
+    }
+
     final BufferedImage image = imageService.resizeAvatar(out.getBody());
 
     final HttpHeaders headers = new HttpHeaders();
     headers.setExpires(180);
     headers.setContentType(MediaType.IMAGE_JPEG);
 
-    return new ResponseEntity<>(
-        imageService.convertBufferedImageToJpeg(image), headers, HttpStatus.OK);
+    return ResponseEntity.ok()
+            .headers(headers)
+            .body(imageService.convertBufferedImageToJpeg(image));
   }
 
   @GetMapping(value = "/{id}")
-  public ResponseEntity<byte[]> getByPath(@PathVariable(PARAM_ID) final int id) throws IOException {
+  public ResponseEntity<byte[]> getByPath(@PathVariable(PARAM_ID) final int id) {
     return get(id);
   }
 
   @GetMapping(value = "")
-  public ResponseEntity<byte[]> get(@RequestParam(PARAM_ID) final int id) throws IOException {
-    final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-
+  public ResponseEntity<byte[]> get(@RequestParam(PARAM_ID) final int id) {
     if (id < 1) {
-      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+      return ResponseEntity.badRequest().build();
     }
 
-    try (final Connection conn = jdbcTemplate.getDataSource().getConnection();
-        final PreparedStatement stmt = conn.prepareStatement("CALL getalbumimage(?)"); ) {
-      stmt.setInt(1, id);
+    try {
+      return jdbcTemplate.execute("CALL getalbumimage(?)", (PreparedStatementCallback<ResponseEntity<byte[]>>) ps -> {
+        ps.setInt(1, id);
+        try (ResultSet rs = ps.executeQuery()) {
+          if (rs.next()) {
+            byte[] imageData = rs.getBytes("image");
+            String mimeType = rs.getString("mimetype").trim();
 
-      try (ResultSet rs = stmt.executeQuery()) {
-        if (rs.next()) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setExpires(180);
+            headers.setContentType(MediaType.parseMediaType(mimeType));
 
-          final BufferedInputStream img = new BufferedInputStream(rs.getBinaryStream("image"));
-          byte[] buf = new byte[4 * 1024]; // 4k buffer
-          int len;
-          while ((len = img.read(buf, 0, buf.length)) != -1)
-            byteArrayOutputStream.write(buf, 0, len);
-
-          final HttpHeaders headers = new HttpHeaders();
-          headers.setExpires(180);
-
-          final String t = rs.getString("mimetype").trim();
-          if (t.equalsIgnoreCase(MediaType.IMAGE_GIF_VALUE))
-            headers.setContentType(MediaType.IMAGE_GIF);
-          else if (t.equalsIgnoreCase(MediaType.IMAGE_JPEG_VALUE))
-            headers.setContentType(MediaType.IMAGE_JPEG);
-          else if (t.equalsIgnoreCase(MediaType.IMAGE_PNG_VALUE))
-            headers.setContentType(MediaType.IMAGE_PNG);
-
-          return new ResponseEntity<>(byteArrayOutputStream.toByteArray(), headers, HttpStatus.OK);
+            return ResponseEntity.ok().headers(headers).body(imageData);
+          } else {
+            return ResponseEntity.notFound().build();
+          }
         }
-      }
-
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    } catch (final Exception e) {
+      });
+    } catch (DataAccessException e) {
       log.warn("Could not load image: ", e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
   }
 
   @PostMapping(value = "")
-  public ResponseEntity upload(
-      @RequestPart("file") MultipartFile file,
-      @RequestParam(value = PARAM_TITLE, defaultValue = "untitled") String title,
-      HttpSession session)
-      throws IOException {
-    assert jdbcTemplate != null;
-    final int rowsAffected;
+  public ResponseEntity<String> upload(
+          @RequestPart("file") MultipartFile file,
+          @RequestParam(value = PARAM_TITLE, defaultValue = "untitled") String title,
+          HttpSession session)
+          throws IOException {
 
-    // Retreive user id
-    final Integer userIDasi = (Integer) session.getAttribute(LOGIN_ATTRID);
-    // convert Integer to int type
-    int userID = 0;
-    if (userIDasi != null) {
-      userID = userIDasi;
+    // Retrieve user id
+    Integer userId = Optional.ofNullable((Integer) session.getAttribute(LOGIN_ATTRID)).orElse(0);
+    /* Make sure we are logged in */
+    if (userId < 1) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 
-    /* Make sure we are logged in */
-    if (userID < 1) {
-      return new ResponseEntity(HttpStatus.FORBIDDEN);
+    // must be large enough
+    if (file.isEmpty() || file.getSize() < MIN_FILE_SIZE) {
+      return ResponseEntity.badRequest().body("File is empty or too small");
     }
 
     final String contentType = file.getContentType();
-    final long sizeInBytes = file.getSize();
-
-    // must be large enough
-    if (file.isEmpty() || sizeInBytes < 500) {
-      return new ResponseEntity(HttpStatus.BAD_REQUEST);
-    }
-
     byte[] data = file.getBytes();
 
-    Connection conn = null;
-    PreparedStatement stmt = null; // create statement
-
     try {
-      // TODO: make this spring friendly
-      conn = jdbcTemplate.getDataSource().getConnection();
+      int rowsAffected = jdbcTemplate.update(
+              "INSERT INTO user_images (owner, title, modified, mimetype, image) VALUES (?, ?, now(), ?, ?)",
+              userId, title, contentType, data
+      );
 
-      // do the create of the image
-      stmt =
-          conn.prepareStatement(
-              "INSERT INTO user_images (owner,title,modified,mimetype,image)"
-                  + " VALUES(?,?,now(),?,?)");
-      stmt.setInt(1, userID);
-      stmt.setString(2, title);
-      stmt.setString(3, contentType);
-      stmt.setBytes(4, data);
-      stmt.execute();
-      rowsAffected = stmt.getUpdateCount();
-      stmt.close();
-
-      conn.close();
-
-      log.info("RowsAffected: " + rowsAffected);
-      if (rowsAffected == 1) return new ResponseEntity(HttpStatus.CREATED);
-    } catch (final Exception e) {
-      log.error("Error on database connection inserting image.", e);
-      return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
-    } finally {
-      /*
-       * Close any JDBC instances here that weren't
-       * explicitly closed during normal code path, so
-       * that we don't 'leak' resources...
-       */
-      try {
-        if (stmt != null) stmt.close();
-      } catch (final SQLException sqlEx) {
-        // ignore -- as we can't do anything about it here
-        log.error(sqlEx.getMessage(), sqlEx);
+      if (rowsAffected == 1) {
+        log.info("Image uploaded successfully for user: {}", userId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+      } else {
+        log.warn("Unexpected number of rows affected during image upload: {}", rowsAffected);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error during upload");
       }
-
-      try {
-        if (conn != null) conn.close();
-      } catch (final SQLException sqlEx) {
-        // ignore -- as we can't do anything about it here
-        log.error(sqlEx.getMessage(), sqlEx);
-      }
+    } catch (DataAccessException e) {
+      log.error("Error inserting image into database", e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Database error during upload");
     }
-
-    return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
   @DeleteMapping(value = "/{id}")
-  public ResponseEntity delete(@PathVariable(PARAM_ID) final int id, final HttpSession session) {
+  public ResponseEntity<String> delete(@PathVariable(PARAM_ID) final int id, final HttpSession session) {
 
     if (id < 1) {
-      throw new NotFoundException("Invalid image ID");
+      return ResponseEntity.badRequest().body("Invalid image ID");
     }
 
     // Retrieve user id
@@ -242,17 +188,22 @@ public class AlbumImageController {
 
     /* Make sure we are logged in */
     if (userID < 1) {
-      return new ResponseEntity(HttpStatus.FORBIDDEN);
+      return new ResponseEntity<>(HttpStatus.FORBIDDEN);
     }
 
     try {
-      jdbcTemplate.execute(
-          "DELETE FROM user_images WHERE id='" + id + "' AND owner='" + userID + "';");
+      String sql = "DELETE FROM user_images WHERE id = ? AND owner = ?";
+      int rowsAffected = jdbcTemplate.update(sql, id, userID);
+
+      if (rowsAffected == 0) {
+        // No rows were deleted, possibly because the image doesn't exist or doesn't belong to the user
+        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+      }
     } catch (final DataAccessException dae) {
       log.error(dae.getMessage(), dae);
-      return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
+      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    return new ResponseEntity(HttpStatus.OK);
+    return new ResponseEntity<>(HttpStatus.OK);
   }
 }
