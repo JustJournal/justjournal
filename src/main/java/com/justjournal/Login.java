@@ -36,11 +36,15 @@ import com.justjournal.utility.StringUtil;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
+import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
+import org.bouncycastle.crypto.params.Argon2Parameters;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -136,6 +140,8 @@ public class Login {
     return buf.toString();
   }
 
+  // Do not use for new passwords
+  @Deprecated
   @NotNull
   public static String sha1(final String text) throws NoSuchAlgorithmException {
     final MessageDigest md = MessageDigest.getInstance("SHA-1");
@@ -154,6 +160,29 @@ public class Login {
     md.update(text.getBytes(StandardCharsets.ISO_8859_1), 0, text.length());
     sha2hash = md.digest();
     return convertToHex(sha2hash);
+  }
+
+  @NotNull
+  public static String argon2Hash(final String text) {
+    byte[] salt = new byte[16];
+    new SecureRandom().nextBytes(salt);
+
+    Argon2Parameters.Builder builder = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+            .withSalt(salt)
+            .withParallelism(4)
+            .withMemoryAsKB(65536)  // 64 MB
+            .withIterations(3);
+
+    Argon2BytesGenerator generator = new Argon2BytesGenerator();
+    generator.init(builder.build());
+
+    byte[] result = new byte[32];
+    generator.generateBytes(text.getBytes(StandardCharsets.UTF_8), result);
+
+    String hash = Base64.getEncoder().encodeToString(result);
+    String saltString = Base64.getEncoder().encodeToString(salt);
+
+    return String.format("$argon2id$v=19$m=65536,t=3,p=4$%s$%s", saltString, hash);
   }
 
   public boolean isIpSketch() {
@@ -263,7 +292,7 @@ public class Login {
   @NotNull
   public static String getHashedPassword(final String userName, final String password) {
     try {
-      return sha256(userName + password);
+      return argon2Hash(userName + password);
     } catch (final Exception e) {
       log.error("Invalid password hash algorithm?", e);
       throw new HashNotSupportedException();
@@ -274,25 +303,59 @@ public class Login {
       return isUserName(userName) && userRepository.findByUsername(userName) != null;
   }
 
-  private com.justjournal.model.User lookupUser(final String userName, final String password) {
+  @Nullable
+  private com.justjournal.model.User lookupUser(@NotNull final String userName, @NotNull final String password) {
     try {
-      com.justjournal.model.User user;
-      user =
-          userRepository.findByUsernameAndPassword(userName, getHashedPassword(userName, password));
-      if (user == null) {
-        user = userRepository.findByUsernameAndPassword(userName, sha1(password));
-        if (user != null) {
-          // upgrade the password to sha256
+      com.justjournal.model.User user = userRepository.findByUsername(userName);
+
+      if (user !=null) {
+        String storedHash = user.getPassword();
+        if (verifyArgon2Hash(userName + password, storedHash)) {
+          return user;
+        }
+
+        // If the stored password is still in SHA-256 format, upgrade it
+        if (storedHash.equals(sha256(userName + password))) {
           user.setPassword(getHashedPassword(userName, password));
-          user.setPasswordType(PasswordType.SHA256);
-          user = userRepository.saveAndFlush(user);
+          user.setPasswordType(PasswordType.ARGON2);
+          return userRepository.saveAndFlush(user);
+        }
+
+        if (storedHash.equals(sha1(password))) {
+          user.setPassword(getHashedPassword(userName, password));
+          user.setPasswordType(PasswordType.ARGON2);
+          return userRepository.saveAndFlush(user);
         }
       }
 
-      return user;
+      return null;
     } catch (final Exception e) {
       log.error("Couldn't lookup user", e);
       throw new HashNotSupportedException();
     }
+  }
+
+  private boolean verifyArgon2Hash(String password, String storedHash) {
+    String[] parts = storedHash.split("\\$");
+    if (parts.length != 5) {
+      return false;
+    }
+    String salt = parts[3];
+    String hash = parts[4];
+
+    Argon2Parameters.Builder builder = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+            .withSalt(Base64.getDecoder().decode(salt))
+            .withParallelism(4)
+            .withMemoryAsKB(65536)
+            .withIterations(3);
+
+    Argon2BytesGenerator generator = new Argon2BytesGenerator();
+    generator.init(builder.build());
+
+    byte[] result = new byte[32];
+    generator.generateBytes(password.getBytes(StandardCharsets.UTF_8), result);
+
+    String newHash = Base64.getEncoder().encodeToString(result);
+    return hash.equals(newHash);
   }
 }

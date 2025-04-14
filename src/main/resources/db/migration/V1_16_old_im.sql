@@ -1,0 +1,20 @@
+ALTER TABLE user_contact
+    DROP COLUMN aim,
+    DROP COLUMN icq;
+
+ALTER TABLE user_contact
+    DROP COLUMN yahoo,
+    DROP COLUMN msn;
+
+ALTER TABLE user_contact
+    ADD COLUMN x VARCHAR(50) DEFAULT NULL,
+    ADD COLUMN instagram VARCHAR(30) DEFAULT NULL,
+    ADD COLUMN facebook VARCHAR(50) DEFAULT NULL,
+    ADD COLUMN telegram VARCHAR(32) DEFAULT NULL,
+    ADD COLUMN linkedin VARCHAR(50) DEFAULT NULL,
+    ADD COLUMN reddit VARCHAR(20) DEFAULT NULL;
+
+alter table `user` modify column `password` VARCHAR(255) NOT NULL;
+
+ALTER TABLE `user`
+    MODIFY COLUMN `password_type` ENUM('SHA1', 'SHA256', 'ARGON2') NOT NULL DEFAULT 'ARGON2';
