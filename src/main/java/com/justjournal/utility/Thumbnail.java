@@ -33,6 +33,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import javax.imageio.ImageIO;
+
+import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -60,7 +62,7 @@ public class Thumbnail {
     return (double) thumbWidth / (double) thumbHeight;
   }
 
-  protected double calcImageRatio(final Image image) {
+  protected double calcImageRatio(@NotNull final Image image) {
     final int imageWidth = image.getWidth(null);
     final int imageHeight = image.getHeight(null);
     return (double) imageWidth / (double) imageHeight;
@@ -82,7 +84,7 @@ public class Thumbnail {
     this.thumbHeight = thumbHeight;
   }
 
-  public void create(final String inputfile, final String outputfile) {
+  public void create(@NotNull final String inputfile, @NotNull final String outputfile) {
     try {
       File f = new File(inputfile);
       BufferedImage bi = ImageIO.read(f);

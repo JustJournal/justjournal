@@ -28,6 +28,10 @@ package com.justjournal.utility;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -49,7 +53,7 @@ public final class StringUtil {
    * @param delChar Character to remove from the string
    * @return Modified string
    */
-  public static String deleteChar(final String origin, final char delChar) {
+  public static String deleteChar(@NotNull final String origin, @NotNull final char delChar) {
     final int len = origin.length();
     char[] val = origin.toCharArray();
     char[] buf = new char[len];
@@ -72,7 +76,7 @@ public final class StringUtil {
    * @param str Modified string after completion.
    * @return The new string
    */
-  public static String replace(final String base, final char ch, final String str) {
+  public static String replace(@NotNull final String base, @NotNull final char ch, @NotNull final String str) {
     return (base.indexOf(ch) < 0) ? base : replace(base, String.valueOf(ch), new String[] {str});
   }
 
@@ -84,7 +88,10 @@ public final class StringUtil {
    * @param str the substring
    * @return Modified string after operations.
    */
-  public static String replace(final String base, final String delim, final String[] str) {
+  @Nonnull
+  public static String replace(@NotNull final String base,
+                               @NotNull final String delim,
+                               @NotNull final String[] str) {
     final int len = base.length();
     final StringBuilder result = new StringBuilder();
 
@@ -110,7 +117,7 @@ public final class StringUtil {
    * @param address an email address to check
    * @return true if the address is valid.
    */
-  public static boolean isEmailValid(final String address) {
+  public static boolean isEmailValid(@Nullable final String address) {
     if (address == null) return false;
 
     if (!StringUtil.lengthCheck(address, 3, 100)) return false;
@@ -125,12 +132,12 @@ public final class StringUtil {
   }
 
   /**
-   * Checks a string to find non alpha numeric characters. If found, it returns false.
+   * Checks a string to find non-alphanumeric characters. If found, it returns false.
    *
    * @param input A string to check for alphanumeric characters.
    * @return boolean indicating alphanumeric status
    */
-  public static boolean isAlphaNumeric(final String input) {
+  public static boolean isAlphaNumeric(@Nullable final String input) {
     if (input == null) return false;
 
     final Pattern p = Pattern.compile("[\\w]+");
@@ -145,7 +152,7 @@ public final class StringUtil {
    * @param input a string to check for alpha chars.
    * @return boolean indicating alpha status
    */
-  public static boolean isAlpha(final String input) {
+  public static boolean isAlpha(@Nullable final String input) {
     if (input == null) return false;
 
     final Pattern p = Pattern.compile("[A-Za-z]+");
@@ -162,14 +169,16 @@ public final class StringUtil {
    * @param maxLength the max length
    * @return true if the str is between the constraints, false if it violates them.
    */
-  public static boolean lengthCheck(final String str, final int minLength, final int maxLength) {
+  public static boolean lengthCheck(@Nullable final String str,
+                                    final int minLength, final int maxLength) {
     if (str == null) return false;
 
     final int len = str.length();
     return len >= minLength && len <= maxLength;
   }
 
-  public static String stripNonPrintableCharacters(String input) {
+  @Nullable
+  public static String stripNonPrintableCharacters(@Nullable String input) {
     if (input == null) {
       return null;
     }
@@ -177,7 +186,8 @@ public final class StringUtil {
     return input.replaceAll("[^\\p{Print}\n\r]", "");
   }
 
-  public static String stripToAsciiPrintable(String input) {
+  @Nullable
+  public static String stripToAsciiPrintable(@Nullable String input) {
     if (input == null) {
       return null;
     }

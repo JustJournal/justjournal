@@ -34,6 +34,8 @@ import com.swabunga.spell.event.StringWordTokenizer;
 import java.io.File;
 import java.util.Iterator;
 import java.util.List;
+
+import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +72,7 @@ public final class Spelling implements SpellCheckListener {
    *
    * @param event A reference to the spell check event (word)
    */
-  public void spellingError(final SpellCheckEvent event) {
+  public void spellingError(@NotNull final SpellCheckEvent event) {
     final List<String> suggestions = (List<String>) event.getSuggestions();
     if (!suggestions.isEmpty()) {
       sb.append("<p><span style=\"color:red\">");
@@ -99,7 +101,7 @@ public final class Spelling implements SpellCheckListener {
    * @param inText Text to check
    * @return String containing errors found in document.
    */
-  public String checkSpelling(final String inText) {
+  public String checkSpelling(@NotNull final String inText) {
     sb = new StringBuilder();
 
     try {
