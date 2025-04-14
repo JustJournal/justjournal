@@ -29,7 +29,6 @@ import static com.justjournal.core.Constants.*;
 
 import com.justjournal.exception.HashNotSupportedException;
 import com.justjournal.model.PasswordType;
-import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.repository.cache.TrackBackIpRepository;
 import com.justjournal.utility.StringUtil;
@@ -103,6 +102,7 @@ public class Login {
       return false;
     }
 
+    @SuppressWarnings("java:S6353") // false positive. we don't want extra characters from a \W+
     final Pattern p = Pattern.compile("[A-Za-z0-9_]+");
     final Matcher m = p.matcher(input);
 
@@ -141,7 +141,7 @@ public class Login {
   }
 
   // Do not use for new passwords
-  @Deprecated
+  @Deprecated(forRemoval = true, since = "3.1.12")
   @NotNull
   public static String sha1(final String text) throws NoSuchAlgorithmException {
     final MessageDigest md = MessageDigest.getInstance("SHA-1");
