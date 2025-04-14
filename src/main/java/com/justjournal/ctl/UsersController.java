@@ -45,14 +45,12 @@ import com.justjournal.rss.CachedHeadlineBean;
 import com.justjournal.rss.Rss;
 import com.justjournal.services.*;
 import com.justjournal.utility.DateConvert;
-import com.justjournal.utility.ETag;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
 import java.io.ByteArrayOutputStream;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -545,8 +543,8 @@ public class UsersController {
                               .title(entry.getSubject())
                               .content_text(entryService.convertBody(entry.getFormat(), entry.getBody()))
                               .content_html(entryService.convertBodyToHtml(entry.getFormat(), entry.getBody()))
-                              .date_published(DateConvert.encode8601(entry.getDate()))
-                              .date_modified(DateConvert.encode8601(entry.getModified()))
+                              .date_published(DateConvert.encode3339(entry.getDate()))
+                              .date_modified(DateConvert.encode3339(entry.getModified()))
                               .tags(entry.getTags().stream().map(t -> t.getTag().getName()).toList())
                               .build()).toList())
               .build();
