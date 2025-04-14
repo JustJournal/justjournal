@@ -1019,7 +1019,7 @@ public class UsersController {
   }
 
   private boolean isReciprocalFriend(final User me, final User you) {
-    return isMyFriend(you, me) && isMyFriend(me, you);
+    return isMyFriend(me, you) && isMyFriend(you, me);
   }
 
   private String getFavorites(final UserContext uc) throws ServiceException {
