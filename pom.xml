@@ -438,7 +438,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
-            <version>2.14.0</version> <!-- Use the version compatible with your Jackson core -->
+            <version>2.19.0</version> <!-- Use the version compatible with your Jackson core -->
         </dependency>
 
         <dependency>
