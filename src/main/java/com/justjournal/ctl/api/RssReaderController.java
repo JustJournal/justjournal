@@ -63,11 +63,14 @@ public class RssReaderController {
 
   private final UserRepository userRepository;
 
+  private final Login login;
+
   @Autowired
   public RssReaderController(
-      final RssSubscriptionsRepository rssSubscriptionsDAO, final UserRepository userRepository) {
+      final RssSubscriptionsRepository rssSubscriptionsDAO, final UserRepository userRepository, final Login login) {
     this.rssSubscriptionsDAO = rssSubscriptionsDAO;
     this.userRepository = userRepository;
+    this.login = login;
   }
 
   @GetMapping(value = "{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -81,7 +84,7 @@ public class RssReaderController {
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Collection<RssSubscription>> getByUser(@PathVariable(PARAM_USERNAME) String username) {
 
-    if (!Login.isUserName(username)) {
+    if (!login.isUserName(username)) {
       throw new NotFoundException();
     }
 
@@ -99,7 +102,7 @@ public class RssReaderController {
       throw new BadRequestException("Invalid URI length");
     }
 
-    User user = userRepository.findById(Login.currentLoginId(session))
+    User user = userRepository.findById(login.currentLoginId(session))
             .orElseThrow(() -> new UnauthorizedException("User not authenticated"));
 
     RssSubscription subscription = new RssSubscription();
@@ -114,7 +117,7 @@ public class RssReaderController {
   @DeleteMapping("/{subId}")
   public ResponseEntity<Map<String, String>> delete(@PathVariable final int subId, final HttpSession session) {
 
-    if (!Login.isAuthenticated(session)) {
+    if (!login.isAuthenticated(session)) {
       throw new UnauthorizedException(Constants.ERR_INVALID_LOGIN);
     }
 
@@ -122,7 +125,7 @@ public class RssReaderController {
       throw new BadRequestException("Invalid subscription ID");
     }
 
-    User user = userRepository.findById(Login.currentLoginId(session))
+    User user = userRepository.findById(login.currentLoginId(session))
             .orElseThrow(() -> new UnauthorizedException("User not authenticated"));
 
     RssSubscription subscription = rssSubscriptionsDAO.findById(subId)

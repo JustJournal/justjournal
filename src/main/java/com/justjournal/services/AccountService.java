@@ -64,13 +64,18 @@ public class AccountService {
 
   private final StyleService styleService;
 
-  public AccountService(UserRepository userRepository, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserPrefRepository userPrefRepository, JournalRepository journalRepository, StyleService styleService) {
+  private final Login login;
+
+  public AccountService(UserRepository userRepository, UserBioRepository userBioDao, UserContactRepository userContactRepository,
+                        UserPrefRepository userPrefRepository, JournalRepository journalRepository, StyleService styleService,
+                        Login login) {
     this.userRepository = userRepository;
     this.userBioDao = userBioDao;
     this.userContactRepository = userContactRepository;
     this.userPrefRepository = userPrefRepository;
     this.journalRepository = journalRepository;
     this.styleService = styleService;
+    this.login = login;
   }
 
   public User signup(final NewUser newUser) throws ServiceException {
@@ -84,7 +89,7 @@ public class AccountService {
     user.setName(newUser.getFirstName());
     user.setLastName(newUser.getLastName());
     user.setUsername(newUser.getUsername());
-    user.setPassword(Login.getHashedPassword(newUser.getUsername(), newUser.getPassword()));
+    user.setPassword(login.getHashedPassword(newUser.getUsername(), newUser.getPassword()));
     user.setPasswordType(PasswordType.SHA256);
     user.setType(0);
     user.setSince(Calendar.getInstance().get(Calendar.YEAR));

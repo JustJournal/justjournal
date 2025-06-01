@@ -1,5 +1,6 @@
 package com.justjournal.ctl.api;
 
+import com.justjournal.Login;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.UnauthorizedException;
 import com.justjournal.model.RssSubscription;
@@ -34,6 +35,9 @@ class RssReaderControllerTests {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private Login login;
 
     @InjectMocks
     private RssReaderController rssReaderController;

@@ -25,6 +25,7 @@
  */
 package com.justjournal;
 
+import com.justjournal.model.PasswordType;
 import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.repository.cache.TrackBackIpRepository;
@@ -99,13 +100,13 @@ class LoginTests {
 
   @Test
   void testSha1() throws NoSuchAlgorithmException {
-    String result = Login.sha1("foo");
+    String result = login.sha1("foo");
     assertEquals("0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33", result);
   }
 
   @Test
   void testSha256() throws NoSuchAlgorithmException {
-    String result = Login.sha256("foo");
+    String result = login.sha256("foo");
     assertEquals("2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae", result);
   }
 
@@ -154,11 +155,17 @@ class LoginTests {
     User user = new User();
     user.setId(1);
     user.setUsername("abc");
-    when(userRepository.findByUsernameAndPassword(anyString(), anyString())).thenReturn(user);
-    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
-    int result = login.validate("abc", "basic");
-    assertEquals(1, result);
+    user.setPassword(login.getHashedPassword("abc", "basic"));
+    user.setPasswordType(PasswordType.ARGON2);
 
-    verify(userRepository).findByUsernameAndPassword(anyString(), anyString());
+    when(userRepository.findByUsername(anyString())).thenReturn(user);
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+
+    int result = login.validate("abc", "basic");
+    assertEquals(1, result, "Login validation should return 1 for successful login");
+
+    verify(userRepository).findByUsername(anyString());
+    verify(trackBackIpRepository).getIpAddress(anyString());
+
   }
 }

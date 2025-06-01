@@ -61,20 +61,21 @@ import lombok.Setter;
 public class User implements Serializable {
 
   @Serial
-  @JsonIgnore private static final long serialVersionUID = -7545141063644043241L;
+  @JsonIgnore
+  private static final long serialVersionUID = -7545141063644043241L;
 
-    @Getter
-    @Setter
-    @Id
+  @Getter
+  @Setter
+  @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private int id = 0;
 
-    @Getter
-    @Column(name = "username", length = 15, nullable = false)
+  @Getter
+  @Column(name = "username", length = 30, nullable = false)
   private String username = "";
 
-    @Getter
-    @Column(name = "name", length = 20, nullable = false)
+  @Getter
+  @Column(name = "name", length = 20, nullable = false)
   private String name = "";
 
   @Getter
@@ -85,7 +86,7 @@ public class User implements Serializable {
   @Getter
   @JsonIgnore // don't show password in output
   @Basic(fetch = FetchType.LAZY)
-  @Column(name = "password", length = 40, nullable = false)
+  @Column(name = "password", length = 255, nullable = false)
   private String password = "";
 
   @JsonIgnore // don't show password type in output
@@ -93,7 +94,7 @@ public class User implements Serializable {
   @Getter
   @Column(name = "password_type", length = 10, nullable = false)
   @Enumerated(EnumType.STRING)
-  private PasswordType passwordType = PasswordType.SHA256;
+  private PasswordType passwordType = PasswordType.ARGON2;
 
   @Getter
   @Setter
@@ -218,6 +219,12 @@ public class User implements Serializable {
     this.password = user.getPassword();
     this.passwordType = user.getPasswordType();
     this.roles = user.getRoles();
+    this.type = user.getType();
+    this.since = user.getSince();
+    this.lastLogin = user.getLastLogin();
+    this.modified = user.getModified();
+    this.lastName = user.getLastName();
+    this.userContact = user.userContact;
   }
 
 

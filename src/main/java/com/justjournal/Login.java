@@ -46,7 +46,6 @@ import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
 import org.bouncycastle.crypto.params.Argon2Parameters;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -65,23 +64,22 @@ public class Login {
 
   private final TrackBackIpRepository trackBackIpRepository;
 
-  @Autowired
   public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
     this.userRepository = userRepository;
     this.trackBackIpRepository = trackBackIpRepository;
   }
 
-  public static boolean isAuthenticated(final HttpSession session) {
+  public static boolean isAuthenticated(HttpSession session) {
     final String username = (String) session.getAttribute(LOGIN_ATTRNAME);
     return username != null && !username.isEmpty();
   }
 
   @Nullable
-  public static String currentLoginName(final HttpSession session) {
+  public static String currentLoginName(HttpSession session) {
     return (String) session.getAttribute(LOGIN_ATTRNAME);
   }
 
-  public static int currentLoginId(final HttpSession session) {
+  public static int currentLoginId(HttpSession session) {
     int aUserID = 0;
     final Integer userIDasi = (Integer) session.getAttribute(LOGIN_ATTRID);
 
@@ -92,12 +90,12 @@ public class Login {
     return aUserID;
   }
 
-  protected static void logout(final HttpSession session) {
+  protected static void logout(HttpSession session) {
     session.removeAttribute(LOGIN_ATTRNAME);
     session.removeAttribute(LOGIN_ATTRID);
   }
 
-  public static boolean isUserName(@Nullable final String input) {
+  public static boolean isUserName(@Nullable String input) {
     if (!StringUtil.lengthCheck(input, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)) {
       return false;
     }
@@ -115,7 +113,7 @@ public class Login {
    * @param password clear text password
    * @return true if valid, false otherwise
    */
-  public static boolean isPassword(final String password) {
+  public static boolean isPassword(String password) {
     if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)) {
       return false;
     }
@@ -143,7 +141,7 @@ public class Login {
   // Do not use for new passwords
   @Deprecated(forRemoval = true, since = "3.1.12")
   @NotNull
-  public static String sha1(final String text) throws NoSuchAlgorithmException {
+  public String sha1(String text) throws NoSuchAlgorithmException {
     final MessageDigest md = MessageDigest.getInstance("SHA-1");
     byte[] sha1hash;
 
@@ -153,7 +151,7 @@ public class Login {
   }
 
   @NotNull
-  public static String sha256(final String text) throws NoSuchAlgorithmException {
+  public String sha256(String text) throws NoSuchAlgorithmException {
     final MessageDigest md = MessageDigest.getInstance("SHA-256");
     byte[] sha2hash;
 
@@ -163,7 +161,7 @@ public class Login {
   }
 
   @NotNull
-  public static String argon2Hash(final String text) {
+  public String argon2Hash(String text) {
     byte[] salt = new byte[16];
     new SecureRandom().nextBytes(salt);
 
@@ -207,7 +205,7 @@ public class Login {
    * @param password Clear text password
    * @return user id of the user who logged in or 0 if the login failed.
    */
-  public int validate(final String userName, final String password) {
+  public int validate(String userName, String password) {
 
     if (isIpSketch()) {
       blockIp(30); // second+ attempt, bump block time.
@@ -276,6 +274,11 @@ public class Login {
 
       if (uid > BAD_USER_ID && isPassword(newPass)) {
         final com.justjournal.model.User user = lookupUser(userName, password);
+        if (user == null) {
+          log.error("changePass(): Unable to find user.");
+          return false;
+        }
+
         user.setPassword(getHashedPassword(userName, newPass));
         user.setPasswordType(PasswordType.ARGON2);
         userRepository.saveAndFlush(user);
@@ -290,7 +293,7 @@ public class Login {
   }
 
   @NotNull
-  public static String getHashedPassword(@NotNull final String userName, @NotNull final String password) {
+  public String getHashedPassword(@NotNull final String userName, @NotNull final String password) {
     try {
       return argon2Hash(userName + password);
     } catch (final Exception e) {
@@ -326,6 +329,8 @@ public class Login {
           user.setPasswordType(PasswordType.ARGON2);
           return userRepository.saveAndFlush(user);
         }
+      } else {
+        log.warn("User not found: {}", userName);
       }
 
       return null;
@@ -337,11 +342,12 @@ public class Login {
 
   private boolean verifyArgon2Hash(String password, String storedHash) {
     String[] parts = storedHash.split("\\$");
-    if (parts.length != 5) {
+    if (parts.length != 6) {
       return false;
     }
-    String salt = parts[3];
-    String hash = parts[4];
+    // Argon2 hash format: $argon2id$v=19$m=65536,t=3,p=4$salt$hash
+    String salt = parts[4];
+    String hash = parts[5];
 
     Argon2Parameters.Builder builder = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
             .withSalt(Base64.getDecoder().decode(salt))
