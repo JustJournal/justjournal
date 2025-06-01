@@ -97,7 +97,7 @@ public class Login {
     session.removeAttribute(LOGIN_ATTRID);
   }
 
-  public static boolean isUserName(final String input) {
+  public static boolean isUserName(@Nullable final String input) {
     if (!StringUtil.lengthCheck(input, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH)) {
       return false;
     }
@@ -277,7 +277,7 @@ public class Login {
       if (uid > BAD_USER_ID && isPassword(newPass)) {
         final com.justjournal.model.User user = lookupUser(userName, password);
         user.setPassword(getHashedPassword(userName, newPass));
-        user.setPasswordType(PasswordType.SHA256);
+        user.setPasswordType(PasswordType.ARGON2);
         userRepository.saveAndFlush(user);
 
         return true;
@@ -290,7 +290,7 @@ public class Login {
   }
 
   @NotNull
-  public static String getHashedPassword(final String userName, final String password) {
+  public static String getHashedPassword(@NotNull final String userName, @NotNull final String password) {
     try {
       return argon2Hash(userName + password);
     } catch (final Exception e) {

@@ -258,7 +258,8 @@ public class User implements Serializable {
 
     public void setPassword(String password) {
 
-    if (!StringUtil.lengthCheck(password, 5, 64)) {
+    // this can be the hash of the password or the raw password, depending on context
+    if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, 255)) {
       throw new IllegalArgumentException("Invalid password");
     }
     this.password = password;
