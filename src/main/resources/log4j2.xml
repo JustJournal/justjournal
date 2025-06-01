@@ -4,8 +4,8 @@
         <Property name="LOG_PATTERN">
             %d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${hostName} --- [%15.15t] %-40.40c{1.} : %m%n%ex
         </Property>
-        <Property name="LOG_FILE_PATH">/var/log/jj.log</Property>
-        <Property name="ERROR_LOG_FILE_PATH">/var/log/jj-error.log</Property>
+        <Property name="LOG_FILE_PATH">/var/log/jj/jj.log</Property>
+        <Property name="ERROR_LOG_FILE_PATH">/var/log/jj/jj-error.log</Property>
     </Properties>
     <Appenders>
         <Console name="ConsoleAppender" target="SYSTEM_OUT" follow="true">
