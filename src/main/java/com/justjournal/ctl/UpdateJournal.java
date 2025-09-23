@@ -470,7 +470,7 @@ public class UpdateJournal extends HttpServlet {
         // assume it's not a draft for the old submit code.
         et.setDraft(PrefBool.N);
 
-        // the check box says disable auto format
+        // the checkbox says disable auto format
         if ((aformat.equals(PARAM_CHECKED))
             || myclient == ClientType.dashboard
             || myclient == ClientType.mobile) {
@@ -715,6 +715,7 @@ public class UpdateJournal extends HttpServlet {
     return "add a journal entry";
   }
 
+  @SuppressWarnings("java:S115")
   enum ClientType {
     web,
     mobile,

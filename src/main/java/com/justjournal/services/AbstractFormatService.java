@@ -26,6 +26,7 @@
 package com.justjournal.services;
 
 import com.justjournal.core.UserContext;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Entry;
 import com.justjournal.model.Security;
@@ -101,6 +102,9 @@ public abstract class AbstractFormatService {
       } else {
         entries = entryRepository.findByUsernameAndSecurity(
                 blogUser.getUsername(), Security.PUBLIC);
+      }
+      if (entries.isEmpty()) {
+        throw new NotFoundException();
       }
 
       // Format the current time.
