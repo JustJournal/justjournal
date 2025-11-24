@@ -51,6 +51,7 @@ public class MinioConfig {
 
     @Bean
     public MinioClient minioClient() {
+        log.info("Initializing MinIO client with host: {}, accessKey: {}", minioHost, minioAccessKey);
         if (StringUtils.isEmpty(minioAccessKey) || StringUtils.isEmpty(minioSecretKey)) {
             log.warn("MinIO access key or secret key not provided. Using anonymous access.");
             return MinioClient.builder().endpoint(minioHost).build();
