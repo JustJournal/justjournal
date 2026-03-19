@@ -31,7 +31,7 @@
         <log4j2.version>2.25.3</log4j2.version>
         <okhttp3.version>4.11.0</okhttp3.version>
         <logback.version>1.4.14</logback.version>
-        <tomcat.version>10.1.50</tomcat.version>
+        <tomcat.version>10.1.52</tomcat.version>
         <elasticsearch.version>8.7.1</elasticsearch.version>
     </properties>
 
