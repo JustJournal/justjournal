@@ -51,7 +51,7 @@ public class ContactController {
         }
 
         final User user = userDao.findByUsername(username);
-        if (user == null || user.getFriends().stream().noneMatch(f -> f.getFriend().getId() == userId) || user.getId() != userId) {
+        if (user == null || (user.getId() != userId && user.getFriends().stream().noneMatch(f -> f.getFriend().getId() == userId))) {
             throw new ForbiddenException();
         }
 
