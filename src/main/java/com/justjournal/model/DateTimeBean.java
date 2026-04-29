@@ -164,7 +164,7 @@ public final class DateTimeBean implements DateTime {
     hour = calendarg.get(Calendar.HOUR_OF_DAY);
     minutes = calendarg.get(Calendar.MINUTE);
 
-    log.debug("Internal values: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes);
+    log.trace("Internal values: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes);
   }
 
   @Override
@@ -179,7 +179,7 @@ public final class DateTimeBean implements DateTime {
     hour = calendarg.get(Calendar.HOUR_OF_DAY);
     minutes = calendarg.get(Calendar.MINUTE);
 
-    log.debug("Internal values: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes);
+    log.trace("Internal values: " + year + "-" + month + "-" + day + " " + hour + ":" + minutes);
   }
 
   @Override
