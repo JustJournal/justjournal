@@ -86,21 +86,21 @@ public class UpdateJournal extends HttpServlet {
   private static final String HEADER_LAST_MODIFIED = "Last-Modified";
 
   @SuppressWarnings({"InstanceVariableOfConcreteClass"})
-  private final Settings settings;
+  private final transient Settings settings;
 
-  private final EntryRepository entryRepository;
+  private final transient EntryRepository entryRepository;
 
-  private final UserRepository userRepository;
+  private final transient UserRepository userRepository;
 
-  private final LocationRepository locationDao;
+  private final transient LocationRepository locationDao;
 
-  private final MoodRepository moodDao;
+  private final transient MoodRepository moodDao;
 
-  private final Login webLogin;
+  private final transient Login webLogin;
 
-  private final TrackbackService trackbackService;
+  private final transient TrackbackService trackbackService;
 
-  private final BingService bingService;
+  private final transient BingService bingService;
 
   public UpdateJournal(Settings settings, EntryRepository entryRepository, UserRepository user,
                        LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService) {
