@@ -1,0 +1,45 @@
+name: OpenSSF Scorecard Analysis
+on:
+  security_events:
+    types: [opened]
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 4 * * 6' # Runs every Saturday at 4:30 AM
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Needed to upload results to security tab
+      id-token: write        # Needed to publish results to OpenSSF API
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: "Run analysis"
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes results to the public OpenSSF metrics database
+          publish_results: true 
+
+      - name: "Upload artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      # Uploads the results directly into GitHub Code Scanning Alerts
+      - name: "Upload to code-scanning"
+        uses: github/code-scanning-upload-aurora@v3 # Note: standard action variation or github/code-scanning-upload-action
+        with:
+          sarif_file: results.sarif

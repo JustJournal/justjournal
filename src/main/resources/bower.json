@@ -9,7 +9,7 @@
     "angular-sanitize": "1.7.2",
     "angular-ui": "0.4.0",
     "angular-ui-bootstrap": "0.3.0",
-    "jquery": "3.7.1",
+    "jquery": "3.7.2",
     "jquery-ui": "1.12.1",
     "jquery.validation": "1.21.0",
     "lightbox2": "~2.11.5",

@@ -79,13 +79,12 @@ public class EntryStatisticService {
 
   @Transactional(isolation = Isolation.READ_UNCOMMITTED)
   public void compute(final User user) {
-      log.debug("Computing statistics for user: {}", user.getUsername());
 
       final GregorianCalendar calendarg = new GregorianCalendar();
       int endYear = calendarg.get(Calendar.YEAR);
       int startYear = user.getSince();
 
-      log.debug("Start year: {}, End year: {}", startYear, endYear);
+      log.debug("Computing statistics for user: {} Start year: {}, End year: {}", user.getUsername(), startYear, endYear);
 
       if (endYear < 2003) endYear = 2004;
 
@@ -101,7 +100,7 @@ public class EntryStatisticService {
             es = new EntryStatistic();
             es.setUser(user);
         } else {
-            log.debug("Updating existing entry statistic for year: {}", yr);
+            log.trace("Updating existing entry statistic for year: {}", yr);
         }
 
         es.setCount(count);

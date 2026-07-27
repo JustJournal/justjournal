@@ -117,6 +117,7 @@ public class BlogSearchService {
 
   /** Index all blog entries regardless of security level. */
   @Async
+  @Transactional
   public void indexAllBlogEntries() {
     try {
       Pageable pageable = PageRequest.of(0, 100);
@@ -141,6 +142,7 @@ public class BlogSearchService {
 
   /** Index all public blog entries. */
   @Async
+  @Transactional
   public void indexAllPublicBlogEntries() {
     try {
       // to not use all the ram, I loop through a page at a time and save the blog
@@ -173,6 +175,7 @@ public class BlogSearchService {
    * @param date newer blog entries
    */
   @Async
+  @Transactional
   public void indexBlogEntriesSince(final Date date) {
     Pageable pageable = PageRequest.of(0, 100);
 
@@ -202,6 +205,7 @@ public class BlogSearchService {
    * @param date newer blog entries
    */
   @Async
+  @Transactional
   public void indexPublicBlogEntriesSince(final Date date) {
     Pageable pageable = PageRequest.of(0, 100);
 

@@ -39,8 +39,14 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @Configuration
 public class MinioConfig {
-    @Value("${app.minio.host:http://localhost:9000}")
+    @Value("${app.minio.host:localhost}")
     private String minioHost;
+
+    @Value("${app.minio.port:9000}")
+    private int port;
+
+    @Value("${app.minio.secure:false}")
+    private Boolean secure;
 
     @Value("${app.minio.accessKey}")
     private String minioAccessKey;
@@ -51,11 +57,17 @@ public class MinioConfig {
 
     @Bean
     public MinioClient minioClient() {
+        log.info("Initializing MinIO client with host: {}, port: {}, secure: {}, accessKey: {}", minioHost, port, secure, minioAccessKey);
         if (StringUtils.isEmpty(minioAccessKey) || StringUtils.isEmpty(minioSecretKey)) {
             log.warn("MinIO access key or secret key not provided. Using anonymous access.");
-            return MinioClient.builder().endpoint(minioHost).build();
+            return MinioClient.builder()                    .
+                    endpoint(minioHost, port, secure)
+                    .build();
         } else {
-            return MinioClient.builder().endpoint(minioHost).credentials(minioAccessKey, minioSecretKey).build();
+            return MinioClient.builder()
+                    .endpoint(minioHost, port, secure)
+                    .credentials(minioAccessKey, minioSecretKey)
+                    .build();
         }
     }
 }

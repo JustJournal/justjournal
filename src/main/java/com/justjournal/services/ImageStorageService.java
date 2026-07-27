@@ -50,7 +50,6 @@ import java.util.Optional;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -197,16 +196,12 @@ public class ImageStorageService {
           ErrorResponseException, InvalidResponseException, InternalException, XmlParserException,
           ServerException {
 
-    if (log.isDebugEnabled())
-      log.debug("Make bucket: {}", bucketName);
-
     if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build())) {
+      log.debug("Make bucket: {}", bucketName);
       minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
     }
 
-    if (log.isDebugEnabled())
-      log.debug("Upload file bucket: {}  objectName: {}", bucketName, objectName);
-
+    log.debug("Upload file bucket: {}  objectName: {}", bucketName, objectName);
     if (is instanceof ByteArrayInputStream)
       minioClient.putObject(
           PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(
@@ -227,9 +222,7 @@ public class ImageStorageService {
           ErrorResponseException, InvalidResponseException, InternalException, XmlParserException,
           ServerException {
 
-    if (log.isDebugEnabled())
-      log.debug("Download file bucket: {}  objectName: {}", bucketName, objectName);
-
+    log.debug("Download file bucket: {}  objectName: {}", bucketName, objectName);
     return minioClient.getObject(
         GetObjectArgs.builder().bucket(bucketName).object(objectName).build());
   }
@@ -239,9 +232,7 @@ public class ImageStorageService {
           InvalidResponseException, ErrorResponseException, InternalException, XmlParserException,
           ServerException {
 
-    if (log.isDebugEnabled())
-      log.debug("Delete file bucket: {}  objectName: {}", bucketName, objectName);
-
+    log.debug("Delete file bucket: {}  objectName: {}", bucketName, objectName);
     minioClient.removeObject(
         RemoveObjectArgs.builder().bucket(bucketName).object(objectName).build());
   }
