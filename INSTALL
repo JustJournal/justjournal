@@ -5,7 +5,7 @@ Building JustJournal
 JustJournal uses maven 3 to build.  You can use the standard mvn package to get a deployable jar.
 
 Requirements:
-Java 17 or higher
+Java 21 or higher
 Maven 3.x
 MySQL 8.0.x server
 Tomcat 9.x (included with spring)

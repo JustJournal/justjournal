@@ -125,7 +125,7 @@ For review, debugging, or analysis outputs, use: findings with references, concl
 ## Project Overview
 
 - JustJournal is a multi-user blogging web application.
-- Stack: Java 17, Spring Boot 3.1.x, Maven 3, MySQL 8, Redis 7.x, and MinIO for avatar storage.
+- Stack: Java 21, Spring Boot 3.3.x, Maven 3, MySQL 8, Redis 7.x, and MinIO for avatar storage.
 - Packaging: executable Spring Boot JAR built from `pom.xml`.
 - Main entry point: `src/main/java/com/justjournal/Application.java`.
 
