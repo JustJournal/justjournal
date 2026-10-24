@@ -30,7 +30,7 @@ spring:
       maximum-pool-size: 30
       minimum-idle: 2
       idle-timeout: 14400
-      max-lifetime: 14400
+      max-lifetime: 30000
       connection-timeout: 30000
       pool-name: JJHikariCP
       connection-test-query: SELECT 1
@@ -41,7 +41,6 @@ spring:
     generate-ddl: false
     show-sql: false
     properties:
-     dialect: org.hibernate.dialect.MySQLDialect
      physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
      hibernate:
        temp:
@@ -69,6 +68,9 @@ server:
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  servlet:
+    session:
+      tracking-modes: cookie
 
 app:
   minio:
