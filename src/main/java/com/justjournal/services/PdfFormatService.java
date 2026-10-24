@@ -29,14 +29,13 @@ import com.justjournal.core.UserContext;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.repository.EntryRepository;
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
-import com.lowagie.text.pdf.PdfWriter;
 import lombok.extern.slf4j.Slf4j;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.PdfWriter;
 import org.springframework.stereotype.Service;
 
 /** @author Lucas Holt */

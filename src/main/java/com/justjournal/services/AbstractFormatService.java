@@ -32,15 +32,14 @@ import com.justjournal.model.Entry;
 import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.utility.HTMLUtil;
-import com.lowagie.text.*;
-import com.lowagie.text.Font;
-import com.lowagie.text.pdf.PdfContentByte;
 import java.awt.*;
-import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.openpdf.text.*;
+import org.openpdf.text.Font;
+import org.openpdf.text.pdf.PdfContentByte;
 
 /** @author Lucas Holt */
 @Slf4j
@@ -107,17 +106,13 @@ public abstract class AbstractFormatService {
         throw new NotFoundException();
       }
 
-      // Format the current time.
-      final SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd hh:mm");
       final SimpleDateFormat formatmydate = new SimpleDateFormat("EEE, d MMM yyyy");
       final SimpleDateFormat formatmytime = new SimpleDateFormat("h:mm a");
       String lastDate = "";
       String curDate;
 
       for (final Entry o : entries) {
-        // Parse the previous string back into a Date.
-        final ParsePosition pos = new ParsePosition(0);
-        final Date currentDate = formatter.parse(o.getDate().toString(), pos);
+        final Date currentDate = o.getDate();
 
         curDate = formatmydate.format(currentDate);
 
