@@ -84,14 +84,14 @@ public class EntryStatisticService {
       int endYear = calendarg.get(Calendar.YEAR);
       int startYear = user.getSince();
 
-      log.debug("Computing statistics for user: {} Start year: {}, End year: {}", user.getUsername(), startYear, endYear);
+      log.trace("Computing statistics for user: {} Start year: {}, End year: {}", user.getUsername(), startYear, endYear);
 
       if (endYear < 2003) endYear = 2004;
 
       if (startYear < 2003) startYear = 2003;
 
     for (int yr = startYear; yr <= endYear; yr++) {
-        log.debug("testing with year: {} user: {}", yr , user.getUsername());
+        log.trace("testing with year: {} user: {}", yr, user.getUsername());
         EntryStatistic es = entryStatisticRepository.findByUserAndYear(user, yr);
         final long count = entryRepository.calendarCount(yr, user.getUsername());
 

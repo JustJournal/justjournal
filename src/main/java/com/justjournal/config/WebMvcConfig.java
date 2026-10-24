@@ -108,8 +108,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
   public RestTemplate restTemplate(RestTemplateBuilder builder) {
     // used for outbound trackback pings and Bing IndexNow; never wait on a remote site for long
     return builder
-        .setConnectTimeout(Duration.ofSeconds(5))
-        .setReadTimeout(Duration.ofSeconds(10))
+        .connectTimeout(Duration.ofSeconds(5))
+        .readTimeout(Duration.ofSeconds(10))
         .build();
   }
 

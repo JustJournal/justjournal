@@ -85,8 +85,7 @@ public class CacheConfig {
   public ReactiveRedisTemplate<String, Tag> reactiveRedisTemplateTag(
       final ReactiveRedisConnectionFactory connectionFactory) {
     final Jackson2JsonRedisSerializer<Tag> valSerializer =
-        new Jackson2JsonRedisSerializer<>(Tag.class);
-    valSerializer.setObjectMapper(objectMapper);
+        new Jackson2JsonRedisSerializer<>(objectMapper, Tag.class);
 
     final RedisSerializationContext.RedisSerializationContextBuilder<String, Tag> builder =
         RedisSerializationContext.newSerializationContext(new StringRedisSerializer());

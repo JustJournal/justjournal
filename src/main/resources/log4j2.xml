@@ -33,7 +33,7 @@
         </Async>
     </Appenders>
     <Loggers>
-        <AsyncLogger name="com.justjournal" level="debug" additivity="false">
+        <AsyncLogger name="com.justjournal" level="info" additivity="false">
             <AppenderRef ref="ConsoleAppender" />
             <AppenderRef ref="AsyncFileAppender" />
         </AsyncLogger>

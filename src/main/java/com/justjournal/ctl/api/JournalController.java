@@ -134,8 +134,9 @@ public class JournalController {
     try {
       Journal j = journalRepository.findOneBySlug(slug);
       if (j == null) {
+        // new journal: the id is generated. Copying a client-supplied id makes Hibernate 6.6+
+        // treat it as a stale detached entity and fail instead of inserting.
         Journal journal = new Journal();
-        journal.setId(journalTo.getId());
         journal.setAllowSpider(journalTo.isAllowSpider());
         journal.setSlug(journalTo.getSlug());
         journal.setName(journalTo.getName());
