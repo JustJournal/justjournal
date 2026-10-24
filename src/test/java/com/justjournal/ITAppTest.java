@@ -94,22 +94,22 @@ class ITAppTest {
 
   @Test
   void simple() throws Exception {
-    mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(view().name("index"));
+    mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(view().name("layout"));
   }
 
   @Test
   void privacy() throws Exception {
-    mockMvc.perform(get("/privacy")).andExpect(status().isOk()).andExpect(view().name("index"));
+    mockMvc.perform(get("/privacy")).andExpect(status().isOk()).andExpect(view().name("layout"));
   }
 
   @Test
   void search() throws Exception {
-    mockMvc.perform(get("/search")).andExpect(status().isOk()).andExpect(view().name("index"));
+    mockMvc.perform(get("/search")).andExpect(status().isOk()).andExpect(view().name("layout"));
   }
 
   @Test
   void sitemap() throws Exception {
-    mockMvc.perform(get("/sitemap")).andExpect(status().isOk()).andExpect(view().name("index"));
+    mockMvc.perform(get("/sitemap")).andExpect(status().isOk()).andExpect(view().name("layout"));
   }
 
   @Test

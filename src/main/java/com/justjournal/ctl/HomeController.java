@@ -48,7 +48,7 @@ public final class HomeController {
     model.addAttribute("title", "Just Journal: Free Online Journals");
     model.addAttribute("pageId", "home");
     model.addAttribute("contentTemplate", "fragments/public/home");
-    return "index";
+    return "layout";
   }
 
   @GetMapping(value = "/logout")

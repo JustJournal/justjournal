@@ -70,7 +70,7 @@ public class BiographyController {
     this.userDao = userDao;
   }
 
-  @Cacheable(value = "biography", key = "username")
+  @Cacheable(value = "biography", key = "#username")
   @GetMapping(
       value = "{username}",
       headers = Constants.HEADER_ACCEPT_ALL,

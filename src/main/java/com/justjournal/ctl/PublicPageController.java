@@ -16,7 +16,7 @@ public class PublicPageController {
     model.addAttribute("title", title);
     model.addAttribute("pageId", pageId);
     model.addAttribute("contentTemplate", contentTemplate);
-    return "index";
+    return "layout";
   }
 
   @GetMapping("/cancel")

@@ -2033,7 +2033,11 @@ public class UsersController {
         sb.append(o.getMood().getTitle());
         sb.append("</span><br />\n");
       } else {
-          log.error("Couldn't get mood theme data for {}", o.getMood().getId());
+        // not every mood has an emoticon in theme 1; show the mood without an image
+        log.debug("No mood theme data for {}", o.getMood().getId());
+        sb.append("\t\t\t<span class=\"mood\">mood: ");
+        sb.append(o.getMood().getTitle());
+        sb.append("</span><br />\n");
       }
     }
 
