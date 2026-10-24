@@ -6,7 +6,7 @@
 
     <groupId>com.justjournal</groupId>
     <artifactId>justjournal</artifactId>
-    <version>3.1.13</version>
+    <version>3.1.14</version>
 
     <organization>
         <name>Just Journal</name>
@@ -16,14 +16,13 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.12</version>
+        <version>3.3.13</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
     <properties>
         <java-version>17</java-version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <mysql.version>8.0.33</mysql.version>
         <commonmark.version>0.27.0</commonmark.version>
         <esapi.version>2.6.0.0</esapi.version>
         <spotless.version>2.33.0</spotless.version>
@@ -317,9 +316,8 @@
         </dependency>
 
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>${mysql.version}</version>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
         <dependency>
@@ -468,7 +466,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
-            <version>2.21.0</version> <!-- Use the version compatible with your Jackson core -->
         </dependency>
 
         <dependency>
