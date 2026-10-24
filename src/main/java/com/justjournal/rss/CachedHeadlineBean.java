@@ -25,36 +25,28 @@
  */
 package com.justjournal.rss;
 
+import static com.justjournal.core.Constants.endl;
 
-import com.justjournal.model.DateTime;
-import com.justjournal.model.DateTimeBean;
 import com.justjournal.model.RssCache;
 import com.justjournal.repository.RssCacheRepository;
-import com.justjournal.utility.StringUtil;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.StringReader;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.Calendar;
+import java.net.URI;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.Optional;
-
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXParseException;
 
 /**
- * Stores RSS content collected from the internet into a datastore, retrieves stored versions, and
- * spits out HTML to render them.
+ * Renders RSS content stored in the datastore as HTML.
+ *
+ * <p>This runs while a page request holds a database connection, so it never goes to the network.
+ * {@link com.justjournal.core.RssCacheRefresh} downloads feeds in the background; a feed seen here
+ * for the first time gets an empty cache record that the next refresh fills in.
  *
  * @author Lucas Holt
  * @version $Id: CachedHeadlineBean.java,v 1.7 2011/05/29 22:32:59 laffer1 Exp $
@@ -67,126 +59,79 @@ import org.xml.sax.SAXParseException;
 @Component
 public class CachedHeadlineBean extends HeadlineBean {
 
+  static final Date NEVER_UPDATED =
+      Date.from(LocalDate.of(2000, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant());
+
   private final RssCacheRepository rssCacheRepository;
 
-  @Autowired
-  public CachedHeadlineBean(final RssCacheRepository rssCacheRepository) {
+  public CachedHeadlineBean(
+      final FeedFetcher feedFetcher, final RssCacheRepository rssCacheRepository) {
+    super(feedFetcher);
     this.rssCacheRepository = rssCacheRepository;
   }
 
   @Override
   protected Optional<HeadlineContext> getRssDocument(@NonNull final String uri) throws Exception {
-    log.info("Starting getRssDocument()");
-    final HeadlineContext hc = new HeadlineContext();
-    final StringBuilder sbx = new StringBuilder();
+    final RssCache rss = rssCacheRepository.findFirstByUriOrderByIdAsc(uri);
 
-    RssCache rss = fetchOrCreateRssCache(uri);
-
-    if (shouldUpdateRssContent(rss)) {
-      updateRssContent(rss, uri, sbx);
+    if (rss == null) {
+      queueForRefresh(uri);
+      return Optional.empty();
     }
 
-    return createHeadlineContext(rss, hc);
-  }
-
-  private RssCache fetchOrCreateRssCache(@NotNull String uri) {
-    log.info("looking up rss cache repo uri");
-    RssCache rss = rssCacheRepository.findByUri(uri);
-    log.info("rss cache lookup done");
-
-    if (rss == null || rss.getUri() == null || rss.getUri().length() <= 10) {
-        log.info("Fetch uri: {}", uri);
-      rss = new RssCache();
-      rss.setUri(uri);
-      rss.setInterval(24);
-      rss.setActive(true);
-      rss.setErrorCount(0);
+    if (rss.getContent() == null || rss.getContent().isBlank()) {
+      return Optional.empty();
     }
 
-    return rss;
+    return createHeadlineContext(rss, new HeadlineContext());
   }
 
-  private boolean shouldUpdateRssContent(RssCache rss) {
-    if (Boolean.FALSE.equals(rss.getActive())) return false;
-
-    if (rss.getLastUpdated() == null) return true;
-
-    final DateTime dt = new DateTimeBean(rss.getLastUpdated());
-    final java.util.GregorianCalendar calendarg = new java.util.GregorianCalendar();
-    return dt.getDay() != calendarg.get(java.util.Calendar.DATE) || rss.getContent() == null || rss.getContent().isEmpty();
-  }
-
-  private boolean isTooManyErrors(RssCache rss) {
-    return rss.getErrorCount() >= 3;
-  }
-
-
-  private void updateRssContent(RssCache rss, @NotNull String uri, StringBuilder sbx) throws IOException {
-    log.info("Updating RSS content for: {}", uri);
-    rss.setLastUpdated(Calendar.getInstance().getTime());
-
-    int statusCode = fetchContentFromUrl(uri, sbx);
-
-    if (statusCode != 200 || rss.getContent().startsWith("<html") || rss.getContent().startsWith("<!DOCTYPE HTML")) {
-      rss.setContent("");
-      if (isTooManyErrors(rss)) {
-        rss.setActive(false);
-      } else {
-        rss.setErrorCount(rss.getErrorCount() + 1);
-      }
+  /** Only a syntax check here; the background refresh finds out whether the host exists. */
+  @Override
+  protected boolean isValidFeedAddress(@NonNull final String url) {
+    try {
+      final URI parsed = URI.create(url.trim());
+      final String scheme = parsed.getScheme();
+      return parsed.getHost() != null
+          && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme));
+    } catch (final IllegalArgumentException e) {
+      return false;
     }
-
-    rss.setContent(sbx.toString().trim());
-
-    // sun can't make their own rss feeds complaint
-    if (rss.getContent().startsWith("<rss"))
-      rss.setContent("<?xml version=\"1.0\"?>\n" + rss.getContent());
-
-    rssCacheRepository.saveAndFlush(rss);
   }
 
-  private int fetchContentFromUrl(@NotNull String uri, StringBuilder sbx) throws IOException {
-    try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-      final HttpGet httpGet = new HttpGet(uri);
-      try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-        int statusCode = response.getStatusLine().getStatusCode();
-        if (statusCode != 200) {
-          log.error("Error fetching content from URL: {} status: {}", uri, statusCode);
-          return statusCode;
-        }
-        final HttpEntity entity = response.getEntity();
-        try (BufferedReader buff = new BufferedReader(new InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
-          String input;
-          while ((input = buff.readLine()) != null) {
-            sbx.append(StringUtil.replace(input, '\'', "\\\'"));
-          }
-        }
-      }
-    } catch (final IOException e) {
-        log.error("Error fetching content from URL: {}", uri, e);
-      throw e;
+  @Override
+  protected String unavailableMessage(@NonNull final String url) {
+    return "<p>This feed hasn't been downloaded yet, or is currently unavailable. Check back later.</p>"
+        + endl;
+  }
+
+  /**
+   * Create an empty record dated long ago so the next background refresh picks the feed up.
+   * (lastupdated is NOT NULL in the schema, so it can't be left empty.)
+   */
+  private void queueForRefresh(final String uri) {
+    final RssCache rss = new RssCache();
+    rss.setUri(uri);
+    rss.setLastUpdated(NEVER_UPDATED);
+    rss.setInterval(24);
+    rss.setActive(true);
+    rss.setErrorCount(0);
+    rss.setContent("");
+    rssCacheRepository.save(rss);
+    log.info("Queued new RSS feed for background refresh: {}", uri);
+  }
+
+  private Optional<HeadlineContext> createHeadlineContext(RssCache rss, HeadlineContext hc)
+      throws Exception {
+    try {
+      hc.factory.setValidating(false);
+      hc.factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      hc.builder = hc.factory.newDocumentBuilder();
+      hc.document = hc.builder.parse(new InputSource(new StringReader(rss.getContent())));
+      return Optional.of(hc);
+    } catch (final SAXParseException saxParseException) {
+      log.error("Error parsing RSS content: {}", rss.getUri(), saxParseException);
+      return Optional.empty();
     }
-
-    return 200;
   }
-
-  private Optional<HeadlineContext> createHeadlineContext(RssCache rss, HeadlineContext hc) throws Exception {
-      log.info("getRssDocument() load into a parser: {}", rss.getUri());
-
-      try {
-        final StringReader sr = new StringReader(rss.getContent());
-        final org.xml.sax.InputSource saxy = new org.xml.sax.InputSource(sr);
-        hc.factory.setValidating(false);
-        hc.factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        hc.builder = hc.factory.newDocumentBuilder();
-        hc.document = hc.builder.parse(saxy);
-
-        log.debug("Hit end of getRssDocument() for {}", rss.getUri());
-        return Optional.of(hc);
-      } catch (final SAXParseException saxParseException) {
-        log.error("Error parsing RSS content: {}", rss.getUri(), saxParseException);
-        return Optional.empty();
-      }
-  }
-
 }

@@ -33,7 +33,6 @@ import com.justjournal.model.*;
 import com.justjournal.repository.*;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.HTMLUtil;
-import com.justjournal.utility.StringUtil;
 import java.io.Serializable;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -212,9 +211,9 @@ public class Blogger extends BaseXmlRpcService {
         subject = m.group(2);
         content = m.replaceAll("");
       } else subject = "";
-      et.setSubject(StringUtil.replace(subject, '\'', "\\\'"));
+      et.setSubject(subject);
 
-      et.setBody(StringUtil.replace(content, '\'', "\\\'"));
+      et.setBody(content);
 
       /* Allow html style music tag to set music, used by few clients */
       final String music;
@@ -224,7 +223,7 @@ public class Blogger extends BaseXmlRpcService {
         music = m2.group(2);
         m.replaceAll("");
       } else music = "";
-      et.setMusic(StringUtil.replace(music, '\'', "\\\'"));
+      et.setMusic(music);
 
       et.setSecurity(Security.PUBLIC); // public
       et.setLocation(locationDao.findById(0).orElse(null)); // not specified
@@ -349,7 +348,7 @@ public class Blogger extends BaseXmlRpcService {
         if (et2 == null) return error(ERROR_ENTRY_ID + postid);
 
         if (userId == et2.getUser().getId()) {
-          et2.setBody(StringUtil.replace(content, '\'', "\\\'"));
+          et2.setBody(content);
           et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
           entryRepository.save(et2);
         } else return error(ERROR_USER_AUTH + username);

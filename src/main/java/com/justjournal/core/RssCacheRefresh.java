@@ -25,31 +25,23 @@
  */
 package com.justjournal.core;
 
-
 import com.justjournal.model.RssCache;
 import com.justjournal.repository.RssCacheRepository;
-import com.justjournal.utility.StringUtil;
-import java.io.BufferedInputStream;
+import com.justjournal.rss.FeedFetcher;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Calendar;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
- * Update the RSS cache
+ * Update the RSS cache.
+ *
+ * <p>This is the only place feeds are downloaded; page requests read the cache only. Feeds are
+ * fetched one at a time on the scheduler thread, and no database connection is held while waiting
+ * on a remote server.
  *
  * @author Lucas Holt
  */
@@ -58,12 +50,15 @@ import reactor.core.scheduler.Schedulers;
 @Profile("!test")
 public class RssCacheRefresh {
 
-  private static final int MAX_ERROR_FETCH = 5;
+  static final int MAX_ERROR_FETCH = 5;
 
   private final RssCacheRepository rssCacheDao;
 
-  public RssCacheRefresh(RssCacheRepository rssCacheDao) {
+  private final FeedFetcher feedFetcher;
+
+  public RssCacheRefresh(final RssCacheRepository rssCacheDao, final FeedFetcher feedFetcher) {
     this.rssCacheDao = rssCacheDao;
+    this.feedFetcher = feedFetcher;
   }
 
   @Scheduled(fixedDelay = 1000 * 60 * 30, initialDelay = 60000)
@@ -74,26 +69,12 @@ public class RssCacheRefresh {
       final Calendar yesterday = Calendar.getInstance();
       yesterday.add(Calendar.DATE, -1);
 
-      final List<RssCache> items = rssCacheDao.findByLastUpdatedBefore(yesterday.getTime());
+      final List<RssCache> items = rssCacheDao.findDueForRefresh(yesterday.getTime());
+      log.info("RssCache: {} feeds due for refresh", items.size());
 
-      Flux.fromIterable(items)
-          .parallel()
-          .runOn(Schedulers.newParallel("rsscache", 2))
-          .map(
-              cache -> {
-                try {
-                  if (cache.getActive() != null && cache.getActive())
-                    return Mono.fromCallable(() -> getRssDocument(cache));
-                } catch (final Exception e) {
-                  log.error(e.getMessage(), e);
-                  cache.setErrorCount(cache.getErrorCount() + 1);
-                  if (cache.getErrorCount() > MAX_ERROR_FETCH) cache.setActive(false);
-                  rssCacheDao.saveAndFlush(cache);
-                }
-                return Mono.empty();
-              })
-          .subscribe();
-
+      for (final RssCache cache : items) {
+        refresh(cache);
+      }
     } catch (final Exception e) {
       log.error(e.getMessage(), e);
     }
@@ -102,64 +83,65 @@ public class RssCacheRefresh {
   }
 
   /**
-   * Fetch the RSS feed.
+   * Download one feed and store the result. Failures are counted, and a feed that keeps failing
+   * is switched off.
    *
-   * @param rss
-   * @throws IOException
+   * @param rss cache record to refresh
+   * @return the saved record, or null if it has no usable address
    */
-  RssCache getRssDocument(final RssCache rss) throws IOException {
-    final StringBuilder sbx = new StringBuilder();
-
+  RssCache refresh(final RssCache rss) {
     if (rss == null || rss.getUri() == null || rss.getUri().length() < 11) return null;
 
-    final HttpClient client = HttpClientBuilder.create().build();
-    final HttpGet request = new HttpGet(rss.getUri());
-    final HttpResponse response = client.execute(request);
+    try {
+      final FeedFetcher.Result result = feedFetcher.fetch(rss.getUri());
+      final int code = result.statusCode();
 
-    final int code = response.getStatusLine().getStatusCode();
-    if (code == 200) {
-      final HttpEntity entity = response.getEntity();
-      final byte[] buffer = new byte[1024];
-      if (entity != null) {
-        final InputStream inputStream = entity.getContent();
-        try {
-          int bytesRead;
-          final BufferedInputStream bis = new BufferedInputStream(inputStream);
-          while ((bytesRead = bis.read(buffer)) != -1) {
-            final String chunk = new String(buffer, 0, bytesRead);
-            sbx.append(StringUtil.replace(chunk, '\'', "\\\'"));
-          }
-          bis.close();
-        } catch (final Exception e) {
-          log.error(e.getMessage(), e);
+      if (result.isOk()) {
+        final String content = cleanContent(result.body());
+        if (content.isEmpty()) {
+          return failed(rss, "returned an HTML page or no content");
         }
+        rss.setLastUpdated(Calendar.getInstance().getTime());
+        rss.setContent(content);
+        rss.setErrorCount(0);
+        return rssCacheDao.saveAndFlush(rss);
       }
 
-      rss.setLastUpdated(Calendar.getInstance().getTime());
-      rss.setContent(cleanContent(sbx.toString()));
+      if (code == 404 || code == 410) {
+        log.warn("URL {} is returning a {}. Removing from list", rss.getUri(), code);
+        rss.setLastUpdated(Calendar.getInstance().getTime());
+        rss.setActive(false);
+        return rssCacheDao.saveAndFlush(rss);
+      }
 
-      return rssCacheDao.saveAndFlush(rss);
-    } else if (code == 404 || code == 410) {
-      log.warn("URL {} is returning a 404. Removing from list", rss.getUri());
-
-      rss.setLastUpdated(Calendar.getInstance().getTime());
-      rss.setActive(false);
-      return rssCacheDao.saveAndFlush(rss);
-    } else {
-      log.warn(String.format("RssCache status code %d for url %s", code, rss.getUri()));
+      return failed(rss, "returned status code " + code);
+    } catch (final IOException | RuntimeException e) {
+      return failed(rss, e.toString());
     }
+  }
 
-    return rss;
+  /** Record a failed fetch; it is retried after a day, and switched off after repeated failures. */
+  private RssCache failed(final RssCache rss, final String reason) {
+    log.warn("RssCache: {} {}", rss.getUri(), reason);
+    rss.setLastUpdated(Calendar.getInstance().getTime());
+    rss.setErrorCount(rss.getErrorCount() + 1);
+    if (rss.getErrorCount() > MAX_ERROR_FETCH) {
+      log.warn("RssCache: disabling {} after {} failures", rss.getUri(), rss.getErrorCount());
+      rss.setActive(false);
+    }
+    return rssCacheDao.saveAndFlush(rss);
   }
 
   private String cleanContent(final String content) {
     if (content == null) return "";
 
-    if (content.startsWith("<rss")) return ("<?xml version=\"1.0\"?>\n" + content.trim());
+    final String trimmed = content.trim();
 
-    if (content.startsWith("<html") || content.startsWith("<!DOCTYPE HTML"))
+    if (trimmed.startsWith("<rss")) return ("<?xml version=\"1.0\"?>\n" + trimmed);
+
+    if (trimmed.startsWith("<html") || trimmed.regionMatches(true, 0, "<!DOCTYPE HTML", 0, 14))
       return ""; // it's an html page.. bad
 
-    return content.trim();
+    return trimmed;
   }
 }

@@ -30,17 +30,16 @@ import static com.justjournal.core.Constants.endl;
 import com.justjournal.utility.DNSUtil;
 import com.justjournal.utility.Xml;
 import java.io.IOException;
+import java.io.StringReader;
+import java.io.InputStream;
+import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.owasp.validator.html.AntiSamy;
+import org.owasp.validator.html.Policy;
 import org.springframework.stereotype.Component;
+import org.xml.sax.InputSource;
 
 /**
  * Retrieves a RSS document using HTTP, parses the document, and converts it to HTML.
@@ -61,35 +60,102 @@ import org.springframework.stereotype.Component;
 @Component
 public class HeadlineBean {
 
+  /**
+   * Feed HTML comes from sites we don't control. The policy keeps basic formatting, links and
+   * http(s) images, and drops scripts, event handlers, iframes and objects.
+   */
+  private static final Policy FEED_POLICY = loadPolicy("/antisamy-feed.xml");
+
+  private final FeedFetcher feedFetcher;
+
+  public HeadlineBean(final FeedFetcher feedFetcher) {
+    this.feedFetcher = feedFetcher;
+  }
+
   protected Optional<HeadlineContext> getRssDocument(@NonNull final String uri) throws Exception {
 
     final HeadlineContext hc = new HeadlineContext();
 
-    try (final CloseableHttpClient httpClient = HttpClients.createDefault()) {
-      final HttpGet httpGet = new HttpGet(uri);
-
-      try (final CloseableHttpResponse response1 = httpClient.execute(httpGet)) {
-        final HttpEntity entity1 = response1.getEntity();
-
-        // Build document:
-        hc.factory.setValidating(false);
-        hc.factory.setIgnoringComments(true);
-        hc.factory.setCoalescing(true);
-        hc.factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        hc.builder = hc.factory.newDocumentBuilder();
-        hc.document = hc.builder.parse(entity1.getContent());
-
-        return Optional.of(hc);
+    try {
+      final FeedFetcher.Result result = feedFetcher.fetch(uri);
+      if (!result.isOk()) {
+        log.warn("RSS fetch of {} returned status {}", uri, result.statusCode());
+        return Optional.empty();
       }
+
+      // Build document:
+      hc.factory.setValidating(false);
+      hc.factory.setIgnoringComments(true);
+      hc.factory.setCoalescing(true);
+      hc.factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      hc.builder = hc.factory.newDocumentBuilder();
+      hc.document = hc.builder.parse(new InputSource(new StringReader(result.body())));
+
+      return Optional.of(hc);
     } catch (final IOException e) {
       log.error(e.getMessage(), e);
       return Optional.empty();
     }
   }
 
+  /** Checks the feed address before it is used. The default resolves the host name. */
+  protected boolean isValidFeedAddress(@NonNull final String url) {
+    return DNSUtil.isUrlDomainValid(url);
+  }
+
+  /** Message shown when {@link #getRssDocument(String)} has nothing to render. */
+  protected String unavailableMessage(@NonNull final String url) {
+    return "<p>RSS Feed is unavailable for url: " + Xml.cleanString(url) + "</p>" + endl;
+  }
+
+  private static Policy loadPolicy(final String resource) {
+    try (InputStream in = HeadlineBean.class.getResourceAsStream(resource)) {
+      if (in == null) throw new IllegalStateException("Missing AntiSamy policy " + resource);
+      return Policy.getInstance(in);
+    } catch (final Exception e) {
+      throw new IllegalStateException("Could not load AntiSamy policy " + resource, e);
+    }
+  }
+
+  /** Clean feed-supplied HTML for display; falls back to plain escaped text. */
+  static String sanitizeHtml(final String html) {
+    if (html == null || html.isBlank()) return "";
+    try {
+      return new AntiSamy().scan(html, FEED_POLICY).getCleanHTML();
+    } catch (final Exception e) {
+      log.warn("Could not sanitize feed HTML, showing it as text: {}", e.getMessage());
+      return Xml.cleanString(html);
+    }
+  }
+
+  /** An escaped http(s) URL safe for an href or src attribute, or null for anything else. */
+  static String safeUrl(final String url) {
+    if (url == null) return null;
+    final String trimmed = url.trim();
+    final String lower = trimmed.toLowerCase(Locale.ROOT);
+    if (!lower.startsWith("http://") && !lower.startsWith("https://")) return null;
+    return Xml.cleanString(trimmed);
+  }
+
+  /** A positive pixel size from the feed, or 0 when it is missing or not a number. */
+  private static int pixels(final String value) {
+    if (value == null) return 0;
+    try {
+      return Math.max(0, Integer.parseInt(value.trim()));
+    } catch (final NumberFormatException e) {
+      return 0;
+    }
+  }
+
+  /** Text of an element, or null when it is empty (e.g. {@code <guid/>}). */
+  private static String textOf(final org.w3c.dom.Node node) {
+    final String text = node.getTextContent();
+    return text == null || text.isBlank() ? null : text;
+  }
+
   public String parse(@NonNull final String url) {
 
-    if (!DNSUtil.isUrlDomainValid(url)) {
+    if (!isValidFeedAddress(url)) {
       return "<p>RSS Feed address is invalid</p>" + endl;
     }
 
@@ -98,8 +164,8 @@ public class HeadlineBean {
       final Optional<HeadlineContext> hc = getRssDocument(url);
 
       if (hc.isEmpty()) {
-        log.error("Failed to fetch RSS content from {}", url);
-        return "<p>RSS Feed is unavailable for url: " + url + "</p>" + endl;
+        log.debug("No RSS content to show for {}", url);
+        return unavailableMessage(url);
       }
 
       log.info("Fetched, now create");
@@ -130,30 +196,30 @@ public class HeadlineBean {
         final org.w3c.dom.Node curNode = chnodes.item(k);
 
         if (curNode.getNodeName().equals("title")) {
-          contentTitle = curNode.getChildNodes().item(0).getNodeValue();
+          contentTitle = textOf(curNode);
         } else if (curNode.getNodeName().equals("link")) {
-          contentLink = curNode.getChildNodes().item(0).getNodeValue();
+          contentLink = textOf(curNode);
         } else if (curNode.getNodeName().equals("description")) {
-          contentDescription = curNode.getChildNodes().item(0).getNodeValue();
+          contentDescription = textOf(curNode);
         } else if (curNode.getNodeName().equals("lastBuildDate")) {
-          contentLastBuildDate = curNode.getChildNodes().item(0).getNodeValue();
+          contentLastBuildDate = textOf(curNode);
         } else if (curNode.getNodeName().equals("generator")) {
-          contentGenerator = curNode.getChildNodes().item(0).getNodeValue();
+          contentGenerator = textOf(curNode);
         } else if (curNode.getNodeName().equals("image")) {
 
           org.w3c.dom.NodeList imageNodes = curNode.getChildNodes();
 
           for (int z = 0; z < imageNodes.getLength(); z++) {
             if (imageNodes.item(z).getNodeName().equals("url")) {
-              imageUrl = imageNodes.item(z).getChildNodes().item(0).getNodeValue();
+              imageUrl = textOf(imageNodes.item(z));
             } else if (imageNodes.item(z).getNodeName().equals("height")) {
-              imageHeight = imageNodes.item(z).getChildNodes().item(0).getNodeValue();
+              imageHeight = textOf(imageNodes.item(z));
             } else if (imageNodes.item(z).getNodeName().equals("width")) {
-              imageWidth = imageNodes.item(z).getChildNodes().item(0).getNodeValue();
+              imageWidth = textOf(imageNodes.item(z));
             } else if (imageNodes.item(z).getNodeName().equals("title")) {
-              imageTitle = imageNodes.item(z).getChildNodes().item(0).getNodeValue();
+              imageTitle = textOf(imageNodes.item(z));
             } else if (imageNodes.item(z).getNodeName().equals("link")) {
-              imageLink = imageNodes.item(z).getChildNodes().item(0).getNodeValue();
+              imageLink = textOf(imageNodes.item(z));
             }
           }
         }
@@ -161,80 +227,82 @@ public class HeadlineBean {
 
       log.debug("Prepare HTML output");
 
+      // everything below comes from the remote feed: escape text, allow only http(s) links
+      final String safeImageUrl = safeUrl(imageUrl);
+      final String safeImageLink = safeUrl(imageLink);
+      final String safeContentLink = safeUrl(contentLink);
+      final int width = pixels(imageWidth);
+      final int height = pixels(imageHeight);
+
       // create header!
       sb.append(
           "<div style=\"width: 100%; padding: .1in; background: #F2F2F2;\""
               + " class=\"ljfhead\">");
       sb.append(endl);
 
+      // "--" can't appear inside an HTML comment
       sb.append("<!-- Generator: ");
-      sb.append(contentGenerator);
+      sb.append(Xml.cleanString(contentGenerator).replace("--", "- -"));
       sb.append(" -->");
       sb.append(endl);
 
-      if (imageUrl != null) {
+      if (safeImageUrl != null) {
         sb.append("<span style=\"padding: 5px; float:left; ");
-        if (imageWidth != null && Integer.parseInt(imageWidth) > 0) {
-          sb.append("width:");
-          sb.append(imageWidth);
-          sb.append("px; ");
+        if (width > 0) {
+          sb.append("width:").append(width).append("px; ");
         }
-        if (imageHeight != null && Integer.parseInt(imageHeight) > 0) {
-          sb.append("height:");
-          sb.append(imageHeight);
-          sb.append("px; ");
+        if (height > 0) {
+          sb.append("height:").append(height).append("px; ");
         }
         sb.append("position: relative;\">");
 
-        sb.append("<a href=\"");
-        sb.append(imageLink);
-        sb.append("\">");
+        if (safeImageLink != null) {
+          sb.append("<a href=\"").append(safeImageLink).append("\">");
+        }
 
         sb.append("<img src=\"");
-        sb.append(imageUrl);
-        if (imageHeight != null
-            && imageWidth != null
-            && Integer.parseInt(imageWidth) > 0
-            && Integer.parseInt(imageHeight) > 0) {
+        sb.append(safeImageUrl);
+        if (width > 0 && height > 0) {
           // Only add height and width attributes if they are defined in the feed.
-          sb.append("\" height=\"");
-          sb.append(imageHeight);
-          sb.append("\" width=\"");
-          sb.append(imageWidth);
+          sb.append("\" height=\"").append(height).append("\" width=\"").append(width);
         }
         sb.append("\" alt=\"");
-        sb.append(imageTitle);
+        sb.append(Xml.cleanString(imageTitle));
         sb.append("\" title=\"");
-        sb.append(imageTitle);
-        sb.append("\" /></a></span>");
+        sb.append(Xml.cleanString(imageTitle));
+        sb.append("\" />");
+        if (safeImageLink != null) {
+          sb.append("</a>");
+        }
+        sb.append("</span>");
         sb.append(endl);
       }
 
       sb.append("<h3 ");
       if (contentDescription != null) {
         sb.append("title=\"");
-        sb.append(contentDescription);
+        sb.append(Xml.cleanString(contentDescription));
         sb.append("\"");
       }
       sb.append(">");
-      sb.append(contentTitle);
+      sb.append(Xml.cleanString(contentTitle));
       sb.append("</h3>");
       sb.append(endl);
 
       // some rss feeds don't have a last build date
       if (contentLastBuildDate != null && !contentLastBuildDate.isEmpty()) {
         sb.append("<p>Updated: ");
-        sb.append(contentLastBuildDate);
+        sb.append(Xml.cleanString(contentLastBuildDate));
         sb.append("<br />");
       } else {
         sb.append("<p>");
       }
 
-      if (contentLink != null) {
+      if (safeContentLink != null) {
         sb.append("<a href=\"")
-            .append(contentLink)
+            .append(safeContentLink)
             .append("\">[")
-            .append(contentLink)
+            .append(safeContentLink)
             .append("]</a>");
       }
       sb.append("</p>");
@@ -264,73 +332,68 @@ public class HeadlineBean {
 
         for (int j = 0; j < childList.getLength(); j++) {
           if (childList.item(j).getNodeName().equals("link")) {
-            link = childList.item(j).getChildNodes().item(0).getNodeValue();
+            link = textOf(childList.item(j));
           } else if (childList.item(j).getNodeName().equals("title")) {
-            title = childList.item(j).getChildNodes().item(0).getNodeValue();
+            title = textOf(childList.item(j));
 
           } else if (childList.item(j).getNodeName().equals("pubDate")) {
-            pubDate = childList.item(j).getChildNodes().item(0).getNodeValue();
+            pubDate = textOf(childList.item(j));
 
           } else if (childList.item(j).getNodeName().equals("description")) {
-            description = childList.item(j).getChildNodes().item(0).getNodeValue();
+            description = textOf(childList.item(j));
 
           } else if (childList.item(j).getNodeName().equals("guid")) {
-            guid = childList.item(j).getChildNodes().item(0).getNodeValue();
+            guid = textOf(childList.item(j));
           }
         }
 
         // assert the basic properties are there.
         if (link != null && title != null) {
+          // guid is optional in RSS; fall back to the link so element ids stay unique and stable
+          final String itemId =
+              i + "_" + Integer.toHexString((guid != null ? guid : link).hashCode());
+
           sb.append(
               "<div class=\"panel panel-default\"><div class=\"panel-heading\""
                   + " role=\"tab\" id=\"heading");
-            assert guid != null;
-            sb.append(i).append("_").append(guid.hashCode());
+          sb.append(itemId);
           sb.append("\">");
 
           sb.append("<h4 class=\"panel-title\">");
           sb.append(
               "<a role=\"button\" data-toggle=\"collapse\""
                   + " data-parent=\"#accordion\" href=\"#collapse");
-          sb.append(i).append("_").append(guid.hashCode());
+          sb.append(itemId);
           sb.append("\" aria-expanded=\"")
               .append(i == 0 ? "true" : "false")
               .append("\" aria-controls=\"collapse")
-              .append(i)
-              .append("_")
-              .append(guid.hashCode())
+              .append(itemId)
               .append("\">");
           sb.append(Xml.cleanString(title));
           sb.append("</a></h4></div>");
-          sb.append("<div id=\"collapse").append(i).append("_").append(guid.hashCode())
+          sb.append("<div id=\"collapse").append(itemId)
               .append("\" class=\"panel-collapse collapse");
           if (i == 0) sb.append("in");
           sb.append("\" role=\"tabpanel\" aria-labelledby=\"heading");
-          sb.append(i).append("_").append(guid.hashCode());
+          sb.append(itemId);
           sb.append("\">");
           sb.append("<div class=\"panel-body\">");
-          /*
-             /<(script|noscript|object|embed|style|frameset|frame|iframe)[>\s\S]*<\/\\1>/i /<\/?!?(param|link|meta|doctype|div|font)[^>]*>/i /(class|style|id)=\"[^\"]*\"/i
-          */
-          Pattern p =
-              Pattern.compile(
-                  "/<(script|noscript|object|embed|style|frameset|frame|iframe|link)[>\\s\\S]*<\\/\\1>/i");
-          Matcher m = p.matcher(description);
-          final String result = m.replaceAll("");
+          sb.append(sanitizeHtml(description));
 
-          sb.append(result);
-
-          sb.append(" <span class=\"RssReadMore\">");
-          sb.append("<a href=\"");
-          sb.append(link);
-          sb.append("\">");
-          sb.append("Read More</a></span>");
-          sb.append(endl);
+          final String safeLink = safeUrl(link);
+          if (safeLink != null) {
+            sb.append(" <span class=\"RssReadMore\">");
+            sb.append("<a href=\"");
+            sb.append(safeLink);
+            sb.append("\">");
+            sb.append("Read More</a></span>");
+            sb.append(endl);
+          }
 
           // some rss versions don't have a pub date per entry
           if (pubDate != null) {
             sb.append(" <br /><span class=\"RssItemPubDate\">");
-            sb.append(pubDate);
+            sb.append(Xml.cleanString(pubDate));
             sb.append("</span>");
             sb.append(endl);
           }
@@ -345,15 +408,21 @@ public class HeadlineBean {
       return sb.toString();
     } catch (final java.io.FileNotFoundException e404) {
         log.warn("Feed is not available {}{}", url, e404.getMessage(), e404);
-      return "<p>404 Not Found. The feed is no longer available. " + url + endl;
+      return "<p>404 Not Found. The feed is no longer available. " + Xml.cleanString(url) + endl;
     } catch (final org.xml.sax.SAXParseException sp) {
-      if (sp.getMessage().contains("Premature end of file")) return "<p>Feed is empty at " + url;
+      if (sp.getMessage() != null && sp.getMessage().contains("Premature end of file"))
+        return "<p>Feed is empty at " + Xml.cleanString(url);
       else {
           log.error("Bad feed {}", sp.getMessage(), sp);
-        return "<p>Bad Feed " + sp + " for url: " + url + endl;
+        return "<p>Bad Feed " + Xml.cleanString(sp.toString()) + " for url: " + Xml.cleanString(url) + endl;
       }
     } catch (final Exception e) {
-      return "<p>Error, could not process request: " + e + " for url: " + url + endl;
+      log.error("Could not render feed {}", url, e);
+      return "<p>Error, could not process request: "
+          + Xml.cleanString(e.toString())
+          + " for url: "
+          + Xml.cleanString(url)
+          + endl;
     }
   }
 }

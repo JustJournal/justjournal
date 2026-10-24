@@ -450,10 +450,6 @@ public class UpdateJournal extends HttpServlet {
         }
       }
 
-      // escape out for MySQL
-      if (subject != null)
-        subject = StringUtil.replace(subject, '\'', "\\\'");
-
       try {
         et.setUser(user);
         final DateTime dtb = new DateTimeBean();
@@ -461,7 +457,7 @@ public class UpdateJournal extends HttpServlet {
         et.setDate(dtb.toDate());
         et.setModified(new java.util.Date());
         et.setSubject(subject);
-        et.setMusic(StringUtil.replace(music, '\'', "\\\'"));
+        et.setMusic(music);
 
         et.setSecurity(Security.fromValue(security));
 
@@ -484,9 +480,6 @@ public class UpdateJournal extends HttpServlet {
           body = HTMLUtil.clean(body, false);
         }
 
-        // escape out for MySQL
-        if (body != null)
-          body = StringUtil.replace(body, '\'', "\\\'");
         et.setBody(body);
 
         // disable comments

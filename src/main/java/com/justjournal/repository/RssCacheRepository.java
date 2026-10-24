@@ -30,6 +30,7 @@ import com.justjournal.model.RssCache;
 import java.util.Date;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -37,6 +38,15 @@ import org.springframework.stereotype.Repository;
 public interface RssCacheRepository extends JpaRepository<RssCache, Integer> {
 
   RssCache findByUri(@Param("uri") String uri);
+
+  /** The uri column isn't unique, so tolerate duplicate rows. */
+  RssCache findFirstByUriOrderByIdAsc(String uri);
+
+  /** Active feeds last downloaded before {@code cutoff}, including newly queued ones. */
+  @Query(
+      "select r from RssCache r where (r.active is null or r.active = true)"
+          + " and (r.lastUpdated is null or r.lastUpdated < :cutoff)")
+  List<RssCache> findDueForRefresh(@Param("cutoff") Date cutoff);
 
   List<RssCache> findByLastUpdatedBetween(@Param("begin") Date begin, @Param("end") Date end);
 
