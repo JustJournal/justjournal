@@ -301,7 +301,8 @@
                                     <img th:src="@{'/AlbumImage/' + ${pic.id} + '/thumbnail'}" th:alt="${pic.title}"/>
                                 </a>
                                 <div class="caption"><span th:text="${pic.title}"></span>
-                                    <a class="btn btn-danger btn-xs" role="button" th:if="${authenticatedUsername != null}"
+                                    <a class="btn btn-danger btn-xs" role="button" title="Delete picture"
+                                       th:if="${authenticatedUsername != null and #strings.equalsIgnoreCase(authenticatedUsername, user.username)}"
                                        th:onclick="'javascript:deleteImage(\'' + ${pic.id} + '\');'"><i
                                             class="fa fa-remove"></i></a>
                                 </div>
@@ -397,13 +398,17 @@
     });
 
     function deleteImage(id) {
+        if (!confirm('Delete this picture?')) {
+            return;
+        }
         $.ajax({
             url: '/AlbumImage/' + id,
-            type: 'DELETE',
-            success: function () {
-                alert('Image deleted');
-                location.reload();
-            }
+            type: 'DELETE'
+        }).done(function () {
+            location.reload();
+        }).fail(function (xhr) {
+            var message = xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Could not delete the picture.';
+            alert(message);
         });
     }
 

@@ -68,9 +68,29 @@ public class UserImage implements Serializable {
   @Column(name = "modified")
   private Date modified;
 
-  @Column(name = "image", columnDefinition = "MEDIUMBLOB")
-  @Lob
-  private byte[] image;
+  /*
+   * The image column still holds pictures uploaded before they were stored in MinIO, until they
+   * are copied there. It isn't mapped, so listing pictures doesn't load every image.
+   */
+
+  /** The picture in the image bucket, or null if it is still only in the database. */
+  @JsonIgnore
+  @Column(name = "filename", length = 150)
+  private String filename;
+
+  /** Its thumbnail in the image bucket. */
+  @JsonIgnore
+  @Column(name = "thumbnail", length = 150)
+  private String thumbnail;
+
+  /** Size of the picture in bytes. */
+  @Column(name = "size")
+  private Long size;
+
+  /** When a picture stored in the database was copied to MinIO and checked. */
+  @JsonIgnore
+  @Column(name = "migrated")
+  private Date migrated;
 
   @JsonCreator
   public UserImage() {
@@ -139,11 +159,35 @@ public class UserImage implements Serializable {
     this.modified = modified;
   }
 
-  public byte[] getImage() {
-    return image;
+  public String getFilename() {
+    return filename;
   }
 
-  public void setImage(byte[] image) {
-    this.image = image;
+  public void setFilename(String filename) {
+    this.filename = filename;
+  }
+
+  public String getThumbnail() {
+    return thumbnail;
+  }
+
+  public void setThumbnail(String thumbnail) {
+    this.thumbnail = thumbnail;
+  }
+
+  public Long getSize() {
+    return size;
+  }
+
+  public void setSize(Long size) {
+    this.size = size;
+  }
+
+  public Date getMigrated() {
+    return migrated;
+  }
+
+  public void setMigrated(Date migrated) {
+    this.migrated = migrated;
   }
 }

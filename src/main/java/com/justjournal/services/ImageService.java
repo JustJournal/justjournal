@@ -26,6 +26,7 @@
 package com.justjournal.services;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Locale;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import lombok.extern.slf4j.Slf4j;
@@ -159,5 +161,163 @@ public class ImageService {
     g.dispose();
 
     return scaledBI;
+  }
+
+  /** Largest image accepted, in pixels; a 48 megapixel phone photo fits. */
+  public static final long MAX_PIXELS = 100_000_000L;
+
+  /** Format and size of an image, read from its header without decoding it. */
+  public record ImageInfo(String mimeType, String extension, int width, int height) {}
+
+  /**
+   * Describe a JPEG, PNG or GIF image.
+   *
+   * @throws IllegalArgumentException if the data isn't one of those, or is larger than {@link
+   *     #MAX_PIXELS}
+   */
+  public ImageInfo describe(final byte[] data) throws IOException {
+    try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+      final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+      if (!readers.hasNext()) throw new IllegalArgumentException("Unsupported image format");
+      final ImageReader reader = readers.next();
+      try {
+        reader.setInput(in, true, true);
+        final String format = reader.getFormatName().toLowerCase(Locale.ROOT);
+        final ImageInfo info =
+            switch (format) {
+              case "jpeg", "jpg" ->
+                  new ImageInfo(MediaType.IMAGE_JPEG_VALUE, "jpg", reader.getWidth(0), reader.getHeight(0));
+              case "png" ->
+                  new ImageInfo(MediaType.IMAGE_PNG_VALUE, "png", reader.getWidth(0), reader.getHeight(0));
+              case "gif" ->
+                  new ImageInfo(MediaType.IMAGE_GIF_VALUE, "gif", reader.getWidth(0), reader.getHeight(0));
+              default -> throw new IllegalArgumentException("Unsupported image format " + format);
+            };
+        if ((long) info.width() * info.height() > MAX_PIXELS) {
+          throw new IllegalArgumentException("Image is too large");
+        }
+        return info;
+      } finally {
+        reader.dispose();
+      }
+    }
+  }
+
+  /**
+   * A JPEG thumbnail that fits in a square of {@code boundSize} pixels, turned the right way up
+   * for photos whose camera recorded the orientation instead of rotating the pixels. Large images
+   * are read at a reduced resolution, so a phone photo isn't decoded at full size.
+   *
+   * @throws IllegalArgumentException if the data isn't an image format ImageIO can read
+   */
+  public byte[] thumbnail(final byte[] data, final int boundSize) throws IOException {
+    final BufferedImage image;
+    try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+      final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+      if (!readers.hasNext()) throw new IllegalArgumentException("Unsupported image format");
+      final ImageReader reader = readers.next();
+      try {
+        reader.setInput(in, true, true);
+        final int longest = Math.max(reader.getWidth(0), reader.getHeight(0));
+        final ImageReadParam param = reader.getDefaultReadParam();
+        // keep at least twice the thumbnail size, so scaling down still looks smooth
+        final int step = Math.max(1, longest / (boundSize * 2));
+        param.setSourceSubsampling(step, step, 0, 0);
+        image = reader.read(0, param);
+      } finally {
+        reader.dispose();
+      }
+    }
+
+    return convertBufferedImageToJpeg(
+        applyOrientation(scaleImageAsSquare(image, boundSize), jpegOrientation(data)));
+  }
+
+  /**
+   * The EXIF orientation of a JPEG (1 to 8), or 1 if it has none. Phone cameras usually save the
+   * pixels as the sensor saw them and record how to turn them here.
+   */
+  static int jpegOrientation(final byte[] data) {
+    if (data.length < 4 || (data[0] & 0xff) != 0xff || (data[1] & 0xff) != 0xd8) return 1;
+
+    int pos = 2;
+    while (pos + 4 <= data.length && (data[pos] & 0xff) == 0xff) {
+      final int marker = data[pos + 1] & 0xff;
+      if (marker == 0xd9 || marker == 0xda) break; // end of image, start of pixel data
+      final int length = u16(data, pos + 2, true);
+      final int start = pos + 4;
+      if (marker == 0xe1
+          && start + 14 <= data.length
+          && new String(data, start, 6, java.nio.charset.StandardCharsets.ISO_8859_1)
+              .equals("Exif\0\0")) {
+        return exifOrientation(data, start + 6, Math.min(data.length, pos + 2 + length));
+      }
+      pos += 2 + length;
+    }
+    return 1;
+  }
+
+  private static int exifOrientation(final byte[] data, final int tiff, final int end) {
+    final boolean bigEndian;
+    if (data[tiff] == 'M' && data[tiff + 1] == 'M') bigEndian = true;
+    else if (data[tiff] == 'I' && data[tiff + 1] == 'I') bigEndian = false;
+    else return 1;
+
+    final long ifd = tiff + u32(data, tiff + 4, bigEndian);
+    if (ifd + 2 > end) return 1;
+    final int entries = u16(data, (int) ifd, bigEndian);
+    for (int i = 0; i < entries; i++) {
+      final int entry = (int) ifd + 2 + i * 12;
+      if (entry + 12 > end) return 1;
+      if (u16(data, entry, bigEndian) == 0x0112) {
+        final int orientation = u16(data, entry + 8, bigEndian);
+        return orientation >= 1 && orientation <= 8 ? orientation : 1;
+      }
+    }
+    return 1;
+  }
+
+  private static int u16(final byte[] data, final int pos, final boolean bigEndian) {
+    final int a = data[pos] & 0xff;
+    final int b = data[pos + 1] & 0xff;
+    return bigEndian ? (a << 8) | b : (b << 8) | a;
+  }
+
+  private static long u32(final byte[] data, final int pos, final boolean bigEndian) {
+    return bigEndian
+        ? ((long) u16(data, pos, true) << 16) | u16(data, pos + 2, true)
+        : ((long) u16(data, pos + 2, false) << 16) | u16(data, pos, false);
+  }
+
+  /** Turn or flip an image as an EXIF orientation says. */
+  static BufferedImage applyOrientation(final BufferedImage image, final int orientation) {
+    if (orientation <= 1 || orientation > 8) return image;
+
+    final int w = image.getWidth();
+    final int h = image.getHeight();
+    final boolean swap = orientation >= 5;
+    final AffineTransform t = new AffineTransform();
+    switch (orientation) {
+      case 2 -> { t.translate(w, 0); t.scale(-1, 1); }
+      case 3 -> { t.translate(w, h); t.rotate(Math.PI); }
+      case 4 -> { t.translate(0, h); t.scale(1, -1); }
+      case 5 -> { t.rotate(Math.PI / 2); t.scale(1, -1); }
+      case 6 -> { t.translate(h, 0); t.rotate(Math.PI / 2); }
+      case 7 -> { t.scale(-1, 1); t.translate(-h, 0); t.translate(0, w); t.rotate(3 * Math.PI / 2); }
+      case 8 -> { t.translate(0, w); t.rotate(3 * Math.PI / 2); }
+      default -> { }
+    }
+
+    final BufferedImage turned =
+        new BufferedImage(
+            swap ? h : w,
+            swap ? w : h,
+            image.getColorModel().hasAlpha()
+                ? BufferedImage.TYPE_INT_ARGB
+                : BufferedImage.TYPE_INT_RGB);
+    final Graphics2D g = turned.createGraphics();
+    g.drawImage(image, t, null);
+    g.dispose();
+    return turned;
   }
 }

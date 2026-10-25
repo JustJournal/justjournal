@@ -166,7 +166,7 @@ public class Rss {
     RssItem item;
     String imageTitle;
     final String sqlStmt =
-        "SELECT id, title, modified, mimetype, BIT_LENGTH(image) As imglen FROM"
+        "SELECT id, title, modified, mimetype, COALESCE(size, LENGTH(image)) As imglen FROM"
             + " user_images WHERE owner='"
             + userid
             + "' ORDER BY id DESC;";
@@ -191,8 +191,7 @@ public class Rss {
         item.setGuid(albumImageUrl + rs.get("id"));
         item.setEnclosureURL(albumImageUrl + rs.get("id"));
         item.setEnclosureType(rs.get("mimetype").toString().trim());
-        item.setEnclosureLength(
-            Integer.toString(Integer.parseInt(rs.get("imglen").toString()) / 8));
+        item.setEnclosureLength(rs.get("imglen") == null ? "0" : rs.get("imglen").toString());
 
         dt.set(rs.get("modified").toString());
         item.setPubDate(dt.toPubDate());

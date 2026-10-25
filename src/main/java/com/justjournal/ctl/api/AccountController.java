@@ -36,6 +36,7 @@ import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Journal;
 import com.justjournal.model.User;
 import com.justjournal.model.api.PasswordChange;
+import com.justjournal.services.AlbumImageService;
 import com.justjournal.services.ImageStorageService;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
@@ -44,7 +45,6 @@ import com.justjournal.repository.FriendsRepository;
 import com.justjournal.repository.RssSubscriptionsRepository;
 import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserContactRepository;
-import com.justjournal.repository.UserImageRepository;
 import com.justjournal.repository.UserLinkRepository;
 import com.justjournal.repository.UserLocationRepository;
 import com.justjournal.repository.UserPrefRepository;
@@ -90,7 +90,7 @@ public class AccountController {
 
   private final RssSubscriptionsRepository rssSubscriptionsDAO;
 
-  private final UserImageRepository userImageRepository;
+  private final AlbumImageService albumImageService;
 
   private final UserPrefRepository userPrefRepository;
 
@@ -100,7 +100,7 @@ public class AccountController {
 
   private final ImageStorageService imageStorageService;
 
-  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, UserImageRepository userImageRepository, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService) {
+  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, AlbumImageService albumImageService, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService) {
     this.webLogin = webLogin;
     this.userDao = userDao;
     this.commentRepository = commentRepository;
@@ -113,7 +113,7 @@ public class AccountController {
     this.userLocationRepository = userLocationRepository;
     this.userPrefRepository = userPrefRepository;
     this.rssSubscriptionsDAO = rssSubscriptionsDAO;
-    this.userImageRepository = userImageRepository;
+    this.albumImageService = albumImageService;
     this.favoriteRepository = favoriteRepository;
     this.imageStorageService = imageStorageService;
   }
@@ -195,9 +195,9 @@ public class AccountController {
 
       jdbcTemplate.execute("DELETE FROM user_files WHERE ownerid=" + userID + ";");
 
-      userImageRepository.deleteAll(userImageRepository.findByUsername(user.get().getUsername()));
+      // album map rows first, they refer to both pictures and albums
+      albumImageService.deleteAll(userID);
       jdbcTemplate.execute("DELETE FROM user_images_album WHERE owner=" + userID + ";");
-      jdbcTemplate.execute("DELETE FROM user_images_album_map WHERE owner=" + userID + ";");
 
       jdbcTemplate.execute("DELETE FROM user_pref WHERE user_id=" + userID + ";");
 
