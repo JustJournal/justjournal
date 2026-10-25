@@ -25,6 +25,7 @@
  */
 package com.justjournal.services;
 
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.PrefBool;
@@ -75,6 +76,9 @@ public class ImageStorageService {
 
   private static final String USER_ID_ARGUMENT = "userId";
 
+  /** MinIO's error code for an object that doesn't exist. */
+  private static final String NO_SUCH_KEY = "NoSuchKey";
+
   public ImageStorageService(MinioClient minioClient, UserImageService userImageService, UserPicRepository userPicRepository, UserPrefRepository userPrefRepository) {
     this.minioClient = minioClient;
     this.userImageService = userImageService;
@@ -107,6 +111,10 @@ public class ImageStorageService {
     }
   }
 
+  /**
+   * Store an avatar image. The image is uploaded before the record is saved, so a failed upload
+   * leaves any previous avatar as it was.
+   */
   public void uploadAvatar(
       final int userId,
       @NonNull final String mimeType,
@@ -116,25 +124,30 @@ public class ImageStorageService {
 
     if (userId < 1) throw new IllegalArgumentException(USER_ID_ARGUMENT);
 
+    final String filename = getAvatarFileName(userId, mimeType);
     try {
-      Optional<UserPic> userPic = userPicRepository.findById(userId);
-      if (userPic.isEmpty()) {
-        userPic = Optional.of(new UserPic());
-      }
-
-      final UserPic entity = userPic.get();
-      entity.setId(userId);
-      entity.setMimeType(mimeType);
-      entity.setModified(Calendar.getInstance().getTime());
-      entity.setSource(source);
-      entity.setFilename(getAvatarFileName(userId, mimeType));
-
-      userPicRepository.save(entity);
-
-      uploadFile(avatarBucket, entity.getFilename(), mimeType, is);
+      uploadFile(avatarBucket, filename, mimeType, is);
     } catch (final Exception e) {
-      log.error("Could not upload avatar", e);
+      log.error("Could not upload avatar for user {}", userId, e);
       throw new ServiceException("Unable to save avatar");
+    }
+
+    final UserPic entity = userPicRepository.findById(userId).orElseGet(UserPic::new);
+    final String previousFilename = entity.getFilename();
+    entity.setId(userId);
+    entity.setMimeType(mimeType);
+    entity.setModified(Calendar.getInstance().getTime());
+    entity.setSource(source);
+    entity.setFilename(filename);
+    userPicRepository.save(entity);
+
+    // a new format has a new name; the old file is no longer used
+    if (previousFilename != null && !previousFilename.equals(filename)) {
+      try {
+        deleteFile(avatarBucket, previousFilename);
+      } catch (final Exception e) {
+        log.warn("Could not delete old avatar {} for user {}", previousFilename, userId, e);
+      }
     }
   }
 
@@ -168,7 +181,7 @@ public class ImageStorageService {
           StatObjectArgs.builder().bucket(avatarBucket).object(userPic.get().getFilename()).build());
       return true;
     } catch (final ErrorResponseException e) {
-      if ("NoSuchKey".equals(e.errorResponse().code())) return false;
+      if (NO_SUCH_KEY.equals(e.errorResponse().code())) return false;
       log.error("Could not check avatar for user {}", userId, e);
       throw new ServiceException("Unable to check avatar");
     } catch (final Exception e) {
@@ -177,15 +190,30 @@ public class ImageStorageService {
     }
   }
 
-  public InputStream downloadAvatar(final int userId) throws ServiceException {
+  /** A stored avatar image and its mime type. */
+  public record StoredAvatar(InputStream stream, String mimeType) {}
+
+  /**
+   * @throws NotFoundException if the user has no avatar image
+   */
+  public StoredAvatar downloadAvatar(final int userId) throws ServiceException {
+    final UserPic userPic =
+        userPicRepository
+            .findById(userId)
+            .filter(pic -> pic.getFilename() != null)
+            .orElseThrow(() -> new NotFoundException("No avatar for user " + userId));
+
     try {
-      final Optional<UserPic> userPic = userPicRepository.findById(userId);
-      if (userPic.isEmpty()) {
-        throw new IllegalArgumentException(USER_ID_ARGUMENT);
+      return new StoredAvatar(
+          downloadFile(avatarBucket, userPic.getFilename()), userPic.getMimeType());
+    } catch (final ErrorResponseException e) {
+      if (NO_SUCH_KEY.equals(e.errorResponse().code())) {
+        throw new NotFoundException("Avatar image missing for user " + userId);
       }
-      return downloadFile(avatarBucket, userPic.get().getFilename());
+      log.error("Could not fetch avatar for user {}", userId, e);
+      throw new ServiceException("Unable to download avatar");
     } catch (final Exception e) {
-      log.error("Could not fetch avatar", e);
+      log.error("Could not fetch avatar for user {}", userId, e);
       throw new ServiceException("Unable to download avatar");
     }
   }

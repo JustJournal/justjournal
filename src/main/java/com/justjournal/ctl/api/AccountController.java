@@ -36,6 +36,7 @@ import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Journal;
 import com.justjournal.model.User;
 import com.justjournal.model.api.PasswordChange;
+import com.justjournal.services.ImageStorageService;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.FavoriteRepository;
@@ -97,7 +98,9 @@ public class AccountController {
 
   private final JdbcTemplate jdbcTemplate;
 
-  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, UserImageRepository userImageRepository, FavoriteRepository favoriteRepository) {
+  private final ImageStorageService imageStorageService;
+
+  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, UserImageRepository userImageRepository, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService) {
     this.webLogin = webLogin;
     this.userDao = userDao;
     this.commentRepository = commentRepository;
@@ -112,6 +115,7 @@ public class AccountController {
     this.rssSubscriptionsDAO = rssSubscriptionsDAO;
     this.userImageRepository = userImageRepository;
     this.favoriteRepository = favoriteRepository;
+    this.imageStorageService = imageStorageService;
   }
 
   private Map<String, String> changePassword(
@@ -175,6 +179,9 @@ public class AccountController {
       if (user.isEmpty()) {
         throw new NotFoundException("User should always exist at this point");
       }
+      // first, so if the image can't be removed from storage nothing else is deleted yet
+      imageStorageService.deleteAvatar(userID);
+
       commentRepository.deleteAll(commentRepository.findByUser(user.get()));
       entryRepository.deleteAllInBatch(entryRepository.findByUser(user.get()));
       entryRepository.flush();
@@ -191,7 +198,6 @@ public class AccountController {
       userImageRepository.deleteAll(userImageRepository.findByUsername(user.get().getUsername()));
       jdbcTemplate.execute("DELETE FROM user_images_album WHERE owner=" + userID + ";");
       jdbcTemplate.execute("DELETE FROM user_images_album_map WHERE owner=" + userID + ";");
-      jdbcTemplate.execute("DELETE FROM user_pic WHERE id=" + userID + ";");
 
       jdbcTemplate.execute("DELETE FROM user_pref WHERE user_id=" + userID + ";");
 

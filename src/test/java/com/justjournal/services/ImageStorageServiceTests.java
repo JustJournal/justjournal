@@ -25,6 +25,16 @@
  */
 package com.justjournal.services;
 
+import org.mockito.InOrder;
+
+import org.mockito.ArgumentCaptor;
+
+import java.io.IOException;
+
+import io.minio.RemoveObjectArgs;
+
+import com.justjournal.exception.NotFoundException;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -125,6 +135,94 @@ class ImageStorageServiceTests {
         1, "image/jpeg", AvatarSource.UPLOAD, new ByteArrayInputStream(arr));
     // gravatars and old uploads go through here too; they must not change the setting
     verify(userPrefRepository, never()).save(any());
+  }
+
+  @Test
+  void uploadAvatar_storageFails_recordUnchanged() throws Exception {
+    when(minioClient.bucketExists(any())).thenReturn(true);
+    when(minioClient.putObject(any())).thenThrow(new IOException("down"));
+
+    assertThrows(
+        ServiceException.class,
+        () ->
+            imageStorageService.uploadAvatar(
+                1, "image/png", AvatarSource.UPLOAD, new ByteArrayInputStream(new byte[] {1})));
+
+    verify(userPicRepository, never()).save(any());
+  }
+
+  @Test
+  void uploadAvatar_newFormat_oldFileRemovedAfterSave() throws Exception {
+    when(minioClient.bucketExists(any())).thenReturn(true);
+    UserPic userPic = new UserPic();
+    userPic.setId(1);
+    userPic.setFilename("avatar_1.jpg");
+    userPic.setMimeType("image/jpeg");
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+
+    imageStorageService.uploadAvatar(
+        1, "image/png", AvatarSource.UPLOAD, new ByteArrayInputStream(new byte[] {1}));
+
+    assertEquals("avatar_1.png", userPic.getFilename());
+    assertEquals("image/png", userPic.getMimeType());
+    InOrder order = inOrder(minioClient, userPicRepository);
+    order.verify(minioClient).putObject(any());
+    order.verify(userPicRepository).save(userPic);
+    ArgumentCaptor<RemoveObjectArgs> removed = ArgumentCaptor.forClass(RemoveObjectArgs.class);
+    order.verify(minioClient).removeObject(removed.capture());
+    assertEquals("avatar_1.jpg", removed.getValue().object());
+  }
+
+  @Test
+  void uploadAvatar_sameFormat_nothingRemoved() throws Exception {
+    when(minioClient.bucketExists(any())).thenReturn(true);
+    UserPic userPic = new UserPic();
+    userPic.setId(1);
+    userPic.setFilename("avatar_1.png");
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+
+    imageStorageService.uploadAvatar(
+        1, "image/png", AvatarSource.UPLOAD, new ByteArrayInputStream(new byte[] {1}));
+
+    verify(minioClient, never()).removeObject(any());
+  }
+
+  @Test
+  void downloadAvatar_returnsStoredMimeType() throws Exception {
+    UserPic userPic = new UserPic();
+    userPic.setFilename("avatar_1.gif");
+    userPic.setMimeType("image/gif");
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+
+    assertEquals("image/gif", imageStorageService.downloadAvatar(1).mimeType());
+  }
+
+  @Test
+  void downloadAvatar_noAvatar_notFound() {
+    when(userPicRepository.findById(1)).thenReturn(Optional.empty());
+
+    assertThrows(NotFoundException.class, () -> imageStorageService.downloadAvatar(1));
+  }
+
+  @Test
+  void downloadAvatar_noFile_notFound() {
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(new UserPic()));
+
+    assertThrows(NotFoundException.class, () -> imageStorageService.downloadAvatar(1));
+  }
+
+  @Test
+  void downloadAvatar_missingInStorage_notFound() throws Exception {
+    UserPic userPic = new UserPic();
+    userPic.setFilename("avatar_1.jpg");
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+    ErrorResponse notFound = mock(ErrorResponse.class);
+    when(notFound.code()).thenReturn("NoSuchKey");
+    ErrorResponseException missing = mock(ErrorResponseException.class);
+    when(missing.errorResponse()).thenReturn(notFound);
+    when(minioClient.getObject(any())).thenThrow(missing);
+
+    assertThrows(NotFoundException.class, () -> imageStorageService.downloadAvatar(1));
   }
 
   @Test

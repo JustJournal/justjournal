@@ -66,10 +66,6 @@ public class UserPic implements Serializable {
   @Column(name = "date_modified")
   private Date modified;
 
-  @Column(name = "image", columnDefinition = "MEDIUMBLOB")
-  @Lob
-  private byte[] image;
-
   @JsonProperty("source")
   @Column(name = "source", nullable = false, length = 8)
   @Enumerated(EnumType.STRING)

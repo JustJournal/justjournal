@@ -30,21 +30,24 @@ import static com.justjournal.core.Constants.PARAM_ID;
 
 import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.ForbiddenException;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -73,16 +76,51 @@ public class AvatarController {
     this.imageService = imageService;
   }
 
+  /** Largest avatar file accepted for upload. */
+  static final long MAX_UPLOAD_BYTES = 100 * 1024;
+
+  /** How long browsers and proxies may keep an avatar before checking for a new one. */
+  static final Duration CACHE_TIME = Duration.ofHours(1);
+
+  /**
+   * The avatar image, in the format it was stored in. 404 if the user has no avatar, 403 if they
+   * have turned it off, except for the user themselves.
+   */
   @GetMapping("/{id}")
-  public ResponseEntity<Resource> getByPath(@PathVariable(PARAM_ID) final int id) {
+  public ResponseEntity<Resource> getByPath(
+      @PathVariable(PARAM_ID) final int id, final HttpSession session) throws ServiceException {
+    final boolean shown;
     try {
-      return ResponseEntity.ok()
-          .contentType(MediaType.IMAGE_JPEG)
-          .header(HttpHeaders.EXPIRES, "180")
-          .body(new InputStreamResource(imageStorageService.downloadAvatar(id)));
-    } catch (ServiceException se) {
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      shown = imageStorageService.isShowAvatar(id);
+    } catch (final IllegalArgumentException e) {
+      throw new NotFoundException("No such user");
     }
+    final Integer loggedIn = (Integer) session.getAttribute(LOGIN_ATTRID);
+    final boolean owner = loggedIn != null && loggedIn == id;
+    if (!shown && !owner) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).cacheControl(CacheControl.noStore()).build();
+    }
+
+    final ImageStorageService.StoredAvatar avatar = imageStorageService.downloadAvatar(id);
+    MediaType type = MediaType.IMAGE_JPEG;
+    try {
+      if (avatar.mimeType() != null && !avatar.mimeType().isBlank()) {
+        type = MediaType.parseMediaType(avatar.mimeType());
+      }
+    } catch (final InvalidMediaTypeException e) {
+      log.warn("Avatar for user {} has an invalid mime type {}", id, avatar.mimeType());
+    }
+
+    final ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
+    return ResponseEntity.ok()
+        .contentType(type)
+        // a hidden avatar shown to its owner must not be cached for anyone else
+        .cacheControl(shown ? CacheControl.maxAge(CACHE_TIME).cachePublic() : CacheControl.noStore())
+        .headers(
+            headers -> {
+              if (shown) headers.setExpires(now.plus(CACHE_TIME));
+            })
+        .body(new InputStreamResource(avatar.stream()));
   }
 
   @PostMapping(value = "")
@@ -104,7 +142,8 @@ public class AvatarController {
     if (contentType == null || !(contentType.equals(MediaType.IMAGE_JPEG_VALUE) ||
             contentType.equals(MediaType.IMAGE_PNG_VALUE) || contentType.equals(MediaType.IMAGE_GIF_VALUE) ||
             contentType.equals("image/tiff") || contentType.equals("image/bmp"))) {
-      throw new BadRequestException("Invalid file type. Only JPEG, PNG and GIF images are allowed.");
+      throw new BadRequestException(
+          "Invalid file type. Only JPEG, PNG, GIF, TIFF and BMP images are allowed.");
     }
 
     final long sizeInBytes = file.getSize();
@@ -112,15 +151,15 @@ public class AvatarController {
     if (file.isEmpty() || sizeInBytes < 500) {
       throw new BadRequestException("Invalid file");
     }
+    if (sizeInBytes > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException("Avatars must be 100 KB or smaller.");
+    }
 
     try {
-      BufferedImage avatar = imageService.resizeAvatar(file.getBytes());
+      final ImageService.EncodedImage avatar = imageService.encodeAvatar(file.getBytes());
 
       imageStorageService.uploadAvatar(
-          userID,
-          MediaType.IMAGE_JPEG_VALUE,
-          AvatarSource.UPLOAD,
-          new ByteArrayInputStream(imageService.convertBufferedImageToJpeg(avatar)));
+          userID, avatar.mimeType(), AvatarSource.UPLOAD, new ByteArrayInputStream(avatar.data()));
       imageStorageService.setShowAvatar(userID, true);
 
     } catch (final IllegalStateException | IllegalArgumentException e) {

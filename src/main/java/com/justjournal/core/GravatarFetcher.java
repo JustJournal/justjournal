@@ -33,7 +33,6 @@ import com.github.natche.gravatarjavaclient.enums.GravatarUseJpgSuffix;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.User;
-import com.justjournal.model.UserPic;
 import com.justjournal.repository.UserPicRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.ImageService;
@@ -80,7 +79,6 @@ public class GravatarFetcher {
   }
 
   private byte[] getGravatar(final String email) {
-    log.info("Attempting fetch of gravatar for email " + email);
 
     GravatarAvatarRequest request = GravatarAvatarRequest.fromEmail(email)
             .setSize(100)
@@ -135,13 +133,6 @@ public class GravatarFetcher {
             }
           } catch (final Exception e) {
             log.warn("Could not find for user {}", user.getUsername(), e);
-          }
-
-          /*   convert existing db files   */
-          for (final UserPic userPic : userPicRepository.findAll()) {
-            if (userPic.getFilename() != null || userPic.getSource() != AvatarSource.UPLOAD) continue;
-
-            upload(userPic.getId(), userPic.getMimeType(), AvatarSource.UPLOAD, userPic.getImage());
           }
 
         }

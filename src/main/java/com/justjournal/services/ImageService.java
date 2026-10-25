@@ -30,10 +30,14 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
+import java.util.Iterator;
+import java.util.Locale;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
 
 /**
  * Image manipulation service
@@ -45,8 +49,51 @@ import javax.imageio.ImageIO;
 public class ImageService {
   private static final int AVATAR_MAX_WIDTH = 100;
 
+  /** An encoded image and its mime type. */
+  public record EncodedImage(byte[] data, String mimeType) {}
+
   public BufferedImage resizeAvatar(final byte[] data) throws IOException {
     return scaleImageAsSquare(convertByteArrayToBufferedImage(data), AVATAR_MAX_WIDTH);
+  }
+
+  /**
+   * Scale an uploaded avatar down to fit {@value #AVATAR_MAX_WIDTH} pixels. PNG and GIF stay PNG
+   * and GIF, keeping transparency; anything else becomes a JPEG. Images are re-encoded, which drops
+   * metadata such as the location a photo was taken, except a GIF that is already small enough,
+   * which is kept as it is so an animated one stays animated.
+   *
+   * @throws IllegalArgumentException if the data isn't an image format ImageIO can read
+   */
+  public EncodedImage encodeAvatar(final byte[] data) throws IOException {
+    final String format = imageFormat(data);
+    final BufferedImage original = convertByteArrayToBufferedImage(data);
+    final BufferedImage scaled = scaleImageAsSquare(original, AVATAR_MAX_WIDTH);
+
+    switch (format) {
+      case "gif":
+        if (scaled == original) return new EncodedImage(data, MediaType.IMAGE_GIF_VALUE);
+        return new EncodedImage(write(scaled, "gif"), MediaType.IMAGE_GIF_VALUE);
+      case "png":
+        return new EncodedImage(write(scaled, "png"), MediaType.IMAGE_PNG_VALUE);
+      default:
+        return new EncodedImage(convertBufferedImageToJpeg(scaled), MediaType.IMAGE_JPEG_VALUE);
+    }
+  }
+
+  /** The format ImageIO reads the data as, in lower case, or an empty string if none. */
+  private static String imageFormat(final byte[] data) throws IOException {
+    try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+      final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+      return readers.hasNext() ? readers.next().getFormatName().toLowerCase(Locale.ROOT) : "";
+    }
+  }
+
+  private static byte[] write(final BufferedImage image, final String format) throws IOException {
+    final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    if (!ImageIO.write(image, format, baos)) {
+      throw new IOException("No " + format + " writer available");
+    }
+    return baos.toByteArray();
   }
 
   public byte[] convertBufferedImageToJpeg(final BufferedImage bufferedImage) throws IOException {
@@ -98,7 +145,12 @@ public class ImageService {
         bufferedImage.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
 
     final BufferedImage scaledBI =
-        new BufferedImage(scaledWidth, scaledHeight, BufferedImage.TYPE_INT_RGB);
+        new BufferedImage(
+            scaledWidth,
+            scaledHeight,
+            bufferedImage.getColorModel().hasAlpha()
+                ? BufferedImage.TYPE_INT_ARGB
+                : BufferedImage.TYPE_INT_RGB);
 
     final Graphics2D g = scaledBI.createGraphics();
 
