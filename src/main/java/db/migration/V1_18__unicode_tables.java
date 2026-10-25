@@ -60,23 +60,40 @@ public class V1_18__unicode_tables extends BaseJavaMigration {
     }
 
     try (Statement statement = connection.createStatement()) {
-      statement.execute("ALTER DATABASE CHARACTER SET " + CHARSET + " COLLATE " + COLLATION);
-
-      for (final Map.Entry<String, String> table : tables.entrySet()) {
-        final long start = System.currentTimeMillis();
-        statement.execute(
-            "ALTER TABLE `"
-                + table.getKey()
-                + "` CONVERT TO CHARACTER SET "
-                + CHARSET
-                + " COLLATE "
-                + table.getValue());
-        log.info(
-            "Converted {} to {} in {} ms",
-            table.getKey(),
-            table.getValue(),
-            System.currentTimeMillis() - start);
+      // the old tables have zero dates ('0000-00-00') as defaults and values, which the default
+      // strict sql_mode refuses when a table is rebuilt; keep them as they are
+      final String sqlMode;
+      try (ResultSet rs = statement.executeQuery("SELECT @@SESSION.sql_mode")) {
+        rs.next();
+        sqlMode = rs.getString(1);
       }
+      statement.execute("SET SESSION sql_mode = ''");
+      try {
+        convert(statement, tables);
+      } finally {
+        statement.execute("SET SESSION sql_mode = '" + sqlMode.replace("'", "''") + "'");
+      }
+    }
+  }
+
+  private static void convert(final Statement statement, final Map<String, String> tables)
+      throws SQLException {
+    statement.execute("ALTER DATABASE CHARACTER SET " + CHARSET + " COLLATE " + COLLATION);
+
+    for (final Map.Entry<String, String> table : tables.entrySet()) {
+      final long start = System.currentTimeMillis();
+      statement.execute(
+          "ALTER TABLE `"
+              + table.getKey()
+              + "` CONVERT TO CHARACTER SET "
+              + CHARSET
+              + " COLLATE "
+              + table.getValue());
+      log.info(
+          "Converted {} to {} in {} ms",
+          table.getKey(),
+          table.getValue(),
+          System.currentTimeMillis() - start);
     }
   }
 
