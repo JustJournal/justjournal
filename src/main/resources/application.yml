@@ -60,6 +60,10 @@ spring:
       static-locations: classpath:/static/
   data:
     redis:
+      # jedis (for bucket4j) brings in commons-pool2, which would otherwise switch lettuce to pooling
+      lettuce:
+        pool:
+          enabled: false
       port: 6379
       host: localhost
 
@@ -88,7 +92,8 @@ bing:
 bucket4j:
   enabled: true
   filters:
-    - cache-name: buckets
+    - id: pages
+      cache-name: buckets
       filter-method: servlet
       filter-order: 1
       url: .*
