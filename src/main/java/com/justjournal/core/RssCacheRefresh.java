@@ -73,7 +73,11 @@ public class RssCacheRefresh {
       log.info("RssCache: {} feeds due for refresh", items.size());
 
       for (final RssCache cache : items) {
-        refresh(cache);
+        try {
+          refresh(cache);
+        } catch (final RuntimeException e) {
+          log.error("RssCache: could not update {}", cache.getUri(), e);
+        }
       }
     } catch (final Exception e) {
       log.error(e.getMessage(), e);
@@ -92,6 +96,8 @@ public class RssCacheRefresh {
   RssCache refresh(final RssCache rss) {
     if (rss == null || rss.getUri() == null || rss.getUri().length() < 11) return null;
 
+    final String previousContent = rss.getContent();
+    final int previousErrors = rss.getErrorCount();
     try {
       final FeedFetcher.Result result = feedFetcher.fetch(rss.getUri());
       final int code = result.statusCode();
@@ -116,6 +122,9 @@ public class RssCacheRefresh {
 
       return failed(rss, "returned status code " + code);
     } catch (final IOException | RuntimeException e) {
+      // if saving the new content is what failed, recording the failure must not try it again
+      rss.setContent(previousContent);
+      rss.setErrorCount(previousErrors);
       return failed(rss, e.toString());
     }
   }

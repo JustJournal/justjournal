@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.Date;
 import java.util.List;
+import org.springframework.orm.jpa.JpaSystemException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -124,5 +125,48 @@ class RssCacheRefreshTests {
 
     assertTrue(cache.getContent().contains("Luke's blog"), cache.getContent());
     assertFalse(cache.getContent().contains("\\'"), cache.getContent());
+  }
+
+  @Test
+  void contentDatabaseRejects_failureRecordedWithOldContent() throws IOException {
+    cache.setContent("<rss>old</rss>");
+    cache.setErrorCount(2);
+    when(feedFetcher.fetch(URI))
+        .thenReturn(new FeedFetcher.Result(200, "<rss>Ko\u010di\u0107</rss>"));
+    when(rssCacheRepository.saveAndFlush(any()))
+        .thenAnswer(
+            i -> {
+              final RssCache saved = i.getArgument(0);
+              if (saved.getContent().contains("\u010d"))
+                throw new JpaSystemException(new RuntimeException("Incorrect string value"));
+              return saved;
+            });
+
+    final RssCache result = rssCacheRefresh.refresh(cache);
+
+    assertSame(cache, result);
+    assertEquals("<rss>old</rss>", cache.getContent());
+    assertEquals(3, cache.getErrorCount());
+  }
+
+  @Test
+  void run_oneFeedFailingToSave_othersStillRefreshed() throws IOException {
+    final RssCache second = new RssCache();
+    second.setUri("https://example.org/rss");
+    second.setActive(true);
+    when(rssCacheRepository.findDueForRefresh(any())).thenReturn(List.of(cache, second));
+    when(feedFetcher.fetch(anyString())).thenReturn(new FeedFetcher.Result(200, "<rss></rss>"));
+    when(rssCacheRepository.saveAndFlush(any()))
+        .thenAnswer(
+            i -> {
+              if (i.getArgument(0) == cache)
+                throw new JpaSystemException(new RuntimeException("database gone"));
+              return i.getArgument(0);
+            });
+
+    rssCacheRefresh.run();
+
+    verify(feedFetcher).fetch("https://example.org/rss");
+    verify(rssCacheRepository).saveAndFlush(second);
   }
 }
