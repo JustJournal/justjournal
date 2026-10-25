@@ -217,7 +217,7 @@ public class Rss {
 
     final StringBuilder sb = new StringBuilder();
 
-    sb.append("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n");
+    sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
 
     sb.append("<?xml-stylesheet type=\"text/xsl\" href=\"/static/streamburner/streamburner.xsl\"?>\n");
 

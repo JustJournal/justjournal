@@ -127,7 +127,7 @@ public final class RssItem {
   public void setTitle(String title) {
 
     if (title.length() > 98 && truncateFields) {
-      this.title = title.substring(0, 99);
+      this.title = truncate(title, 99);
     } else {
       this.title = title;
     }
@@ -149,10 +149,16 @@ public final class RssItem {
   public void setDescription(final String description) {
 
     if (description.length() > 495 && truncateFields) {
-      this.description = description.substring(0, 496);
+      this.description = truncate(description, 496);
     } else {
       this.description = description;
     }
+  }
+
+  /** First {@code length} chars, one fewer if that would split a character such as an emoji. */
+  static String truncate(final String text, final int length) {
+    final int end = Character.isHighSurrogate(text.charAt(length - 1)) ? length - 1 : length;
+    return text.substring(0, end);
   }
 
   /** Clear all properties for reuse of the class instance. */

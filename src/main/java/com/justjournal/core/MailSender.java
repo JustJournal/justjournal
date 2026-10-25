@@ -103,8 +103,8 @@ public class MailSender {
       final MimeMessage message = new MimeMessage(s);
       message.setFrom(from);
       message.setRecipient(Message.RecipientType.TO, to);
-      message.setSubject(item.getSubject());
-      message.setText(item.getBody());
+      message.setSubject(item.getSubject(), "UTF-8");
+      message.setText(item.getBody(), "UTF-8");
       message.setSentDate(new Date());
       message.saveChanges();
 

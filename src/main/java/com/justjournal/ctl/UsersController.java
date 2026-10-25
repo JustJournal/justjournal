@@ -559,7 +559,7 @@ public class UsersController {
     }
   }
 
-  @GetMapping(value = "{username}/rss", produces = "application/rss+xml; charset=ISO-8859-1")
+  @GetMapping(value = "{username}/rss", produces = "application/rss+xml; charset=UTF-8")
   @ResponseBody
   public String rss(
       @PathVariable(PATH_USERNAME) final String username, final HttpServletResponse response) {
@@ -584,7 +584,7 @@ public class UsersController {
     }
   }
 
-  @GetMapping(value = "{username}/rsspics", produces = "application/rss+xml; charset=ISO-8859-1")
+  @GetMapping(value = "{username}/rsspics", produces = "application/rss+xml; charset=UTF-8")
   @ResponseBody
   public String rssPictures(
       @PathVariable(PATH_USERNAME) final String username, final HttpServletResponse response) {
