@@ -30,7 +30,6 @@ import com.github.natche.gravatarjavaclient.avatar.GravatarAvatarRequest;
 import com.github.natche.gravatarjavaclient.enums.GravatarDefaultImageType;
 import com.github.natche.gravatarjavaclient.enums.GravatarRating;
 import com.github.natche.gravatarjavaclient.enums.GravatarUseJpgSuffix;
-import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.User;
 import com.justjournal.repository.UserPicRepository;
@@ -42,13 +41,11 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.imageio.ImageIO;
@@ -58,7 +55,10 @@ import javax.imageio.ImageIO;
 @Component
 public class GravatarFetcher {
 
-  private static final int GRAVATAR_FETCH_PAUSE_MS = 10000;
+  /** Pause after each fetch, to keep the load on Gravatar low. */
+  static final long GRAVATAR_FETCH_PAUSE_MS = 10000;
+
+  long fetchPauseMs = GRAVATAR_FETCH_PAUSE_MS;
 
   final ImageStorageService imageStorageService;
 
@@ -78,8 +78,7 @@ public class GravatarFetcher {
     this.transactionTemplate = transactionTemplate;
   }
 
-  private byte[] getGravatar(final String email) {
-
+  byte[] getGravatar(final String email) {
     GravatarAvatarRequest request = GravatarAvatarRequest.fromEmail(email)
             .setSize(100)
             .setRating(GravatarRating.R)
@@ -116,27 +115,46 @@ public class GravatarFetcher {
     }
   }
 
+  /**
+   * Fetch a Gravatar for each user without an avatar. Each user is looked up in its own short
+   * transaction; no database connection is held while waiting on Gravatar or during the pause.
+   */
   @Scheduled(fixedDelay = 1000 * 60 * 60 * 24, initialDelay = 30000)
-  public void run() throws ServiceException {
-    transactionTemplate.execute(new TransactionCallbackWithoutResult() {
-      protected void doInTransactionWithoutResult(@NotNull TransactionStatus status) {
-        for (final User user : userRepository.findAll()) {
-          try {
-            if (!userPicRepository.existsById(user.getId())) {
-              upload(
-                      user.getId(),
-                      MediaType.IMAGE_JPEG_VALUE,
-                      AvatarSource.GRAVATAR,
-                      getGravatar(user.getUserContact().getEmail()));
+  public void run() {
+    final List<Integer> userIds =
+        transactionTemplate.execute(
+            status -> userRepository.findAll().stream().map(User::getId).toList());
+    if (userIds == null) return;
 
-              Thread.sleep(GRAVATAR_FETCH_PAUSE_MS);
-            }
-          } catch (final Exception e) {
-            log.warn("Could not find for user {}", user.getUsername(), e);
-          }
+    for (final int userId : userIds) {
+      try {
+        final String email = transactionTemplate.execute(status -> emailIfNoAvatar(userId));
+        if (email == null) continue;
 
-        }
+        upload(userId, MediaType.IMAGE_JPEG_VALUE, AvatarSource.GRAVATAR, getGravatar(email));
+      } catch (final Exception e) {
+        log.warn("Could not fetch gravatar for user id {}", userId, e);
       }
-    });
+
+      try {
+        Thread.sleep(fetchPauseMs);
+      } catch (final InterruptedException e) {
+        Thread.currentThread().interrupt();
+        log.info("Gravatar fetch interrupted");
+        return;
+      }
+    }
+  }
+
+  /** The user's email address, or null if they already have an avatar or have no address. */
+  private String emailIfNoAvatar(final int userId) {
+    if (userPicRepository.existsById(userId)) return null;
+
+    return userRepository
+        .findById(userId)
+        .map(User::getUserContact)
+        .map(contact -> contact.getEmail())
+        .filter(email -> !email.isBlank())
+        .orElse(null);
   }
 }
