@@ -35,7 +35,6 @@ import com.justjournal.model.AvatarSource;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBufferByte;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -45,7 +44,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +52,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -87,7 +87,7 @@ public class AvatarController {
 
   @PostMapping(value = "")
   public ResponseEntity processUpload(
-      @RequestParam MultipartFile file, HttpSession session, HttpRequest request) {
+      @RequestParam MultipartFile file, HttpSession session) {
 
     final Integer userIDasi = (Integer) session.getAttribute(LOGIN_ATTRID);
     int userID = 0;
@@ -116,14 +116,14 @@ public class AvatarController {
     try {
       BufferedImage avatar = imageService.resizeAvatar(file.getBytes());
 
-      byte[] buffer = ((DataBufferByte) (avatar).getRaster().getDataBuffer()).getData();
       imageStorageService.uploadAvatar(
           userID,
           MediaType.IMAGE_JPEG_VALUE,
           AvatarSource.UPLOAD,
-          new ByteArrayInputStream(buffer));
+          new ByteArrayInputStream(imageService.convertBufferedImageToJpeg(avatar)));
+      imageStorageService.setShowAvatar(userID, true);
 
-    } catch (final IllegalStateException e) {
+    } catch (final IllegalStateException | IllegalArgumentException e) {
       log.error(e.getMessage(), e);
       throw new BadRequestException("Invalid file");
     } catch (final IOException | ServiceException e) {
@@ -131,7 +131,7 @@ public class AvatarController {
       return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    return ResponseEntity.created(URI.create(request.getURI() + "/" + userID)).build();
+    return ResponseEntity.created(URI.create("/Avatar/" + userID)).build();
   }
 
   @DeleteMapping("/{id}")
@@ -152,5 +152,39 @@ public class AvatarController {
 
     imageStorageService.deleteAvatar(userID);
     return ResponseEntity.noContent().build();
+  }
+
+  /** Whether the user has an avatar image, and whether it is shown on their journal. */
+  public record AvatarPreference(boolean available, boolean show) {}
+
+  @GetMapping(value = "/preference", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<AvatarPreference> getPreference(final HttpSession session)
+      throws ServiceException {
+    final int userID = loggedInUser(session);
+    return ResponseEntity.ok(
+        new AvatarPreference(
+            imageStorageService.hasAvatarImage(userID), imageStorageService.isShowAvatar(userID)));
+  }
+
+  @PutMapping(value = "/preference", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<AvatarPreference> setPreference(
+      @RequestBody final AvatarPreference preference, final HttpSession session)
+      throws ServiceException {
+    final int userID = loggedInUser(session);
+    final boolean available = imageStorageService.hasAvatarImage(userID);
+    if (preference.show() && !available) {
+      throw new BadRequestException("Upload an avatar before turning it on.");
+    }
+
+    imageStorageService.setShowAvatar(userID, preference.show());
+    return ResponseEntity.ok(new AvatarPreference(available, preference.show()));
+  }
+
+  private static int loggedInUser(final HttpSession session) {
+    final Integer userID = (Integer) session.getAttribute(LOGIN_ATTRID);
+    if (userID == null || userID < 1) {
+      throw new ForbiddenException("You must be logged in to change avatar settings");
+    }
+    return userID;
   }
 }

@@ -132,16 +132,48 @@ public class ImageStorageService {
       userPicRepository.save(entity);
 
       uploadFile(avatarBucket, entity.getFilename(), mimeType, is);
-
-      final Optional<UserPref> pref = userPrefRepository.findById(userId);
-      if (pref.isEmpty()) {
-        throw new IllegalArgumentException(USER_ID_ARGUMENT);
-      }
-      pref.get().setShowAvatar(PrefBool.N);
-      userPrefRepository.save(pref.get());
     } catch (final Exception e) {
       log.error("Could not upload avatar", e);
       throw new ServiceException("Unable to save avatar");
+    }
+  }
+
+  /**
+   * Turn showing the user's avatar on their journal on or off. Uploading an avatar turns it on;
+   * storing a Gravatar or moving an old upload into storage leaves the setting as it is.
+   */
+  public void setShowAvatar(final int userId, final boolean show) {
+    final UserPref pref =
+        userPrefRepository
+            .findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException(USER_ID_ARGUMENT));
+    pref.setShowAvatar(show ? PrefBool.Y : PrefBool.N);
+    userPrefRepository.save(pref);
+  }
+
+  public boolean isShowAvatar(final int userId) {
+    return userPrefRepository
+        .findById(userId)
+        .map(pref -> pref.getShowAvatar() == PrefBool.Y)
+        .orElseThrow(() -> new IllegalArgumentException(USER_ID_ARGUMENT));
+  }
+
+  /** Whether the user has an avatar image in storage, not just a record of one. */
+  public boolean hasAvatarImage(final int userId) throws ServiceException {
+    final Optional<UserPic> userPic = userPicRepository.findById(userId);
+    if (userPic.isEmpty() || userPic.get().getFilename() == null) return false;
+
+    try {
+      minioClient.statObject(
+          StatObjectArgs.builder().bucket(avatarBucket).object(userPic.get().getFilename()).build());
+      return true;
+    } catch (final ErrorResponseException e) {
+      if ("NoSuchKey".equals(e.errorResponse().code())) return false;
+      log.error("Could not check avatar for user {}", userId, e);
+      throw new ServiceException("Unable to check avatar");
+    } catch (final Exception e) {
+      log.error("Could not check avatar for user {}", userId, e);
+      throw new ServiceException("Unable to check avatar");
     }
   }
 

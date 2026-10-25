@@ -50,14 +50,34 @@ public class ImageService {
   }
 
   public byte[] convertBufferedImageToJpeg(final BufferedImage bufferedImage) throws IOException {
+    BufferedImage rgb = bufferedImage;
+    // JPEG has no alpha channel, and ImageIO writes nothing for an image that has one
+    if (bufferedImage.getType() != BufferedImage.TYPE_INT_RGB) {
+      rgb =
+          new BufferedImage(
+              bufferedImage.getWidth(), bufferedImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+      final Graphics2D g = rgb.createGraphics();
+      g.drawImage(bufferedImage, 0, 0, Color.WHITE, null);
+      g.dispose();
+    }
+
     final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ImageIO.write(bufferedImage, "jpg", baos);
+    if (!ImageIO.write(rgb, "jpg", baos)) {
+      throw new IOException("No JPEG writer available");
+    }
     return baos.toByteArray();
   }
 
+  /**
+   * @throws IllegalArgumentException if the data isn't an image format ImageIO can read
+   */
   public BufferedImage convertByteArrayToBufferedImage(final byte[] data) throws IOException {
     final ByteArrayInputStream bis = new ByteArrayInputStream(data);
-    return ImageIO.read(bis);
+    final BufferedImage image = ImageIO.read(bis);
+    if (image == null) {
+      throw new IllegalArgumentException("Unsupported image format");
+    }
+    return image;
   }
 
   public BufferedImage scaleImageAsSquare(final BufferedImage bufferedImage, final int boundSize) {

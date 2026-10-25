@@ -580,7 +580,7 @@
         });
     }
 
-    function uploadForm(formSelector, url, successSelector, errorSelector, progressContainerSelector, progressSelector, extraData) {
+    function uploadForm(formSelector, url, successSelector, errorSelector, progressContainerSelector, progressSelector, extraData, onDone) {
         $(formSelector).on('submit', function (event) {
             event.preventDefault();
             showMessage(errorSelector, '');
@@ -616,6 +616,9 @@
             }).done(function () {
                 setProgress(progressSelector, 100);
                 showMessage(successSelector, 'Upload successful.', 'success');
+                if (onDone) {
+                    onDone();
+                }
             }).fail(function (xhr) {
                 showMessage(errorSelector, parseError(xhr, 'Upload failed'));
             });
@@ -709,6 +712,46 @@
                 showMessage('#contact-success', 'Contact information updated successfully.', 'success');
             }).fail(function (xhr) {
                 showMessage('#contact-error', parseError(xhr, 'Unable to save contact information'));
+            });
+        });
+    }
+
+    function initAvatar() {
+        function showPreference(pref) {
+            $('#avatar-show').prop('checked', pref.show === true).prop('disabled', pref.available !== true && pref.show !== true);
+            $('#avatar-show-save').prop('disabled', pref.available !== true && pref.show !== true);
+            $('#avatar-show-help').toggle(pref.available !== true);
+        }
+
+        function loadPreference() {
+            $.getJSON('/Avatar/preference').done(showPreference).fail(function (xhr) {
+                showMessage('#avatar-show-error', parseError(xhr, 'Unable to load avatar settings'));
+            });
+        }
+
+        uploadForm('#avatar-form', '/Avatar', '#avatar-success', '#avatar-error', '#avatar-progress-container', '#avatar-progress', null, loadPreference);
+
+        if (!currentUsername()) {
+            return;
+        }
+        loadPreference();
+
+        $('#avatar-show-form').on('submit', function (event) {
+            event.preventDefault();
+            showMessage('#avatar-show-error', '');
+            showMessage('#avatar-show-success', '');
+
+            $.ajax({
+                url: '/Avatar/preference',
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({show: $('#avatar-show').is(':checked')})
+            }).done(function (pref) {
+                track('avatar_show', 'Preferences', 'Avatar');
+                showPreference(pref);
+                showMessage('#avatar-show-success', 'Avatar setting saved.', 'success');
+            }).fail(function (xhr) {
+                showMessage('#avatar-show-error', parseError(xhr, 'Unable to save avatar setting'));
             });
         });
     }
@@ -837,7 +880,7 @@
                 initComment();
                 break;
             case 'prefs-avatar':
-                uploadForm('#avatar-form', '/Avatar', '#avatar-success', '#avatar-error', '#avatar-progress-container', '#avatar-progress');
+                initAvatar();
                 break;
             case 'prefs-image':
                 uploadForm('#image-form', '/AlbumImage', '#image-success', '#image-error', '#image-progress-container', '#image-progress');

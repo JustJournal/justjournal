@@ -25,6 +25,14 @@
  */
 package com.justjournal.services;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+import io.minio.messages.ErrorResponse;
+
+import io.minio.errors.ErrorResponseException;
+
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.PrefBool;
@@ -115,7 +123,63 @@ class ImageStorageServiceTests {
 
     imageStorageService.uploadAvatar(
         1, "image/jpeg", AvatarSource.UPLOAD, new ByteArrayInputStream(arr));
-    verify(userPrefRepository, times(1)).save(any());
+    // gravatars and old uploads go through here too; they must not change the setting
+    verify(userPrefRepository, never()).save(any());
+  }
+
+  @Test
+  void testShowAvatar() {
+    UserPref userPref = new UserPref();
+    userPref.setShowAvatar(PrefBool.N);
+    when(userPrefRepository.findById(1)).thenReturn(Optional.of(userPref));
+
+    imageStorageService.setShowAvatar(1, true);
+
+    assertEquals(PrefBool.Y, userPref.getShowAvatar());
+    verify(userPrefRepository, times(1)).save(userPref);
+
+    imageStorageService.setShowAvatar(1, false);
+
+    assertEquals(PrefBool.N, userPref.getShowAvatar());
+    assertFalse(imageStorageService.isShowAvatar(1));
+  }
+
+  @Test
+  void hasAvatarImage_objectInStorage() throws Exception {
+    UserPic userPic = new UserPic();
+    userPic.setFilename("avatar_1.jpg");
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+
+    assertTrue(imageStorageService.hasAvatarImage(1));
+  }
+
+  @Test
+  void hasAvatarImage_objectMissing() throws Exception {
+    UserPic userPic = new UserPic();
+    userPic.setFilename("avatar_1.jpg");
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+    ErrorResponse notFound = mock(ErrorResponse.class);
+    when(notFound.code()).thenReturn("NoSuchKey");
+    ErrorResponseException missing = mock(ErrorResponseException.class);
+    when(missing.errorResponse()).thenReturn(notFound);
+    when(minioClient.statObject(any())).thenThrow(missing);
+
+    assertFalse(imageStorageService.hasAvatarImage(1));
+  }
+
+  @Test
+  void hasAvatarImage_notMovedToStorageYet() throws Exception {
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(new UserPic()));
+
+    assertFalse(imageStorageService.hasAvatarImage(1));
+    verify(minioClient, never()).statObject(any());
+  }
+
+  @Test
+  void hasAvatarImage_noAvatar() throws Exception {
+    when(userPicRepository.findById(1)).thenReturn(Optional.empty());
+
+    assertFalse(imageStorageService.hasAvatarImage(1));
   }
 
   @Test
