@@ -33,17 +33,30 @@ import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.utility.HTMLUtil;
 import java.awt.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.openpdf.text.*;
 import org.openpdf.text.Font;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.FontSelector;
 import org.openpdf.text.pdf.PdfContentByte;
 
 /** @author Lucas Holt */
 @Slf4j
 public abstract class AbstractFormatService {
+
+  /**
+   * Embedded Unicode fonts, so text outside latin1 isn't dropped as it was with the built-in PDF
+   * fonts. Characters missing from Noto Sans fall back to Noto Sans Symbols 2.
+   */
+  private static final BaseFont TEXT_FONT = loadFont("/fonts/NotoSans-Regular.ttf");
+
+  private static final BaseFont SYMBOL_FONT = loadFont("/fonts/NotoSansSymbols2-Regular.ttf");
 
   private final EntryRepository entryRepository;
 
@@ -52,6 +65,34 @@ public abstract class AbstractFormatService {
   protected AbstractFormatService(EntryRepository entryRepository, MarkdownService markdownService) {
     this.entryRepository = entryRepository;
     this.markdownService = markdownService;
+  }
+
+  private static BaseFont loadFont(final String path) {
+    try (InputStream in = AbstractFormatService.class.getResourceAsStream(path)) {
+      if (in == null) throw new IllegalStateException("Missing font " + path);
+      return BaseFont.createFont(
+          path, BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, in.readAllBytes(), null);
+    } catch (final IOException e) {
+      throw new UncheckedIOException("Could not load font " + path, e);
+    }
+  }
+
+  /** Text in the given size, each character in the first font that has it. */
+  static Phrase text(final String value, final float size) {
+    final FontSelector selector = new FontSelector();
+    selector.addFont(new Font(TEXT_FONT, size));
+    selector.addFont(new Font(SYMBOL_FONT, size));
+    return selector.process(value == null ? "" : value);
+  }
+
+  /** As {@link #text}, drawn with the given render mode, like a {@link Chunk} would be. */
+  private static Phrase text(
+      final String value, final float size, final int renderMode, final float width, final Color color) {
+    final Phrase phrase = text(value, size);
+    for (final Element element : phrase) {
+      if (element instanceof Chunk chunk) chunk.setTextRenderMode(renderMode, width, color);
+    }
+    return phrase;
   }
 
   private void validate(final UserContext uc, final Document document) throws ServiceException {
@@ -75,22 +116,21 @@ public abstract class AbstractFormatService {
     var journals = blogUser.getJournals();
     var journalName = journals.stream().findFirst();
 
-    final Font helvetica14 = new Font(Font.HELVETICA, 14.0F);
-    final Font helvetica12 = new Font(Font.HELVETICA, 12.0F);
-    final Font helvetica8 = new Font(Font.HELVETICA, 8.0F);
-    final Font times11 = new Font(Font.TIMES_ROMAN, 11.0F);
     final Color blue = new Color(0x00, 0x00, 0xFF);
     final Color lightBlue = new Color(0xF, 0xF2, 0xF2);
 
     try {
       document.open();
       document.add(new Paragraph(""));
-      Chunk chunk;
 
       if (journalName.isPresent() && StringUtils.isNotBlank(journalName.get().getName())) {
-        chunk = new Chunk(journalName.get().getName());
-        chunk.setTextRenderMode(PdfContentByte.TEXT_RENDER_MODE_STROKE, 0.4f, blue);
-        document.add(chunk);
+        document.add(
+            text(
+                journalName.get().getName(),
+                Font.DEFAULTSIZE,
+                PdfContentByte.TEXT_RENDER_MODE_STROKE,
+                0.4f,
+                blue));
         document.add(Chunk.NEWLINE);
       }
 
@@ -117,41 +157,46 @@ public abstract class AbstractFormatService {
         curDate = formatmydate.format(currentDate);
 
         if (curDate.compareTo(lastDate) != 0) {
-          document.add(new Paragraph(curDate, helvetica14));
+          document.add(new Paragraph(text(curDate, 14.0F)));
           lastDate = curDate;
         }
 
-        document.add(new Paragraph(formatmytime.format(currentDate), helvetica12));
+        document.add(new Paragraph(text(formatmytime.format(currentDate), 12.0F)));
         document.add(Chunk.NEWLINE);
-        chunk = new Chunk(o.getSubject());
-        chunk.setTextRenderMode(PdfContentByte.TEXT_RENDER_MODE_FILL, 0.3F, lightBlue);
-        document.add(chunk);
+        document.add(
+            text(
+                o.getSubject(),
+                Font.DEFAULTSIZE,
+                PdfContentByte.TEXT_RENDER_MODE_FILL,
+                0.3F,
+                lightBlue));
         document.add(Chunk.NEWLINE);
 
         switch (o.getFormat()) {
           case HTML:
-            document.add(new Paragraph(HTMLUtil.textFromHTML(o.getBody()), times11));
+            document.add(new Paragraph(text(HTMLUtil.textFromHTML(o.getBody()), 11.0F)));
             break;
           case MARKDOWN:
-            document.add(new Paragraph(markdownService.convertToText(o.getBody()), times11));
+            document.add(
+                new Paragraph(text(markdownService.convertToText(o.getBody()), 11.0F)));
             break;
           case TEXT: /* falls through */
           default:
-              document.add(new Paragraph(o.getBody(), times11));
+              document.add(new Paragraph(text(o.getBody(), 11.0F)));
         }
         document.add(Chunk.NEWLINE);
 
         if (o.getSecurity() == Security.PRIVATE)
-          document.add(new Paragraph("Security: " + "Private", helvetica8));
+          document.add(new Paragraph(text("Security: " + "Private", 8.0F)));
         else if (o.getSecurity() == Security.FRIENDS)
-          document.add(new Paragraph("Security: " + "Friends", helvetica8));
-        else document.add(new Paragraph("Security: " + "Public", helvetica8));
+          document.add(new Paragraph(text("Security: " + "Friends", 8.0F)));
+        else document.add(new Paragraph(text("Security: " + "Public", 8.0F)));
 
-        document.add(new Chunk("Location: " + o.getLocation().getTitle(), helvetica8));
+        document.add(text("Location: " + o.getLocation().getTitle(), 8.0F));
         document.add(Chunk.NEWLINE);
-        document.add(new Chunk("Mood: " + o.getMood().getTitle(), helvetica8));
+        document.add(text("Mood: " + o.getMood().getTitle(), 8.0F));
         document.add(Chunk.NEWLINE);
-        document.add(new Chunk("Music: " + o.getMusic(), helvetica8));
+        document.add(text("Music: " + o.getMusic(), 8.0F));
         document.add(Chunk.NEWLINE);
         document.add(Chunk.NEWLINE);
       }

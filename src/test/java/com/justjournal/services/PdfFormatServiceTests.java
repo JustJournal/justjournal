@@ -140,4 +140,25 @@ class PdfFormatServiceTests {
 
     assertThrows(NotFoundException.class, () -> pdfFormatService.write(userContext, out));
   }
+
+  @Test
+  void write_shouldKeepTextOutsideLatin1() throws Exception {
+    when(entryRepository.findByUsernameAndSecurity("testuser", Security.PUBLIC))
+        .thenReturn(
+            List.of(entry("Kočić – Ελληνικά", "Русский текст and a star ★", Security.PUBLIC)));
+
+    final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    pdfFormatService.write(new UserContext(user, null), out);
+
+    final String raw = out.toString(StandardCharsets.ISO_8859_1);
+    assertTrue(raw.contains("NotoSans-Regular"), "Noto Sans not embedded");
+    assertTrue(raw.contains("NotoSansSymbols2"), "symbol fallback not used for the star");
+
+    try (PdfReader reader = new PdfReader(out.toByteArray())) {
+      final String text = new PdfTextExtractor(reader).getTextFromPage(1);
+      assertTrue(text.contains("Kočić – Ελληνικά"), text);
+      assertTrue(text.contains("Русский текст"), text);
+      assertTrue(text.contains("★"), text);
+    }
+  }
 }
