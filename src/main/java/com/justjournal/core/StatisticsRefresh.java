@@ -30,14 +30,9 @@ import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.EntryStatisticService;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /** @author Lucas Holt */
 @Slf4j
@@ -49,34 +44,40 @@ public class StatisticsRefresh {
 
   private final EntryStatisticService entryStatisticService;
 
-  final TransactionTemplate transactionTemplate;
-
-  @Autowired
   public StatisticsRefresh(
-          final UserRepository userRepository, final EntryStatisticService entryStatisticService, TransactionTemplate transactionTemplate) {
+      final UserRepository userRepository, final EntryStatisticService entryStatisticService) {
     this.userRepository = userRepository;
     this.entryStatisticService = entryStatisticService;
-    this.transactionTemplate = transactionTemplate;
   }
 
-  // Every six hours?
+  /**
+   * Recompute entry statistics for every user, every six hours.
+   *
+   * <p>Each user is computed in its own transaction ({@link EntryStatisticService#compute} is
+   * transactional). One transaction around the whole run held a database connection for the full
+   * run and slowed every flush as the persistence context grew.
+   */
   @Scheduled(fixedDelay = 1000 * 60 * 60 * 6, initialDelay = 30000)
   public void run() {
     log.info("Statistics Refresh: init");
+    final long start = System.currentTimeMillis();
+    int users = 0;
+    int failed = 0;
 
-    transactionTemplate.execute(new TransactionCallbackWithoutResult() {
-      protected void doInTransactionWithoutResult(@NotNull TransactionStatus status) {
+    for (final User user : userRepository.findAll()) {
+      users++;
+      try {
+        entryStatisticService.compute(user);
+      } catch (final Exception e) {
+        failed++;
+        log.error("Statistics Refresh: failed for {}", user.getUsername(), e);
+      }
+    }
 
-        try {
-          for (final User user : userRepository.findAll()) {
-            entryStatisticService.compute(user);
-          }
-        } catch (final Exception e) {
-          log.error(e.getMessage(), e);
-        }
-
-        log.info("Statistics Refresh: Quit");
-
-      } });
+    log.info(
+        "Statistics Refresh: Quit - {} users, {} failed, {} ms",
+        users,
+        failed,
+        System.currentTimeMillis() - start);
   }
 }

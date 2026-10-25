@@ -126,6 +126,10 @@ public interface EntryRepository extends JpaRepository<Entry, Integer> {
           + " AND YEAR(eh.date)= :yr AND us = eh.user")
   Long calendarCount(@Param("yr") int year, @Param("username") String username);
 
+  /** Entry counts per year for one user, as {@code [year, count]} rows; years without entries are absent. */
+  @Query("SELECT YEAR(e.date), COUNT(e) FROM Entry e WHERE e.user = :user GROUP BY YEAR(e.date)")
+  List<Object[]> countByYear(@Param("user") User user);
+
   @Query(
       "SELECT count(eh) FROM User us, Entry eh WHERE LOWER(us.username) = LOWER(:username)"
           + " AND YEAR(eh.date)= :yr AND MONTH(eh.date)= :mn AND us = eh.user")

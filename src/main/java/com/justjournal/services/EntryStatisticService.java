@@ -30,19 +30,18 @@ import com.justjournal.model.EntryStatistic;
 import com.justjournal.model.User;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.EntryStatisticRepository;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Compute yearly entry statistics
@@ -77,38 +76,64 @@ public class EntryStatisticService {
     return entryStatisticRepository.findByUsernameOrderByYearDesc(username);
   }
 
+  /**
+   * Recompute a user's yearly entry counts, from the year they joined (no earlier than 2003) to
+   * the current year.
+   *
+   * <p>Uses one grouped count query and one lookup of the existing rows, and only writes years
+   * whose count changed. Each call is its own short transaction.
+   *
+   * @param user user to compute statistics for
+   */
   @Transactional(isolation = Isolation.READ_UNCOMMITTED)
   public void compute(final User user) {
+    final GregorianCalendar calendarg = new GregorianCalendar();
+    int endYear = calendarg.get(Calendar.YEAR);
+    int startYear = user.getSince();
 
-      final GregorianCalendar calendarg = new GregorianCalendar();
-      int endYear = calendarg.get(Calendar.YEAR);
-      int startYear = user.getSince();
+    if (endYear < 2003) endYear = 2004;
 
-      log.trace("Computing statistics for user: {} Start year: {}, End year: {}", user.getUsername(), startYear, endYear);
+    if (startYear < 2003) startYear = 2003;
 
-      if (endYear < 2003) endYear = 2004;
+    log.trace(
+        "Computing statistics for user: {} Start year: {}, End year: {}",
+        user.getUsername(),
+        startYear,
+        endYear);
 
-      if (startYear < 2003) startYear = 2003;
+    final Map<Integer, Long> counts = new HashMap<>();
+    for (final Object[] row : entryRepository.countByYear(user)) {
+      if (row[0] != null) counts.put(((Number) row[0]).intValue(), ((Number) row[1]).longValue());
+    }
+
+    final Map<Integer, EntryStatistic> existing = new HashMap<>();
+    for (final EntryStatistic es : entryStatisticRepository.findByUser(user)) {
+      existing.putIfAbsent(es.getYear(), es);
+    }
+
+    final Date now = calendarg.getTime();
+    final List<EntryStatistic> changed = new ArrayList<>();
 
     for (int yr = startYear; yr <= endYear; yr++) {
-        log.trace("testing with year: {} user: {}", yr, user.getUsername());
-        EntryStatistic es = entryStatisticRepository.findByUserAndYear(user, yr);
-        final long count = entryRepository.calendarCount(yr, user.getUsername());
+      final long count = counts.getOrDefault(yr, 0L);
+      EntryStatistic es = existing.get(yr);
 
-        if (es == null) {
-            log.trace("Creating new entry statistic for {}", user.getUsername());
-            es = new EntryStatistic();
-            es.setUser(user);
-        } else {
-            log.trace("Updating existing entry statistic for year: {}", yr);
-        }
-
-        es.setCount(count);
+      if (es == null) {
+        es = new EntryStatistic();
+        es.setUser(user);
         es.setYear(yr);
-        es.setModified(calendarg.getTime());
+      } else if (es.getCount() == count) {
+        continue;
+      }
 
-        log.trace("save and flush year: {} user: {} count: {}", yr, user.getUsername(), count);
-        entryStatisticRepository.saveAndFlush(es);
+      es.setCount(count);
+      es.setModified(now);
+      changed.add(es);
+    }
+
+    if (!changed.isEmpty()) {
+      log.trace("Saving {} entry statistics for {}", changed.size(), user.getUsername());
+      entryStatisticRepository.saveAll(changed);
     }
   }
 }

@@ -47,4 +47,6 @@ public interface EntryStatisticRepository extends JpaRepository<EntryStatistic, 
   EntryStatistic findByUsernameAndYear(@Param("username") String username, @Param("year") int year);
 
   EntryStatistic findByUserAndYear(@Param("user") User user, @Param("year") int year);
+
+  List<EntryStatistic> findByUser(User user);
 }

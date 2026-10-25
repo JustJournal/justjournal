@@ -25,29 +25,34 @@
  */
 package com.justjournal.services;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.Mockito.*;
 
 import com.justjournal.model.EntryStatistic;
 import com.justjournal.model.User;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.EntryStatisticRepository;
-
+import java.util.ArrayList;
 import java.util.Calendar;
-
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.context.ActiveProfiles;
 
 /**
  * @author Lucas Holt
  */
-@ActiveProfiles("test")
 @ExtendWith(MockitoExtension.class)
 class EntryStatisticsServiceTests {
+
+    private static final int CURRENT_YEAR = Calendar.getInstance().get(Calendar.YEAR);
 
     @Mock
     private EntryStatisticRepository entryStatisticRepository;
@@ -60,7 +65,6 @@ class EntryStatisticsServiceTests {
 
     private User testUser;
 
-
     @BeforeEach
     void setUp() {
         testUser = new User();
@@ -68,74 +72,101 @@ class EntryStatisticsServiceTests {
         testUser.setSince(2010);
     }
 
-    @Test
-    void compute_shouldUpdateExistingStatistics() {
-        // Given
-        int testYear = 2015;
-        testUser.setSince(testYear);
-        EntryStatistic existingStatistic = new EntryStatistic();
-        existingStatistic.setUser(testUser);
-        existingStatistic.setYear(testYear);
-        existingStatistic.setCount(5L);
+    private static Object[] row(final int year, final long count) {
+        return new Object[] {year, count};
+    }
 
-        when(entryStatisticRepository.findByUserAndYear(testUser, testYear)).thenReturn(existingStatistic);
-        when(entryRepository.calendarCount(testYear, "testuser")).thenReturn(15L);
+    private static EntryStatistic stat(final User user, final int year, final long count) {
+        final EntryStatistic es = new EntryStatistic();
+        es.setUser(user);
+        es.setYear(year);
+        es.setCount(count);
+        return es;
+    }
 
-        // When
-        entryStatisticService.compute(testUser);
-
-        // Then
-        verify(entryStatisticRepository).findByUserAndYear(eq(testUser), eq(testYear));
-        verify(entryRepository).calendarCount(eq(testYear), eq("testuser"));
-        verify(entryStatisticRepository).saveAndFlush(argThat(stat ->
-                stat.getYear() == testYear && stat.getCount() == 15L && stat.getUser() == testUser
-        ));
+    @SuppressWarnings("unchecked")
+    private Map<Integer, EntryStatistic> savedByYear() {
+        final ArgumentCaptor<Iterable<EntryStatistic>> captor = ArgumentCaptor.forClass(Iterable.class);
+        verify(entryStatisticRepository).saveAll(captor.capture());
+        final List<EntryStatistic> saved = new ArrayList<>();
+        captor.getValue().forEach(saved::add);
+        return saved.stream().collect(Collectors.toMap(EntryStatistic::getYear, es -> es));
     }
 
     @Test
-    void compute_shouldCreateAndUpdateStatistics() {
-        // Given
-        int currentYear = Calendar.getInstance().get(Calendar.YEAR);
-        testUser.setSince(2010);
-        when(entryRepository.calendarCount(anyInt(), eq("testuser"))).thenReturn(10L);
+    void compute_usesOneCountQuery_andCreatesEveryYearSinceJoining() {
+        when(entryRepository.countByYear(testUser)).thenReturn(List.of(row(2012, 7L), row(2015, 3L)));
+        when(entryStatisticRepository.findByUser(testUser)).thenReturn(List.of());
 
-        // When
         entryStatisticService.compute(testUser);
 
-        // Then
-        int expectedCalls = currentYear - 2010 + 1;
-        verify(entryStatisticRepository, times(expectedCalls)).findByUserAndYear(eq(testUser), anyInt());
-        verify(entryRepository, times(expectedCalls)).calendarCount(anyInt(), eq("testuser"));
-        verify(entryStatisticRepository, times(expectedCalls)).saveAndFlush(any(EntryStatistic.class));
+        verify(entryRepository, times(1)).countByYear(testUser);
+        verify(entryRepository, never()).calendarCount(anyInt(), anyString());
+        final Map<Integer, EntryStatistic> saved = savedByYear();
+        assertEquals(CURRENT_YEAR - 2010 + 1, saved.size());
+        assertEquals(7L, saved.get(2012).getCount());
+        assertEquals(3L, saved.get(2015).getCount());
+        assertEquals(0L, saved.get(2010).getCount());
+        assertSame(testUser, saved.get(2012).getUser());
+        assertNotNull(saved.get(2012).getModified());
     }
 
     @Test
-    void compute_shouldHandleUserWithSinceBelow2003() {
-        // Given
+    void compute_updatesOnlyYearsWhoseCountChanged() {
+        testUser.setSince(CURRENT_YEAR - 2);
+        final EntryStatistic unchanged = stat(testUser, CURRENT_YEAR - 2, 5L);
+        final EntryStatistic stale = stat(testUser, CURRENT_YEAR - 1, 5L);
+        final EntryStatistic same = stat(testUser, CURRENT_YEAR, 0L);
+        when(entryRepository.countByYear(testUser))
+                .thenReturn(List.of(row(CURRENT_YEAR - 2, 5L), row(CURRENT_YEAR - 1, 15L)));
+        when(entryStatisticRepository.findByUser(testUser)).thenReturn(List.of(unchanged, stale, same));
+
+        entryStatisticService.compute(testUser);
+
+        final Map<Integer, EntryStatistic> saved = savedByYear();
+        assertEquals(1, saved.size());
+        assertSame(stale, saved.get(CURRENT_YEAR - 1));
+        assertEquals(15L, stale.getCount());
+    }
+
+    @Test
+    void compute_writesNothing_whenAllCountsAreCurrent() {
+        testUser.setSince(CURRENT_YEAR);
+        when(entryRepository.countByYear(testUser)).thenReturn(List.<Object[]>of(row(CURRENT_YEAR, 4L)));
+        when(entryStatisticRepository.findByUser(testUser))
+                .thenReturn(List.of(stat(testUser, CURRENT_YEAR, 4L)));
+
+        entryStatisticService.compute(testUser);
+
+        verify(entryStatisticRepository, never()).saveAll(anyIterable());
+    }
+
+    @Test
+    void compute_startsAt2003_whenUserJoinedEarlier() {
         testUser.setSince(2000);
-        when(entryRepository.calendarCount(anyInt(), eq("testuser"))).thenReturn(5L);
+        when(entryRepository.countByYear(testUser)).thenReturn(List.of(row(2001, 9L), row(2003, 2L)));
+        when(entryStatisticRepository.findByUser(testUser)).thenReturn(List.of());
 
-        // When
         entryStatisticService.compute(testUser);
 
-        // Then
-        verify(entryStatisticRepository, atLeastOnce()).findByUserAndYear(eq(testUser), eq(2003));
-        verify(entryRepository, atLeastOnce()).calendarCount(eq(2003), eq("testuser"));
-        verify(entryStatisticRepository, atLeastOnce()).saveAndFlush(any(EntryStatistic.class));
+        final Map<Integer, EntryStatistic> saved = savedByYear();
+        assertEquals(CURRENT_YEAR - 2003 + 1, saved.size());
+        assertFalse(saved.containsKey(2001));
+        assertEquals(2L, saved.get(2003).getCount());
     }
 
     @Test
-    void compute_shouldHandleCurrentYearBelow2004() {
-        // Given
-        testUser.setSince(2003);
-        when(entryRepository.calendarCount(anyInt(), eq("testuser"))).thenReturn(5L);
+    void compute_ignoresDuplicateExistingRowsForAYear() {
+        testUser.setSince(CURRENT_YEAR);
+        final EntryStatistic first = stat(testUser, CURRENT_YEAR, 1L);
+        final EntryStatistic duplicate = stat(testUser, CURRENT_YEAR, 1L);
+        when(entryRepository.countByYear(testUser)).thenReturn(List.<Object[]>of(row(CURRENT_YEAR, 2L)));
+        when(entryStatisticRepository.findByUser(testUser)).thenReturn(List.of(first, duplicate));
 
-        // When
         entryStatisticService.compute(testUser);
 
-        // Then
-        verify(entryStatisticRepository, atLeast(23)).findByUserAndYear(eq(testUser), anyInt());
-        verify(entryRepository, atLeast(23)).calendarCount(anyInt(), eq("testuser"));
-        verify(entryStatisticRepository, atLeast(23)).saveAndFlush(any(EntryStatistic.class));
+        final Map<Integer, EntryStatistic> saved = savedByYear();
+        assertSame(first, saved.get(CURRENT_YEAR));
+        assertEquals(1L, duplicate.getCount());
     }
 }
