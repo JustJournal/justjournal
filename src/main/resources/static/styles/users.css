@@ -4,55 +4,69 @@ body {
 }
 
 /* Mini calendar, calendar, and RSS styles */
+/* colors are translucent grays over the theme background and text inherits, so the calendars
+   stay readable on dark themes like Cyborg as well as light ones */
 .minicalendar {
-    border: thin solid gray;
-    font-size: .8em;
+    border: 1px solid rgba(128, 128, 128, .5);
     margin-bottom: 20px;
+    /* fill the column; fixed layout keeps all seven day columns the same width */
+    width: 100%;
+    table-layout: fixed;
+}
+
+.minicalendar th,
+.minicalendar td {
+    border: 1px solid rgba(128, 128, 128, .25);
+    padding: 0;
+    height: 2.2em;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .minicalendarth {
-    background: #F2F2F2;
-    color: gray;
-    width: 14%;
+    background: rgba(128, 128, 128, .15);
+    color: inherit;
+    font-weight: bold;
 }
 
 .minicalendaroffrow {
-    background: #F2F2F2;
+    background: rgba(128, 128, 128, .15);
 }
 
 .minicalendarrow {
-    background: white;
-    vertical-align: top;
+    background: transparent;
+    color: inherit;
 }
 
 .minicalendarsub {
-    background: #F2F2F2;
+    background: rgba(128, 128, 128, .15);
     text-align: center;
 }
 
 .fullcalendar {
     margin-top: .2in;
-    border: thin solid black;
+    border: 1px solid rgba(128, 128, 128, .5);
     width: 400px;
 }
 
 .fullcalendarth {
-    background: #F2F2F2;
-    color: gray;
+    background: rgba(128, 128, 128, .15);
+    color: inherit;
     width: 14%;
 }
 
 .fullcalendaroffrow {
-    background: #F2F2F2;
+    background: rgba(128, 128, 128, .15);
 }
 
 .fullcalendarrow {
-    background: white;
+    background: transparent;
+    color: inherit;
     vertical-align: top;
 }
 
 .fullcalendarsub {
-    background: #F2F2F2;
+    background: rgba(128, 128, 128, .15);
     text-align: center;
 }
 
