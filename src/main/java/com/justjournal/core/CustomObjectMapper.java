@@ -40,10 +40,22 @@ import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationModu
 public final class CustomObjectMapper extends ObjectMapper {
   public CustomObjectMapper() {
     // hybernate/jaxb/xmlbind
-    this.registerModule(new Hibernate5JakartaModule());
+    this.registerModule(hibernateModule());
     JakartaXmlBindAnnotationModule jakartaXmlBindAnnotationModule = new JakartaXmlBindAnnotationModule();
     this.registerModule(jakartaXmlBindAnnotationModule);
 
     this.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // defaults to 8601 date format
+  }
+
+  /**
+   * Hibernate module for Jackson. JPA {@code @Transient} fields are calculated values like tag
+   * counts and should still be serialized.
+   *
+   * @return configured module
+   */
+  public static Hibernate5JakartaModule hibernateModule() {
+    final Hibernate5JakartaModule module = new Hibernate5JakartaModule();
+    module.disable(Hibernate5JakartaModule.Feature.USE_TRANSIENT_ANNOTATION);
+    return module;
   }
 }

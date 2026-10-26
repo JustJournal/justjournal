@@ -25,7 +25,9 @@
  */
 package com.justjournal.services;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.justjournal.Application;
+import com.justjournal.core.CustomObjectMapper;
 import com.justjournal.model.Tag;
 import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.TagRepository;
@@ -48,6 +50,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -96,6 +102,52 @@ class TagServiceTests {
       assertFalse(StringUtils.isEmpty(tag.getType()));
       assertTrue(tag.getCount() > 0);
     }
+  }
+
+  @Test
+  void getTagsSizesByPopularity() {
+    final Map<String, Long> counts = new LinkedHashMap<>();
+    // more tags than the parallel prefetch, with the most popular last, so classification can't
+    // rely on a running max
+    for (int i = 0; i < 300; i++) {
+      counts.put("rare" + (char) ('a' + i / 26 % 26) + (char) ('a' + i % 26), 1L);
+    }
+    counts.put("common", 5L);
+    counts.put("popular", 9L);
+    final List<Tag> data = new ArrayList<>();
+    int id = 1;
+    for (String name : counts.keySet()) {
+      final Tag tag = new Tag(name);
+      tag.setId(id++);
+      data.add(tag);
+    }
+    when(tagRepository.findAll()).thenReturn(data);
+    when(entryTagsRepository.countByTag(any(Tag.class)))
+        .thenAnswer(inv -> counts.get(inv.<Tag>getArgument(0).getName()));
+
+    final Map<String, String> types = new HashMap<>();
+    tagService.getTags().toStream().forEach(t -> types.put(t.getName(), t.getType()));
+
+    assertEquals(counts.size(), types.size());
+    counts.forEach(
+        (name, count) -> {
+          if (count == 1L) assertEquals("TagCloudSmall", types.get(name), name);
+        });
+    assertEquals("TagCloudMedium", types.get("common"));
+    assertEquals("TagCloudLarge", types.get("popular"));
+  }
+
+  @Test
+  void tagCountAndTypeAreSerialized() throws Exception {
+    final Tag tag = new Tag("java");
+    tag.setId(1);
+    tag.setCount(7);
+    tag.setType("TagCloudLarge");
+
+    final JsonNode json = new CustomObjectMapper().valueToTree(tag);
+
+    assertEquals(7, json.get("count").asLong());
+    assertEquals("TagCloudLarge", json.get("type").asText());
   }
 
   @Test

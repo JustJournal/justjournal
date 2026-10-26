@@ -111,18 +111,20 @@ public class TagService {
   }
 
   private ParallelFlux<Tag> compute(Flux<Tag> tags) {
-    final TagWeight tagWeight = new TagWeight();
-    return tags.map(
-            tag -> {
-              if (tag.getCount() > tagWeight.largest) tagWeight.largest = tag.getCount();
+    // the cutoffs depend on the largest count, so it must be known before any tag is classified
+    return tags.collectList()
+        .flatMapMany(
+            list -> {
+              final TagWeight tagWeight = new TagWeight();
+              for (final Tag tag : list) {
+                if (tag.getCount() > tagWeight.largest) tagWeight.largest = tag.getCount();
 
-              if (tag.getCount() < tagWeight.smallest) tagWeight.smallest = tag.getCount();
-
-              return tag;
+                if (tag.getCount() < tagWeight.smallest) tagWeight.smallest = tag.getCount();
+              }
+              return Flux.fromIterable(list).map(tagWeight::calculateType);
             })
         .parallel()
-        .runOn(Schedulers.parallel())
-        .map(tagWeight::calculateType);
+        .runOn(Schedulers.parallel());
   }
 
   public void deleteTag(final int tagId) {

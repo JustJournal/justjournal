@@ -27,7 +27,7 @@ package com.justjournal.config;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.hibernate5.jakarta.Hibernate5JakartaModule;
+import com.justjournal.core.CustomObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationModule;
 import java.util.List;
@@ -58,7 +58,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
   @Autowired
   public WebMvcConfig(ObjectMapper mapper) {
     this.mapper = mapper;
-    mapper.registerModule(new Hibernate5JakartaModule());
+    mapper.registerModule(CustomObjectMapper.hibernateModule());
     JakartaXmlBindAnnotationModule module = new JakartaXmlBindAnnotationModule();
     mapper.registerModule(module);
 
