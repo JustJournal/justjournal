@@ -168,7 +168,7 @@ public interface EntryRepository extends JpaRepository<Entry, Integer> {
   @Query(
       "SELECT eh FROM User us, Entry eh WHERE LOWER(us.username) = LOWER(:username) AND"
           + " YEAR(eh.date) = :yr AND MONTH(eh.date) = :month AND DAY(eh.date) = :day AND us"
-          + " = eh.user and eh.security = :security")
+          + " = eh.user")
   List<Entry> findByUsernameAndYearAndMonthAndDay(
       @Param("username") String username,
       @Param("yr") int year,

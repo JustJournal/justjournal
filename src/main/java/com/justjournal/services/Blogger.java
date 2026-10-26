@@ -213,7 +213,8 @@ public class Blogger extends BaseXmlRpcService {
       } else subject = "";
       et.setSubject(subject);
 
-      et.setBody(content);
+      et.setBody(HTMLUtil.clean(content, false));
+      et.setFormat(FormatType.HTML);
 
       /* Allow html style music tag to set music, used by few clients */
       final String music;
@@ -228,7 +229,7 @@ public class Blogger extends BaseXmlRpcService {
       et.setSecurity(Security.PUBLIC); // public
       et.setLocation(locationDao.findById(0).orElse(null)); // not specified
       et.setMood(moodDao.findById(12)); // not specified
-      et.setAutoFormat(PrefBool.Y);
+      et.setAutoFormat(PrefBool.N);
       et.setAllowComments(PrefBool.Y);
       et.setEmailComments(PrefBool.Y);
       et.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
@@ -348,7 +349,9 @@ public class Blogger extends BaseXmlRpcService {
         if (et2 == null) return error(ERROR_ENTRY_ID + postid);
 
         if (userId == et2.getUser().getId()) {
-          et2.setBody(content);
+          et2.setBody(HTMLUtil.clean(content, false));
+          et2.setFormat(FormatType.HTML);
+          et2.setAutoFormat(PrefBool.N);
           et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
           entryRepository.save(et2);
         } else return error(ERROR_USER_AUTH + username);

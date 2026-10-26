@@ -38,6 +38,7 @@ import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.utility.DateConvert;
+import com.justjournal.utility.HTMLUtil;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -210,7 +211,8 @@ public class MetaWeblog extends BaseXmlRpcService {
         et.setUser(user);
         et.setDate(new java.util.Date());
         et.setSubject((String) content.get(TITLE_KEY));
-        et.setBody((String) content.get(DESC_KEY));
+        et.setBody(HTMLUtil.clean((String) content.get(DESC_KEY), false));
+        et.setFormat(FormatType.HTML);
         et.setMusic("");
         et.setSecurity(Security.PUBLIC); // public
         et.setLocation(
@@ -336,7 +338,9 @@ public class MetaWeblog extends BaseXmlRpcService {
         }
         if (et2.getUser().getId() == userId) {
           et2.setSubject((String) content.get(TITLE_KEY));
-          et2.setBody((String) content.get(DESC_KEY));
+          et2.setBody(HTMLUtil.clean((String) content.get(DESC_KEY), false));
+          et2.setFormat(FormatType.HTML);
+          et2.setAutoFormat(PrefBool.N);
           et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
           /* TODO: add date edit support */
           entryRepository.save(et2);

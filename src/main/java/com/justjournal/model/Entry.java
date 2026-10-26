@@ -35,6 +35,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.justjournal.model.api.EntryTo;
+import com.justjournal.utility.HTMLUtil;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -114,7 +115,6 @@ public class Entry implements Serializable {
   @Column(name = "security")
   private Security security = Security.PRIVATE;
 
-  @Setter
   @JsonProperty("subject")
   @Column(name = "subject", length = 255)
   private String subject = "";
@@ -279,5 +279,14 @@ public class Entry implements Serializable {
     // entryTo.setComments(getComments().stream().map(Comment::toCommentTo).collect(Collectors.toSet()));
 
     return entryTo;
+  }
+
+  /**
+   * Set the entry subject. HTML is not allowed in subjects; tags are stripped.
+   *
+   * @param subject plain text subject
+   */
+  public void setSubject(final String subject) {
+    this.subject = subject == null ? "" : HTMLUtil.stripHTMLTags(subject).trim();
   }
 }

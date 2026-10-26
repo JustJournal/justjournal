@@ -427,6 +427,8 @@ public class EntryController {
     // stop grammarly from putting garbage in entry body
     var body = entryTo.getBody();
     body = StringUtil.stripNonPrintableCharacters(body);
+    // probably HTML, run jtidy on it like UpdateJournal does
+    if ("HTML".equals(entryTo.getFormat())) body = HTMLUtil.clean(body, false);
     entryTo.setBody(body);
 
     var subject = entryTo.getSubject();

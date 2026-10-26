@@ -106,4 +106,24 @@ class HTMLUtilTests {
         var result = HTMLUtil.determineMimeType("application/xhtml+xml", null);
         Assertions.assertEquals("application/xhtml+xml", result);
     }
+
+    @Test
+    void testCleanClosesUnbalancedTags() {
+        var result = HTMLUtil.clean("<p>hello <textarea>oops", false);
+        Assertions.assertTrue(result.contains("</textarea>"), result);
+        Assertions.assertFalse(result.contains("<html"), result);
+    }
+
+    @Test
+    void testCleanClosesComment() {
+        var result = HTMLUtil.clean("<p>hello</p><!-- never closed", false);
+        Assertions.assertTrue(result.contains("hello"), result);
+        Assertions.assertTrue(!result.contains("<!--") || result.contains("-->"), result);
+    }
+
+    @Test
+    void testCleanEmpty() {
+        Assertions.assertEquals("", HTMLUtil.clean(null, false));
+        Assertions.assertEquals("", HTMLUtil.clean("", false));
+    }
 }

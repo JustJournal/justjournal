@@ -846,6 +846,9 @@ public class UsersController {
     // everyone can see public entries
     if (entry.getSecurity() == Security.PUBLIC) return entry;
 
+    // anonymous visitors only see public entries
+    if (uc.getAuthenticatedUser() == null) return null;
+
     final int authUserId = uc.getAuthenticatedUser().getId();
 
     // since we know the blog owner owns the entry and the auth user is the entry user, we can
@@ -1646,7 +1649,7 @@ public class UsersController {
               .append('/')
               .append(curDate)
               .append("\">")
-              .append(Entry.getSubject())
+              .append(Xml.cleanString(Entry.getSubject()))
               .append("</a></span></p> ");
           sb.append(ENDL);
         }
