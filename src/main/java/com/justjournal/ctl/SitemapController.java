@@ -65,6 +65,7 @@ public class SitemapController {
     create(xmlUrlSet, baseUri + "members", Url.Priority.LOW, Url.ChangeFreqency.DAILY);
     create(xmlUrlSet, baseUri + "support", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
     create(xmlUrlSet, baseUri + "support/bugs", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
+    create(xmlUrlSet, baseUri + "support/api", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
     create(xmlUrlSet, baseUri + "moodlist", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
 
     for (final User user : userRepository.findAll()) {

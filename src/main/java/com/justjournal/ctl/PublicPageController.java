@@ -193,6 +193,11 @@ public class PublicPageController {
         model, session, "Just Journal: Support FAQ", "support-faq", "fragments/public/support-faq");
   }
 
+  @GetMapping("/support/api")
+  public String supportApi(Model model, HttpSession session) {
+    return renderPage(model, session, "Just Journal: Client API", "support-api", "fragments/public/support-api");
+  }
+
   @GetMapping("/support/tech")
   public String supportTech(Model model, HttpSession session) {
     return renderPage(

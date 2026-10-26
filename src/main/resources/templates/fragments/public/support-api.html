@@ -1,0 +1,210 @@
+<div th:fragment="content" class="container">
+    <h2>Client API</h2>
+    <p>Just Journal has a JSON API for writing clients. This page covers the endpoints a client needs to log in,
+        post and read entries, and look up moods, locations and tags. The <a href="/software">Software</a> page
+        lists existing clients, including the source for the Unix client, which uses this API.</p>
+
+    <ul>
+        <li><a href="#conventions">Conventions</a></li>
+        <li><a href="#login">Logging in</a></li>
+        <li><a href="#entries">Entries</a></li>
+        <li><a href="#comments">Comments</a></li>
+        <li><a href="#lookups">Moods, locations and security levels</a></li>
+        <li><a href="#journal">Tags, calendar and statistics</a></li>
+        <li><a href="#social">Friends and favorites</a></li>
+        <li><a href="#search">Search</a></li>
+        <li><a href="#feeds">Feeds and other protocols</a></li>
+    </ul>
+
+    <h3 id="conventions">Conventions</h3>
+    <ul>
+        <li>All endpoints are under <code>https://www.justjournal.com/api/</code>. Use HTTPS.</li>
+        <li>Send and expect JSON: <code>Content-Type: application/json</code> and <code>Accept: application/json</code>.</li>
+        <li>Authentication uses a session cookie. Log in once with <code>POST /api/login</code>, keep the cookie it
+            sets, and send it with every later request. Don't save the cookie or the password to disk.</li>
+        <li>Errors usually come back as <code>{"error": "message"}</code> with a 4xx or 5xx status.
+            <code>403</code> means you are not logged in or not allowed, <code>404</code> means the user or item
+            doesn't exist, and <code>400</code> means the request was invalid.</li>
+        <li>Dates are ISO 8601, for example <code>2026-10-26T17:58:00.000+00:00</code>.</li>
+        <li>Usernames are letters and numbers only and are not case sensitive.</li>
+        <li>Responses include an <code>ETag</code>. Send it back in <code>If-None-Match</code> to get a
+            <code>304 Not Modified</code> when nothing changed.</li>
+    </ul>
+
+    <h3 id="login">Logging in</h3>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>POST /api/login</code></td>
+                <td>Body <code>{"username": "...", "password": "..."}</code>. Returns
+                    <code>{"status": "JJ.LOGIN.OK", "username": "..."}</code> and sets the session cookie, or
+                    <code>401</code> with <code>"JJ.LOGIN.FAIL"</code>.</td></tr>
+            <tr><td><code>GET /api/login</code></td>
+                <td>Check the current session. <code>status</code> is <code>JJ.LOGIN.OK</code> with the username, or
+                    <code>JJ.LOGIN.NONE</code>.</td></tr>
+            <tr><td><code>GET /api/logout</code></td><td>End the session.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="entries">Entries</h3>
+    <p>An entry looks like this:</p>
+    <pre>{
+  "entryId": 34079,
+  "date": "2026-10-26T17:58:00.000+00:00",
+  "modified": "2026-10-26T18:16:47.000+00:00",
+  "user": "technews",
+  "subject": "Hello",
+  "body": "Entry text",
+  "format": "MARKDOWN",
+  "security": {"id": 2, "name": "public"},
+  "location": 0,
+  "mood": 12,
+  "music": "",
+  "tags": ["news", "linux"],
+  "draft": false,
+  "allowComments": true,
+  "emailComments": true,
+  "autoFormat": false,
+  "comments": []
+}</pre>
+    <ul>
+        <li><code>format</code> is <code>TEXT</code>, <code>MARKDOWN</code> or <code>HTML</code>. HTML is cleaned
+            on save, so scripts and unsafe markup are removed.</li>
+        <li><code>security</code> may be sent as a number: <code>0</code> private, <code>1</code> friends,
+            <code>2</code> public. Anything unrecognized is saved as private.</li>
+        <li><code>location</code> and <code>mood</code> are ids from the <a href="#lookups">lookup lists</a>.
+            Use <code>0</code> for none.</li>
+        <li>Tags are letters only, 30 characters or less.</li>
+        <li>When posting, fields you leave out get the defaults: the current date, <code>TEXT</code> format, comments
+            allowed, not a draft. Only <code>body</code> is required.</li>
+    </ul>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>GET /api/entry/{username}/size/{size}/page/{page}</code></td>
+                <td>Entries newest first. <code>page</code> starts at 0 and <code>size</code> is 1&ndash;100.
+                    Entries are in <code>_embedded.entryToList</code> (missing when there are none) and the totals are
+                    in <code>page</code>: <code>size</code>, <code>totalElements</code>, <code>totalPages</code>,
+                    <code>number</code>. You get all of your own entries; for anyone else only public, non-draft
+                    entries.</td></tr>
+            <tr><td><code>GET /api/entry/{username}/page/{page}</code></td>
+                <td>Same as above with 20 entries per page.</td></tr>
+            <tr><td><code>GET /api/entry/{username}/eid/{id}</code></td>
+                <td>One entry. <code>403</code> if you aren't allowed to see it.</td></tr>
+            <tr><td><code>GET /api/entry/{username}/recent</code></td>
+                <td>Ids and subjects of the latest entries, for a "recent entries" list.</td></tr>
+            <tr><td><code>POST /api/entry</code></td>
+                <td>Create an entry (login required). Returns <code>{"status": "ok", "id": "123"}</code>.</td></tr>
+            <tr><td><code>PUT /api/entry</code></td>
+                <td>Update an entry you own. Send the whole entry, including <code>entryId</code>. Returns
+                    <code>{"id": "123"}</code>.</td></tr>
+            <tr><td><code>DELETE /api/entry/{entryId}</code></td>
+                <td>Delete an entry you own, with its comments. Returns <code>{"id": "123"}</code>.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="comments">Comments</h3>
+    <p>A comment has <code>id</code>, <code>eid</code> (the entry id), <code>username</code>, <code>date</code>,
+        <code>subject</code> and <code>body</code>.</p>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>GET /api/comment?entryId={id}</code></td><td>Comments on an entry.</td></tr>
+            <tr><td><code>GET /api/comment/{id}</code></td><td>One comment.</td></tr>
+            <tr><td><code>POST /api/comment</code></td>
+                <td>Add a comment (login required). Body <code>{"eid": 123, "subject": "...", "body": "..."}</code>.
+                    The entry must allow comments.</td></tr>
+            <tr><td><code>PUT /api/comment</code></td><td>Edit your comment. Include its <code>id</code>.</td></tr>
+            <tr><td><code>DELETE /api/comment/{id}</code></td>
+                <td>Delete a comment you wrote.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="lookups">Moods, locations and security levels</h3>
+    <p>These lists rarely change. Load them once when the client starts.</p>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>GET /api/mood</code></td>
+                <td>All moods: <code>{"id": 19, "parent": 0, "title": "Accepted"}</code>. <code>parent</code>
+                    groups related moods.</td></tr>
+            <tr><td><code>GET /api/mood/{id}</code></td><td>One mood.</td></tr>
+            <tr><td><code>GET /api/location</code></td>
+                <td>All locations: <code>{"id": 1, "title": "Home"}</code>. Id 0 is "Not Specified".</td></tr>
+            <tr><td><code>GET /api/security</code></td>
+                <td>Security levels: <code>{"id": 2, "name": "public"}</code>.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="journal">Tags, calendar and statistics</h3>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>GET /api/tagcloud/{username}</code></td>
+                <td>Tags a user has used, with <code>count</code> and a <code>type</code> of
+                    <code>TagCloudSmall</code>, <code>TagCloudMedium</code> or <code>TagCloudLarge</code>.</td></tr>
+            <tr><td><code>GET /api/tags</code></td><td>Every tag on the site, with counts.</td></tr>
+            <tr><td><code>GET /api/calendar/counts/{username}</code></td>
+                <td>Entry counts per year: <code>{"year": 2026, "month": 0, "count": 68}</code>.</td></tr>
+            <tr><td><code>GET /api/calendar/counts/{username}/{year}</code></td>
+                <td>Entry counts per month for one year.</td></tr>
+            <tr><td><code>GET /api/statistics/{username}</code></td>
+                <td><code>{"username": "...", "entryCount": 68, "commentCount": 0}</code></td></tr>
+            <tr><td><code>GET /api/statistics</code></td><td>Site-wide totals.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="social">Friends and favorites</h3>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>GET /api/friend/{username}</code></td><td>A user's friends.</td></tr>
+            <tr><td><code>GET /api/friend/{username}/friendswith/{other}</code></td>
+                <td><code>true</code> or <code>false</code>.</td></tr>
+            <tr><td><code>PUT /api/friend/{friend}</code></td><td>Add a friend (login required).</td></tr>
+            <tr><td><code>DELETE /api/friend/{friend}</code></td><td>Remove a friend (login required).</td></tr>
+            <tr><td><code>GET /api/favorite</code></td><td>Your favorite entries (login required).</td></tr>
+            <tr><td><code>POST /api/favorite/{entryId}</code></td><td>Add an entry to your favorites.</td></tr>
+            <tr><td><code>DELETE /api/favorite/{entryId}</code></td><td>Remove an entry from your favorites.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="search">Search</h3>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>GET /api/search/{username}?term={text}</code></td>
+                <td>Search one journal's public entries. Add <code>&amp;page=0&amp;size=20</code> to page through
+                    results.</td></tr>
+            <tr><td><code>GET /api/search?term={text}</code></td><td>Search public entries on the whole site.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 id="feeds">Feeds and other protocols</h3>
+    <ul>
+        <li>Feeds of public entries: <code>/users/{username}/rss</code> (RSS 2.0), <code>/users/{username}/atom</code>
+            and <code>/users/{username}/json</code> (<a href="https://www.jsonfeed.org/">JSON Feed</a>).</li>
+        <li>Blogger 1.0 and MetaWeblog clients can post using <code>https://www.justjournal.com/xml-rpc</code> as
+            the API URL.</li>
+        <li>Journals can be followed from the fediverse. See <code>/.well-known/webfinger</code> and
+            <code>/@/{username}</code>.</li>
+    </ul>
+
+    <h3>Questions</h3>
+    <p>E-mail <a href="mailto:luke@justjournal.com">luke@justjournal.com</a> or report a problem on the
+        <a href="/support/bugs">bug list</a>.</p>
+</div>
