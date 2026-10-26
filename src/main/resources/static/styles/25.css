@@ -1,0 +1,428 @@
+/*
+ * Low Light: a dark theme for readers who find bright pages uncomfortable.
+ *
+ * Loaded after bootstrap.min.css and users.css, so it only overrides colors and a few sizes.
+ *
+ * Accessibility notes:
+ *  - Dark gray, not black, with warm off-white text. Body text is about 12.5:1 (WCAG AAA is 7:1)
+ *    instead of the 21:1 of white on black, which causes glare and halation for many people
+ *    with astigmatism or light sensitivity.
+ *  - Every text color is at least 4.5:1 on every surface it appears on, most well above 7:1.
+ *  - Low saturation colors with less blue in the text color.
+ *  - Links in content stay underlined so they don't depend on color alone (WCAG 1.4.1).
+ *  - Form control borders are at least 3:1 against their background (WCAG 1.4.11).
+ *  - A thick amber focus ring for keyboard users (WCAG 2.4.7).
+ *  - Photos are dimmed slightly and return to full brightness on hover or focus.
+ *  - Animations are switched off for people who ask for reduced motion.
+ *  - Atkinson Hyperlegible, a typeface designed by the Braille Institute for low vision readers,
+ *    with a system font fallback.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+
+:root {
+    color-scheme: dark;
+
+    --ll-bg: #1c1d21;
+    --ll-surface: #25272d;
+    --ll-surface-2: #2e3138;
+    --ll-border: #4a4e57;
+    --ll-control-border: #80858f;
+    --ll-text: #e3ded4;
+    --ll-text-strong: #f2efe8;
+    --ll-muted: #aaa59b;
+    --ll-link: #9fc6e6;
+    --ll-link-visited: #c4abe0;
+    --ll-link-hover: #c9e0f2;
+    --ll-focus: #f0c674;
+    --ll-accent: #3b6386;
+    --ll-accent-strong: #33506b;
+    --ll-danger: #f2a59c;
+    --ll-danger-bg: #3d2524;
+    --ll-success: #a3d6a8;
+    --ll-success-bg: #233528;
+    --ll-warning: #e8c88a;
+    --ll-warning-bg: #3a3122;
+    --ll-info-bg: #223242;
+}
+
+html {
+    background-color: var(--ll-bg);
+}
+
+body {
+    background-color: var(--ll-bg);
+    color: var(--ll-text);
+    font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* ---- text ---- */
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    color: var(--ll-text-strong);
+    font-family: inherit;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+small, .small, .text-muted, .help-block, caption, blockquote footer {
+    color: var(--ll-muted);
+}
+
+strong, b {
+    color: var(--ll-text-strong);
+}
+
+hr, .page-header {
+    border-color: var(--ll-border);
+}
+
+blockquote {
+    border-left-color: var(--ll-border);
+}
+
+code, kbd, pre {
+    background-color: var(--ll-surface);
+    color: var(--ll-text);
+    border-color: var(--ll-border);
+}
+
+::selection {
+    background-color: var(--ll-accent);
+    color: var(--ll-text-strong);
+}
+
+/* ---- links ---- */
+
+a {
+    color: var(--ll-link);
+    text-decoration: underline;
+    text-underline-offset: .15em;
+}
+
+h1 a, h2 a, h3 a, h4 a {
+    text-decoration-thickness: 1px;
+}
+
+a:visited {
+    color: var(--ll-link-visited);
+}
+
+a:hover, a:focus {
+    color: var(--ll-link-hover);
+}
+
+/* navigation style links are recognizable from their position, so no underline there */
+.navbar a, .dropdown-menu a, .list-group-item a, .pager a, .btn, a.btn,
+.fullcalendar a.fullcalendarcount {
+    text-decoration: none;
+}
+
+/* ---- keyboard focus ---- */
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, .btn:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--ll-focus);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+/* ---- navbar ---- */
+
+.navbar-default, .navbar-inverse {
+    background-color: var(--ll-surface);
+    background-image: none;
+    border-color: var(--ll-border);
+    box-shadow: none;
+}
+
+.navbar-default .navbar-brand, .navbar-inverse .navbar-brand,
+.navbar-default .navbar-nav > li > a, .navbar-inverse .navbar-nav > li > a {
+    color: var(--ll-text);
+    text-shadow: none;
+}
+
+.navbar-default .navbar-brand:hover, .navbar-inverse .navbar-brand:hover,
+.navbar-default .navbar-nav > li > a:hover, .navbar-inverse .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus, .navbar-inverse .navbar-nav > li > a:focus {
+    color: var(--ll-text-strong);
+    background-color: var(--ll-surface-2);
+}
+
+.navbar-default .navbar-nav > .active > a, .navbar-inverse .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover, .navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .open > a, .navbar-inverse .navbar-nav > .open > a,
+.navbar-default .navbar-nav > .open > a:hover, .navbar-inverse .navbar-nav > .open > a:hover,
+.navbar-default .navbar-nav > .open > a:focus, .navbar-inverse .navbar-nav > .open > a:focus {
+    color: var(--ll-text-strong);
+    background-color: var(--ll-accent-strong);
+    background-image: none;
+    box-shadow: none;
+}
+
+.navbar-default .navbar-toggle, .navbar-inverse .navbar-toggle {
+    border-color: var(--ll-control-border);
+}
+
+.navbar-default .navbar-toggle:hover, .navbar-inverse .navbar-toggle:hover,
+.navbar-default .navbar-toggle:focus, .navbar-inverse .navbar-toggle:focus {
+    background-color: var(--ll-surface-2);
+}
+
+.navbar-default .navbar-toggle .icon-bar, .navbar-inverse .navbar-toggle .icon-bar {
+    background-color: var(--ll-text);
+}
+
+.navbar-default .navbar-collapse, .navbar-inverse .navbar-collapse,
+.navbar-default .navbar-form, .navbar-inverse .navbar-form {
+    border-color: var(--ll-border);
+}
+
+/* ---- dropdowns ---- */
+
+.dropdown-menu {
+    background-color: var(--ll-surface);
+    border-color: var(--ll-border);
+}
+
+.dropdown-menu > li > a {
+    color: var(--ll-text);
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+.dropdown-menu > li > a:hover, .dropdown-menu > li > a:focus {
+    color: var(--ll-text-strong);
+    background-color: var(--ll-surface-2);
+    background-image: none;
+}
+
+.dropdown-menu .divider {
+    background-color: var(--ll-border);
+}
+
+/* ---- forms ---- */
+
+.form-control, input, select, textarea {
+    background-color: var(--ll-bg);
+    color: var(--ll-text);
+    border: 1px solid var(--ll-control-border);
+}
+
+.form-control::placeholder {
+    color: var(--ll-muted);
+    opacity: 1;
+}
+
+.form-control:focus {
+    border-color: var(--ll-focus);
+    box-shadow: 0 0 0 2px var(--ll-focus);
+}
+
+.form-control[disabled], .form-control[readonly] {
+    background-color: var(--ll-surface);
+    color: var(--ll-muted);
+}
+
+/* ---- buttons ---- */
+
+.btn-default {
+    background-color: var(--ll-surface-2);
+    background-image: none;
+    border-color: var(--ll-control-border);
+    color: var(--ll-text);
+    text-shadow: none;
+    box-shadow: none;
+}
+
+.btn-default:hover, .btn-default:focus, .btn-default:active {
+    background-color: #3a3d45;
+    border-color: var(--ll-control-border);
+    color: var(--ll-text-strong);
+}
+
+.btn-primary {
+    background-color: var(--ll-accent);
+    background-image: none;
+    border-color: #5a82a6;
+    color: var(--ll-text-strong);
+    text-shadow: none;
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: var(--ll-accent-strong);
+    border-color: #5a82a6;
+    color: var(--ll-text-strong);
+}
+
+.btn-danger {
+    background-color: var(--ll-danger-bg);
+    background-image: none;
+    border-color: var(--ll-danger);
+    color: var(--ll-danger);
+    text-shadow: none;
+}
+
+.btn-danger:hover, .btn-danger:focus {
+    background-color: #52302e;
+    color: #f8c4bd;
+}
+
+/* ---- lists, panels, wells ---- */
+
+.list-group-item {
+    background-color: var(--ll-surface);
+    border-color: var(--ll-border);
+    color: var(--ll-text);
+}
+
+a.list-group-item:hover, a.list-group-item:focus,
+.list-group-item:hover {
+    background-color: var(--ll-surface-2);
+}
+
+.panel, .well, .thumbnail, .jumbotron {
+    background-color: var(--ll-surface);
+    border-color: var(--ll-border);
+    color: var(--ll-text);
+    box-shadow: none;
+}
+
+.panel-default > .panel-heading {
+    background-color: var(--ll-surface-2);
+    background-image: none;
+    border-color: var(--ll-border);
+    color: var(--ll-text-strong);
+}
+
+.thumbnail .caption {
+    color: var(--ll-text);
+}
+
+/* the sidebar headings use inline gray borders */
+.menuentity > strong {
+    color: var(--ll-muted);
+    border-color: var(--ll-border) !important;
+}
+
+/* ---- pager ---- */
+
+.pager li > a, .pager li > span {
+    background-color: var(--ll-surface);
+    border-color: var(--ll-border);
+    color: var(--ll-link);
+}
+
+.pager li > a:hover, .pager li > a:focus {
+    background-color: var(--ll-surface-2);
+    color: var(--ll-link-hover);
+}
+
+.pager .disabled > a, .pager .disabled > a:hover, .pager .disabled > a:focus, .pager .disabled > span {
+    background-color: var(--ll-surface);
+    border-color: var(--ll-border);
+    color: var(--ll-muted);
+}
+
+/* ---- tables ---- */
+
+.table > thead > tr > th, .table > tbody > tr > td, .table > tbody > tr > th,
+.table > tfoot > tr > td, .table > thead > tr > td {
+    border-color: var(--ll-border);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: var(--ll-surface);
+}
+
+.table-hover > tbody > tr:hover {
+    background-color: var(--ll-surface-2);
+}
+
+/* ---- alerts ---- */
+
+.alert {
+    background-image: none;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+.alert-danger { background-color: var(--ll-danger-bg); border-color: #6b3b37; color: var(--ll-danger); }
+.alert-success { background-color: var(--ll-success-bg); border-color: #3c5e42; color: var(--ll-success); }
+.alert-warning { background-color: var(--ll-warning-bg); border-color: #66573a; color: var(--ll-warning); }
+.alert-info { background-color: var(--ll-info-bg); border-color: #3c566e; color: var(--ll-link-hover); }
+
+.alert a, .alert .alert-link {
+    color: inherit;
+    font-weight: 700;
+}
+
+/* ---- feed reader (users.css hard codes light colors here) ---- */
+
+.RssItemTitle {
+    background-color: var(--ll-surface);
+    color: var(--ll-text);
+}
+
+.RssItemTitle:hover {
+    background-color: var(--ll-surface-2);
+    color: var(--ll-text-strong);
+}
+
+.RssItemTitle a, .RssItemTitle a:visited, .RssItemTitle a:link {
+    color: var(--ll-link);
+}
+
+.RssItemTitle a:hover {
+    color: var(--ll-link-hover);
+}
+
+.RssItemPubDate {
+    color: var(--ll-muted);
+}
+
+.RssItemDesc {
+    color: var(--ll-text);
+    font-size: 14px;
+}
+
+#box1 {
+    background: var(--ll-surface);
+    border-color: var(--ll-border);
+}
+
+/* ---- images ---- */
+
+/* bright photos are the hardest thing on a dark page; take the edge off until someone looks */
+#content img, .thumbnail img {
+    filter: brightness(.85);
+    transition: filter .2s ease-in-out;
+}
+
+#content a:hover img, #content a:focus img, #content img:hover, .thumbnail a:hover img, .thumbnail a:focus img {
+    filter: none;
+}
+
+/* ---- motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ---- people who also ask the OS for more contrast get it ---- */
+
+@media (prefers-contrast: more) {
+    :root {
+        --ll-text: #f2efe8;
+        --ll-muted: #c9c4ba;
+        --ll-border: #7a7f8a;
+        --ll-control-border: #a3a8b2;
+    }
+}
