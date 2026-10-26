@@ -1,6 +1,7 @@
 package com.justjournal.ctl;
 
 import com.justjournal.Login;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -58,6 +59,21 @@ public class PublicPageController {
   @GetMapping("/moodlist")
   public String moodList(Model model, HttpSession session) {
     return renderPage(model, session, "Just Journal: Mood List", "moodlist", "fragments/public/moodlist");
+  }
+
+  @GetMapping("/password/forgot")
+  public String passwordForgot(Model model, HttpSession session) {
+    return renderPage(
+        model, session, "Just Journal: Forgot Password", "password-forgot", "fragments/public/password-forgot");
+  }
+
+  @GetMapping("/password/reset")
+  public String passwordReset(Model model, HttpSession session, HttpServletResponse response) {
+    // the reset token is in the url fragment; keep it out of referrers and caches
+    response.setHeader("Referrer-Policy", "no-referrer");
+    response.setHeader("Cache-Control", "no-store");
+    return renderPage(
+        model, session, "Just Journal: Reset Password", "password-reset", "fragments/public/password-reset");
   }
 
   @GetMapping("/prefs")

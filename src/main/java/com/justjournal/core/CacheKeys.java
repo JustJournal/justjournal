@@ -31,4 +31,8 @@ public class CacheKeys {
   public static final String TRACKBACK_IP_KEY = "trackbackip";
   public static final String TAG_KEY = "tag";
   public static final String TAG_LIST_KEY = "tag_list";
+  public static final String PASSWORD_RESET_KEY = "passwordreset:";
+  public static final String PASSWORD_RESET_USER_KEY = "passwordreset_user:";
+  public static final String PASSWORD_RESET_THROTTLE_KEY = "passwordreset_throttle:";
+  public static final String PASSWORD_RESET_IP_KEY = "passwordreset_ip:";
 }

@@ -684,6 +684,83 @@
         });
     }
 
+    function initForgotPassword() {
+        $('#frmForgotPassword').on('submit', function (event) {
+            event.preventDefault();
+            showMessage('#forgot-error', '');
+            showMessage('#forgot-success', '');
+
+            var $button = $(this).find('button[type=submit]').prop('disabled', true);
+
+            $.ajax({
+                url: '/api/password/forgot',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    username: $('#forgot-username').val().trim(),
+                    email: $('#forgot-email').val().trim()
+                })
+            }).done(function (response) {
+                track('password_forgot', 'Authentication', 'PasswordForgot');
+                showMessage('#forgot-success', escapeHtml(response.status), 'success');
+                $('#frmForgotPassword')[0].reset();
+            }).fail(function (xhr) {
+                showMessage('#forgot-error', escapeHtml(parseError(xhr, 'Unable to request a password reset. Please try again later.')));
+            }).always(function () {
+                $button.prop('disabled', false);
+            });
+        });
+    }
+
+    function initResetPassword() {
+        // the token arrives in the fragment; drop it from the address bar and history right away
+        var token = window.location.hash.replace(/^#/, '');
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+
+        var requestLink = ' <a href="/password/forgot">Request a new link</a>.';
+        if (!/^[A-Za-z0-9_-]{43}$/.test(token)) {
+            $('#frmResetPassword').hide();
+            showMessage('#reset-error', 'This password reset link is invalid or incomplete.' + requestLink);
+            return;
+        }
+
+        $('#frmResetPassword').on('submit', function (event) {
+            event.preventDefault();
+            showMessage('#reset-error', '');
+            showMessage('#reset-success', '');
+
+            var password = $('#reset-password').val();
+            if (password !== $('#reset-password2').val()) {
+                showMessage('#reset-error', 'Passwords do not match');
+                return;
+            }
+            if (password.length < 5) {
+                showMessage('#reset-error', 'Password must be greater than 4 characters');
+                return;
+            }
+
+            $.ajax({
+                url: '/api/password/reset',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({token: token, password: password})
+            }).done(function () {
+                token = '';
+                $('#frmResetPassword').hide();
+                showMessage('#reset-success', 'Your password has been changed. You can now <a href="/">log in</a>.', 'success');
+            }).fail(function (xhr) {
+                var message = escapeHtml(parseError(xhr, 'Unable to reset password'));
+                if (xhr.status === 400 && /expired/.test(message)) {
+                    $('#frmResetPassword').hide();
+                    message += requestLink;
+                }
+                showMessage('#reset-error', message);
+            });
+        });
+    }
+
     function initContact() {
         var username = currentUsername();
         if (!username) {
@@ -999,6 +1076,12 @@
                 break;
             case 'prefs-password':
                 initPassword();
+                break;
+            case 'password-forgot':
+                initForgotPassword();
+                break;
+            case 'password-reset':
+                initResetPassword();
                 break;
             case 'prefs-contact':
                 initContact();

@@ -292,6 +292,35 @@ public class Login {
     return false;
   }
 
+  /**
+   * Set a new password without the old one. Only for callers that have already proven ownership
+   * of the account another way, such as a password reset link.
+   *
+   * @param userId user id
+   * @param newPass new password
+   * @return true if the password was changed.
+   */
+  public boolean resetPass(final int userId, final String newPass) {
+    if (userId < 1 || !isPassword(newPass)) return false;
+
+    try {
+      final com.justjournal.model.User user = userRepository.findById(userId).orElse(null);
+      if (user == null) {
+        log.error("resetPass(): Unable to find user {}", userId);
+        return false;
+      }
+
+      user.setPassword(getHashedPassword(user.getUsername(), newPass));
+      user.setPasswordType(PasswordType.ARGON2);
+      userRepository.saveAndFlush(user);
+      return true;
+    } catch (final Exception e) {
+      log.error("resetPass(): {}", e.getMessage());
+    }
+
+    return false;
+  }
+
   @NotNull
   public String getHashedPassword(@NotNull final String userName, @NotNull final String password) {
     try {

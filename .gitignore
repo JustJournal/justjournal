@@ -85,3 +85,4 @@ compiler.xml
 /.idea/jarRepositories.xml
 /.idea/jpa-buddy.xml
 /.idea/runConfigurations.xml
+/.sonarlint/connectedMode.json

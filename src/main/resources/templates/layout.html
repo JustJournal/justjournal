@@ -7,6 +7,7 @@
     <meta name="description" content="Just Journal is a free online blogging service with web and desktop clients."/>
     <meta property="og:site_name" content="Just Journal"/>
     <meta name="viewport" content="width=device-width"/>
+    <meta name="robots" content="noindex" th:if="${pageId == 'password-reset'}"/>
     <meta http-equiv="content-language" content="en-us"/>
     <meta name="msvalidate.01" content="D1E040678EBA2490CC51CABAABCE7928"/>
     <meta name="google-site-verification" content="DTrNXBvTzRjd3Rl622MXUgtYzEJv2Dz6Mp5GBfVOo9Y"/>
@@ -14,6 +15,8 @@
     <link rel="stylesheet" href="/static/styles/main.css" th:href="@{/static/styles/main.css}"/>
     <link rel="stylesheet" href="/static/components/Font-Awesome/css/all.css" th:href="@{/components/Font-Awesome/css/all.css}"/>
     <link rel="stylesheet" href="/static/components/Font-Awesome/css/v4-shims.css" th:href="@{/components/Font-Awesome/css/v4-shims.css}"/>
+    <!-- no analytics on the reset page, page_location would include the token in the url fragment -->
+    <th:block th:unless="${pageId == 'password-reset'}">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2V0XXDEWN2"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -21,6 +24,7 @@
         gtag('js', new Date());
         gtag('config', 'G-2V0XXDEWN2');
     </script>
+    </th:block>
 </head>
 <body th:attr="data-page=${pageId},data-authenticated-username=${authenticatedUsername},data-profile-username=${profileUsername},data-entry-id=${entryId},data-comment-id=${commentId}">
 <header>
