@@ -61,6 +61,6 @@ public class EntryStatisticsController {
     final List<EntryStatistic> e = entryStatisticService.getEntryCounts(username);
     Collections.sort(e);
 
-    return ResponseEntity.ok().eTag(Integer.toString(e.hashCode())).body(e);
+    return ResponseEntity.ok().body(e);
   }
 }

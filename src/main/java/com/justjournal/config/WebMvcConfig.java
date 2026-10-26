@@ -40,14 +40,18 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.filter.ShallowEtagHeaderFilter;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.mvc.WebContentInterceptor;
 
 import java.time.Duration;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
+
+  private static final String API_PATTERN = "/api/**";
 
   private final ObjectMapper mapper;
 
@@ -95,6 +99,25 @@ public class WebMvcConfig implements WebMvcConfigurer {
         .addResourceLocations("classpath:/static/software/")
             .setCacheControl(CacheControl.maxAge(Duration.ofSeconds(cachePeriod)));
 
+  }
+
+  /**
+   * API responses change whenever an entry is posted and some include the owner's private entries,
+   * so browsers must revalidate every time (cheap thanks to the ETag filter) and shared caches must
+   * not store them.
+   *
+   * @param registry interceptor registry
+   */
+  @Override
+  public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(apiCacheInterceptor()).addPathPatterns(API_PATTERN);
+  }
+
+  /** @return interceptor that marks API responses as private and always revalidated */
+  public static WebContentInterceptor apiCacheInterceptor() {
+    final WebContentInterceptor apiCache = new WebContentInterceptor();
+    apiCache.addCacheMapping(CacheControl.noCache().cachePrivate(), API_PATTERN);
+    return apiCache;
   }
 
   /** {@inheritDoc} */

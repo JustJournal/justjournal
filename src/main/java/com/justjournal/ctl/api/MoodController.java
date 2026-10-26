@@ -61,7 +61,7 @@ public class MoodController {
     final Mood m = moodDao.findById(id).orElse(null);
     if (m == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
-    return ResponseEntity.ok().eTag(Integer.toString(m.hashCode())).body(m);
+    return ResponseEntity.ok().body(m);
   }
 
   /**
@@ -74,6 +74,6 @@ public class MoodController {
   public ResponseEntity<List<Mood>> getMoodList() {
     final List<Mood> list = moodDao.findAll();
     Collections.sort(list);
-    return ResponseEntity.ok().eTag(Integer.toString(list.hashCode())).body(list);
+    return ResponseEntity.ok().body(list);
   }
 }

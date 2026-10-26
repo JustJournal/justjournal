@@ -77,7 +77,6 @@ public class TagCloudController {
 
     return ResponseEntity.ok()
         //  .cacheControl(CacheControl.maxAge(1, TimeUnit.DAYS))
-        .eTag(Integer.toString(tags.hashCode()))
         .body(tags);
   }
 }

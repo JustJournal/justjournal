@@ -69,7 +69,6 @@ public class MembersController {
     try {
       final List<PublicMember> publicMembers = userService.getPublicMembers();
       return ResponseEntity.ok()
-          .eTag(Integer.toString(publicMembers.hashCode()))
           .body(publicMembers);
     } catch (final Exception e) {
       log.error(e.getMessage(), e);

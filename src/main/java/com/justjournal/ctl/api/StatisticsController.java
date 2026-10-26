@@ -70,7 +70,7 @@ public class StatisticsController {
 
     try {
       final Statistics s = statisticsService.getStatistics();
-      return ResponseEntity.ok().eTag(Integer.toString(s.hashCode())).body(s);
+      return ResponseEntity.ok().body(s);
     } catch (final ServiceException e) {
       log.warn("Statistics not available", e);
       return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -102,7 +102,7 @@ public class StatisticsController {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
       }
 
-      return ResponseEntity.ok().eTag(Integer.toString(us.hashCode())).body(us);
+      return ResponseEntity.ok().body(us);
 
     } catch (final ServiceException e) {
       log.warn("User Statistics error: (" + username + "), " + e.getMessage(), e);
