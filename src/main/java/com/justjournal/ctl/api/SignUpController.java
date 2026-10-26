@@ -82,10 +82,16 @@ public class SignUpController {
       throw new IllegalArgumentException(EMAIL_INVALID);
     }
 
-    if (!login.exists(user.getUsername())) {
-        log.warn("Username used for signup is invalid: {}", user.getUsername());
+    if (!Login.isUserName(user.getUsername())) {
+      log.warn("Username used for signup is invalid: {}", user.getUsername());
 
       throw new IllegalArgumentException("Username must be letters and numbers only");
+    }
+
+    if (login.exists(user.getUsername())) {
+      log.warn("Username used for signup is taken: {}", user.getUsername());
+
+      throw new IllegalArgumentException("Username is already taken");
     }
 
     if (!Login.isPassword(user.getPassword())) {

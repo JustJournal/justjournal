@@ -42,6 +42,8 @@ import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserContactRepository;
 import com.justjournal.repository.UserPrefRepository;
 import com.justjournal.repository.UserRepository;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import lombok.extern.slf4j.Slf4j;
@@ -90,10 +92,11 @@ public class AccountService {
     user.setLastName(newUser.getLastName());
     user.setUsername(newUser.getUsername());
     user.setPassword(login.getHashedPassword(newUser.getUsername(), newUser.getPassword()));
-    user.setPasswordType(PasswordType.SHA256);
+    user.setPasswordType(PasswordType.ARGON2);
     user.setType(0);
     user.setSince(Calendar.getInstance().get(Calendar.YEAR));
     user.setLastLogin(new Date());
+    user.setModified(LocalDateTime.now());
     try {
       user = userRepository.saveAndFlush(user);
     } catch (final Exception e) {
@@ -120,6 +123,7 @@ public class AccountService {
 
     final UserPref userPref = new UserPref();
     userPref.setShowAvatar(PrefBool.N);
+    userPref.setModified(new Timestamp(System.currentTimeMillis()));
     userPref.setUser(user);
     try {
       userPrefRepository.save(userPref);

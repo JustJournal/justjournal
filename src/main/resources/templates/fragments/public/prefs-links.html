@@ -1,0 +1,27 @@
+<div th:fragment="content" class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Link Preferences</h2>
+            <form id="frmAddLink" role="form" class="form-horizontal">
+                <fieldset>
+                    <legend><strong>Add Link</strong></legend>
+                    <p>Links appear in the sidebar of your journal. Links must be full http:// or https:// addresses with a domain that exists. Links from URL shortening services such as bit.ly or tinyurl are not allowed so readers can see where a link goes.</p>
+                    <div class="form-group"><label for="link-title" class="col-sm-2 control-label">Title</label><div class="col-sm-8"><input type="text" name="title" id="link-title" class="form-control input-sm" placeholder="Title" maxlength="50" required></div></div>
+                    <div class="form-group"><label for="link-uri" class="col-sm-2 control-label">URL</label><div class="col-sm-8"><input type="url" name="uri" id="link-uri" class="form-control input-sm" placeholder="https://example.com/" maxlength="255" required></div></div>
+                    <div class="form-group"><div class="col-sm-offset-2 col-sm-10"><button class="btn btn-primary btn-md" type="submit">Add Link</button></div></div>
+                </fieldset>
+            </form>
+            <div class="alert alert-danger" id="links-error" style="display:none;"></div>
+            <div class="alert alert-success" id="links-success" style="display:none;"></div>
+
+            <h3>Your Links</h3>
+            <p id="links-empty" style="display:none;">You haven't added any links yet.</p>
+            <table class="table table-condensed" id="links-table" style="display:none;">
+                <thead>
+                <tr><th>Title</th><th>URL</th><th></th></tr>
+                </thead>
+                <tbody id="links-list"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
