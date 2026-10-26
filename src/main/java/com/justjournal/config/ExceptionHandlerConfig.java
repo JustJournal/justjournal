@@ -7,12 +7,18 @@ import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.UnauthorizedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -34,10 +40,42 @@ public class ExceptionHandlerConfig {
         return error(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
+    /**
+     * Anything not handled above. Spring's own request errors (406 not acceptable, 405 wrong
+     * method, 415 unsupported content type, a missing parameter, ...) and exceptions annotated
+     * with {@link ResponseStatus} keep their status; only real failures become a 500.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneralError(Exception ex) {
+        final HttpStatusCode status = statusOf(ex);
+        if (status != null && status.is4xxClientError()) {
+            log.debug("{} error: {}", status.value(), ex.getMessage());
+            final HttpHeaders headers =
+                    ex instanceof ErrorResponse errorResponse ? errorResponse.getHeaders() : HttpHeaders.EMPTY;
+            return ResponseEntity.status(status)
+                    .headers(headers)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(ErrorHandler.modelError(reason(status)));
+        }
         log.error("500 error: {}", ex.getMessage(), ex);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Unknown error occurred. Please try again later.");
+    }
+
+    private static HttpStatusCode statusOf(Exception ex) {
+        if (ex instanceof ErrorResponse errorResponse) {
+            return errorResponse.getStatusCode();
+        }
+        if (ex instanceof HttpMessageNotReadableException) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        final ResponseStatus responseStatus =
+                AnnotatedElementUtils.findMergedAnnotation(ex.getClass(), ResponseStatus.class);
+        return responseStatus == null ? null : responseStatus.code();
+    }
+
+    private static String reason(HttpStatusCode status) {
+        final HttpStatus known = HttpStatus.resolve(status.value());
+        return known == null ? "Request error" : known.getReasonPhrase();
     }
 
     @ExceptionHandler(NotFoundException.class)
