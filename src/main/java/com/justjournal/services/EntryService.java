@@ -250,6 +250,8 @@ public class EntryService {
    * @param tags tags that should be present (removes anything not listed)
    */
   public void applyTags(final Entry entry, final Set<String> tags) {
+    if (tags == null) return;
+
     final List<EntryTag> entryTags = entryTagsRepository.findByEntry(entry);
 
     // find tags that are missing in the db and add them.

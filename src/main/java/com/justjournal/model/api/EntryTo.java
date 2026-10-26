@@ -39,6 +39,7 @@ import com.justjournal.model.Security;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.hateoas.EntityModel;
 
@@ -49,6 +50,7 @@ import org.springframework.hateoas.EntityModel;
  * @version 1.0
  */
 @AllArgsConstructor
+@NoArgsConstructor
 @Builder
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -113,13 +115,11 @@ public class EntryTo extends EntityModel<EntryTo> implements Serializable {
   /** For backward compatibility with front end */
   @Deprecated
   @Getter
-  @Setter
   @Builder.Default
   @JsonProperty("tag")
   private String tag = "";
 
   @Getter
-  @Setter
   @Builder.Default
   @JsonProperty("tags")
   private Set<String> tags = new HashSet<>();
@@ -130,8 +130,12 @@ public class EntryTo extends EntityModel<EntryTo> implements Serializable {
   @JsonProperty("comments")
   private Set<CommentTo> comments = new HashSet<>();
 
-  @JsonCreator
-  public EntryTo() {
-    super();
+  @Deprecated
+  public void setTag(final String tag) {
+    this.tag = tag == null ? "" : tag;
+  }
+
+  public void setTags(final Set<String> tags) {
+    this.tags = tags == null ? new HashSet<>() : tags;
   }
 }

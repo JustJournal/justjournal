@@ -230,4 +230,10 @@ class EntryServiceTests {
         verify(tagDao, never()).save(any());
         verify(entryTagsRepository, never()).save(any());
     }
+
+    @Test
+    void applyTagsIgnoresNullTags() {
+        entryService.applyTags(new Entry(), null);
+        verifyNoInteractions(entryTagsRepository, tagDao);
+    }
 }
