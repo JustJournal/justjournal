@@ -51,12 +51,19 @@ public class ContactController {
         }
 
         final User user = userDao.findByUsername(username);
-        if (user == null || (user.getId() != userId && user.getFriends().stream().noneMatch(f -> f.getFriend().getId() == userId))) {
+        if (user == null) {
             throw new ForbiddenException();
         }
 
-        if (user.getJournals().stream().anyMatch(j -> j.isOwnerViewOnly() || !j.isAllowSpider())) {
-            throw new NotFoundException();
+        // the owner can always see their own contact information
+        if (user.getId() != userId) {
+            if (user.getFriends().stream().noneMatch(f -> f.getFriend().getId() == userId)) {
+                throw new ForbiddenException();
+            }
+
+            if (user.getJournals().stream().anyMatch(j -> j.isOwnerViewOnly() || !j.isAllowSpider())) {
+                throw new NotFoundException();
+            }
         }
 
         return contactDao.findByUser(user);

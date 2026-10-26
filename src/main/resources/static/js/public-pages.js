@@ -327,6 +327,11 @@
             showMessage('#profile-error', parseError(xhr, 'Unable to load profile'));
         });
 
+        // contact information is only available to logged in users
+        if (!currentUsername()) {
+            return;
+        }
+
         $.getJSON('/api/contact/' + encodeURIComponent(username)).done(function (contact) {
             var items = [];
 

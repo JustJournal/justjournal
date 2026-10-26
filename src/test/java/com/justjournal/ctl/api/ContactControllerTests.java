@@ -1,7 +1,9 @@
 package com.justjournal.ctl.api;
 
 import com.justjournal.exception.ForbiddenException;
+import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Friend;
+import com.justjournal.model.Journal;
 import com.justjournal.model.User;
 import com.justjournal.model.UserContact;
 import com.justjournal.repository.UserContactRepository;
@@ -119,5 +121,57 @@ class ContactControllerTests {
         // session is empty
 
         assertThrows(ForbiddenException.class, () -> contactController.get(username, session));
+    }
+
+    @Test
+    void testOwnerSeesContactInfoWithOwnerViewOnlyJournal() {
+        int userId = 123;
+        String username = "laffer1";
+        session.setAttribute(LOGIN_ATTRNAME, username);
+        session.setAttribute(LOGIN_ATTRID, userId);
+
+        User user = new User();
+        user.setId(userId);
+        user.setUsername(username);
+        user.setFriends(new HashSet<>());
+        Journal journal = new Journal();
+        journal.setOwnerViewOnly(true);
+        user.getJournals().add(journal);
+
+        UserContact contact = new UserContact();
+        contact.setUser(user);
+
+        when(userDao.findByUsername(username)).thenReturn(user);
+        when(contactDao.findByUser(user)).thenReturn(contact);
+
+        assertEquals(contact, contactController.get(username, session));
+    }
+
+    @Test
+    void testFriendCannotSeeContactInfoWithOwnerViewOnlyJournal() {
+        int myUserId = 456;
+        String friendUsername = "laffer1";
+        session.setAttribute(LOGIN_ATTRNAME, "myuser");
+        session.setAttribute(LOGIN_ATTRID, myUserId);
+
+        User friendUser = new User();
+        friendUser.setId(123);
+        friendUser.setUsername(friendUsername);
+        Journal journal = new Journal();
+        journal.setOwnerViewOnly(true);
+        friendUser.getJournals().add(journal);
+
+        User myUser = new User();
+        myUser.setId(myUserId);
+
+        Friend f = new Friend();
+        f.setUser(friendUser);
+        f.setFriend(myUser);
+        friendUser.setFriends(new HashSet<>(Collections.singletonList(f)));
+
+        when(userDao.findByUsername(friendUsername)).thenReturn(friendUser);
+
+        assertThrows(NotFoundException.class, () -> contactController.get(friendUsername, session));
+        verifyNoInteractions(contactDao);
     }
 }
