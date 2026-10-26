@@ -54,7 +54,7 @@ public class StylesController {
 
     final List<Style> styles = styleService.getStyles();
 
-    return ResponseEntity.ok().eTag(Integer.toString(styles.hashCode())).body(styles);
+    return ResponseEntity.ok(styles);
   }
 
   //   @Cacheable(value = "styles", key = "#id")
@@ -65,6 +65,6 @@ public class StylesController {
 
     if (style == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
-    return ResponseEntity.ok().eTag(Integer.toString(style.hashCode())).body(style);
+    return ResponseEntity.ok(style);
   }
 }

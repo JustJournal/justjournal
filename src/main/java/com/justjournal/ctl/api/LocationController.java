@@ -55,7 +55,7 @@ public class LocationController {
     final Location location = locationDao.findById(id).orElse(null);
     if (location == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
-    return ResponseEntity.ok().eTag(Integer.toString(location.hashCode())).body(location);
+    return ResponseEntity.ok(location);
   }
 
   //  @Cacheable("location")
@@ -63,6 +63,6 @@ public class LocationController {
   public ResponseEntity<List<Location>> getLocationList() {
 
     final List<Location> locations = locationDao.findAll();
-    return ResponseEntity.ok().eTag(Integer.toString(locations.hashCode())).body(locations);
+    return ResponseEntity.ok(locations);
   }
 }

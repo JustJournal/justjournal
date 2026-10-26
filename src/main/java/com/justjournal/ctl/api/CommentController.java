@@ -39,7 +39,6 @@ import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.QueueMailRepository;
 import com.justjournal.repository.SettingsRepository;
 import com.justjournal.repository.UserRepository;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -89,14 +88,33 @@ public class CommentController {
   }
 
   @GetMapping("{id}")
-  public ResponseEntity<CommentTo> getById(@PathVariable(PARAM_ID) final Integer id) {
-    Optional<CommentTo> comment = commentDao.findById(id).map(Comment::toCommentTo);
-    return comment.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+  public ResponseEntity<CommentTo> getById(
+      @PathVariable(PARAM_ID) final Integer id, final HttpSession session) {
+    final Optional<Comment> comment = commentDao.findById(id);
+    if (comment.isEmpty()) {
+      return ResponseEntity.notFound().build();
+    }
+
+    final Comment c = comment.get();
+    final int loginId = Login.currentLoginId(session);
+    final boolean author = loginId > 0 && c.getUser() != null && c.getUser().getId() == loginId;
+
+    try {
+      if (!author && !canViewComments(c.getEntry(), session)) {
+        return ResponseEntity.status(HttpServletResponse.SC_FORBIDDEN).build();
+      }
+    } catch (final Exception e) {
+      log.error(e.getMessage());
+      return ResponseEntity.badRequest().build();
+    }
+
+    return ResponseEntity.ok(c.toCommentTo());
   }
 
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
   public List<CommentTo> getComments(
       @RequestParam(Constants.PARAM_ENTRY_ID) final Integer entryId,
+      final HttpSession session,
       final HttpServletResponse response) {
     final Entry entry = entryDao.findById(entryId).orElse(null);
 
@@ -106,19 +124,44 @@ public class CommentController {
     }
 
     try {
-      if (new ArrayList<>(entry.getUser().getJournals()).get(0).isOwnerViewOnly()
-          || entry.getAllowComments() == PrefBool.N
-          || entry.getSecurity() == Security.PRIVATE) {
+      if (!canViewComments(entry, session)) {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        return Collections.emptyList();
       }
     } catch (final Exception e) {
       log.error(e.getMessage());
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return Collections.emptyList();
     }
 
     return commentDao.findByEntryId(entryId).stream()
         .map(Comment::toCommentTo)
             .toList();
+  }
+
+  /**
+   * The entry owner can always see comments. Everyone else is blocked when the journal is owner
+   * view only, comments are disabled, the entry is private, or the entry is friends only and they
+   * are not on the owner's friends list.
+   */
+  private boolean canViewComments(final Entry entry, final HttpSession session) {
+    final User owner = entry.getUser();
+    final int loginId = Login.currentLoginId(session);
+
+    if (loginId > 0 && owner.getId() == loginId) return true;
+
+    if (owner.getJournals().stream().findFirst().map(Journal::isOwnerViewOnly).orElse(false)
+        || entry.getAllowComments() == PrefBool.N
+        || entry.getSecurity() == Security.PRIVATE) {
+      return false;
+    }
+
+    if (entry.getSecurity() == Security.FRIENDS) {
+      return loginId > 0
+          && owner.getFriends().stream().anyMatch(f -> f.getFriend().getId() == loginId);
+    }
+
+    return true;
   }
 
   @DeleteMapping(value = "{id}")

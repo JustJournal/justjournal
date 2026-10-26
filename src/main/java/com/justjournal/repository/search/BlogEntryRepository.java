@@ -47,7 +47,7 @@ public interface BlogEntryRepository extends ElasticsearchRepository<BlogEntry, 
       @Param("body") String body,
       Pageable pageable);
 
-  @Query("{\"bool\" : { \"must\" : [ \"match\" : { \"privateEntry\" : { \"query\" : \"false\" } } }," +
+  @Query("{\"bool\" : { \"must\" : [ { \"match\" : { \"privateEntry\" : { \"query\" : \"false\" } } }," +
           "      { \"multi_match\" : {" +
           "          \"query\" : \"?0\"," +
           "          \"fields\" : [ \"body\", \"subject\" ]," +

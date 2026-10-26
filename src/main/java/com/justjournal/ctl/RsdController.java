@@ -28,12 +28,15 @@ package com.justjournal.ctl;
 import com.justjournal.core.Settings;
 import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.HtmlUtils;
 
 /**
  * An implementation of Really Simple Discovery (RSD).
@@ -46,7 +49,6 @@ import org.springframework.web.bind.annotation.RestController;
  *<p>TODO: add atompub?</p>
  * @author Lucas Holt
  */
-@Slf4j
 @RestController
 @RequestMapping("/rsd")
 public class RsdController {
@@ -55,6 +57,8 @@ public class RsdController {
   private static final String RSD_HEADER =
       "<rsd xmlns=\"http://archipelago.phrasewise.com/rsd\" version=\"1.0\">\n";
   private static final String RSD_FOOTER = "</rsd>\n";
+  private static final MediaType RSD_XML =
+      new MediaType("application", "rsd+xml", StandardCharsets.UTF_8);
 
   private final UserRepository userRepository;
   private final Settings settings;
@@ -64,51 +68,48 @@ public class RsdController {
     this.settings = settings;
   }
 
-  @GetMapping(produces = "application/rsd+xml")
-  public String get(HttpServletRequest request, HttpServletResponse response) {
-    final StringBuilder sb = new StringBuilder();
-    try {
-      response.setContentType("application/rsd+xml; charset=utf-8");
+  /**
+   * RSD for a blog, or for the site when no (or a short) blogID is given. No {@code produces}
+   * here: clients and browsers following the EditURI link send all sorts of Accept headers, and
+   * a mismatch would surface as an error rather than the document they asked for.
+   */
+  @GetMapping
+  public ResponseEntity<String> get(@RequestParam(value = "blogID", required = false) String blogID) {
+    String homePageLink = settings.getBaseUri();
+    String username = "";
 
-      final String blogID = request.getParameter("blogID");
-      if (blogID == null || blogID.length() < 2) {
-        throw new IllegalArgumentException("Missing required parameter \"blogID\"");
-      }
-
+    if (blogID != null && blogID.length() > 1) {
       final User user = userRepository.findByUsername(blogID);
-
-      sb.append(XML_HEADER);
-      sb.append(RSD_HEADER);
-      sb.append("<service>\n");
-      sb.append("\t<engineName>JustJournal</engineName>\n");
-      sb.append("\t<engineLink>https://www.justjournal.com</engineLink>\n");
-      sb.append("\t<homePageLink>").append(settings.getBlogBaseUrl(user.getUsername()))
-              .append("</homePageLink>\n");
-      // APIS we support.
-      sb.append("\t<apis>\n");
-      sb.append(
-          "\t\t<api name=\"Blogger\" preferred=\"false\""
-              + " apiLink=\"" + settings.getBaseUri() + "xml-rpc\" blogID=\"");
-      sb.append(user.getUsername());
-      sb.append("\" />\n");
-      sb.append(
-          "\t\t<api name=\"MetaWeblog\" preferred=\"true\""
-              + " apiLink=\"" + settings.getBaseUri() + "xml-rpc\" blogID=\"");
-      sb.append(user.getUsername());
-      sb.append("\" />\n");
-      sb.append("\t</apis>\n");
-      sb.append("</service>\n");
-      sb.append(RSD_FOOTER);
-
-    } catch (final Exception e) {
-      log.error("Error generating RSD", e);
-      sb.delete(0, sb.length() - 1);
-      sb.append(XML_HEADER);
-      sb.append(RSD_HEADER);
-      sb.append(RSD_FOOTER);
-      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+      if (user == null) {
+        return rsd(HttpStatus.NOT_FOUND, XML_HEADER + RSD_HEADER + RSD_FOOTER);
+      }
+      username = HtmlUtils.htmlEscape(user.getUsername());
+      homePageLink = settings.getBlogBaseUrl(username);
     }
 
-    return sb.toString();
+    final String apiLink = settings.getBaseUri() + "xml-rpc";
+    final StringBuilder sb = new StringBuilder();
+    sb.append(XML_HEADER);
+    sb.append(RSD_HEADER);
+    sb.append("<service>\n");
+    sb.append("\t<engineName>JustJournal</engineName>\n");
+    sb.append("\t<engineLink>https://www.justjournal.com</engineLink>\n");
+    sb.append("\t<homePageLink>").append(homePageLink).append("</homePageLink>\n");
+    // APIS we support.
+    sb.append("\t<apis>\n");
+    sb.append("\t\t<api name=\"Blogger\" preferred=\"false\" apiLink=\"")
+        .append(apiLink).append("\" blogID=\"").append(username).append("\" />\n");
+    sb.append("\t\t<api name=\"MetaWeblog\" preferred=\"true\" apiLink=\"")
+        .append(apiLink).append("\" blogID=\"").append(username).append("\" />\n");
+    sb.append("\t</apis>\n");
+    sb.append("</service>\n");
+    sb.append(RSD_FOOTER);
+
+    return rsd(HttpStatus.OK, sb.toString());
+  }
+
+  /** An explicit Content-Type makes Spring write the body as is, whatever the Accept header. */
+  private static ResponseEntity<String> rsd(HttpStatus status, String body) {
+    return ResponseEntity.status(status).contentType(RSD_XML).body(body);
   }
 }

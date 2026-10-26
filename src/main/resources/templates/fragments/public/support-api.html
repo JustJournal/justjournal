@@ -114,7 +114,10 @@
         <table class="table table-condensed">
             <thead><tr><th>Request</th><th>Description</th></tr></thead>
             <tbody>
-            <tr><td><code>GET /api/comment?entryId={id}</code></td><td>Comments on an entry.</td></tr>
+            <tr><td><code>GET /api/comment?entryId={id}</code></td>
+                <td>Comments on an entry. Returns <code>403</code> and an empty list for private entries,
+                    friends-only entries when you aren't a friend, owner-only journals and entries with comments
+                    turned off. The entry's owner can always read them.</td></tr>
             <tr><td><code>GET /api/comment/{id}</code></td><td>One comment.</td></tr>
             <tr><td><code>POST /api/comment</code></td>
                 <td>Add a comment (login required). Body <code>{"eid": 123, "subject": "...", "body": "..."}</code>.
@@ -199,7 +202,8 @@
         <li>Feeds of public entries: <code>/users/{username}/rss</code> (RSS 2.0), <code>/users/{username}/atom</code>
             and <code>/users/{username}/json</code> (<a href="https://www.jsonfeed.org/">JSON Feed</a>).</li>
         <li>Blogger 1.0 and MetaWeblog clients can post using <code>https://www.justjournal.com/xml-rpc</code> as
-            the API URL.</li>
+            the API URL. Clients that support Really Simple Discovery can find it at
+            <code>/rsd?blogID={username}</code>.</li>
         <li>Journals can be followed from the fediverse. See <code>/.well-known/webfinger</code> and
             <code>/@/{username}</code>.</li>
     </ul>

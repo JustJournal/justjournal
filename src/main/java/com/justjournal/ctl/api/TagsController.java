@@ -75,8 +75,6 @@ public class TagsController {
   public ResponseEntity<Tag> getById(@PathVariable(PARAM_ID) final Integer id) {
     final Optional<Tag> tag = tagService.getTag(id);
 
-    return tag.map(
-            value -> ResponseEntity.ok().eTag(Integer.toString(value.hashCode())).body(value))
-        .orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
+    return tag.map(ResponseEntity::ok).orElseGet(() -> new ResponseEntity<>(HttpStatus.NOT_FOUND));
   }
 }

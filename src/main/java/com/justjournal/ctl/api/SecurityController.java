@@ -54,7 +54,7 @@ public class SecurityController {
         try {
             var val = Security.fromValue(id);
             SecurityTo s = securityList.stream().filter(p -> p.getId() == val.getId()).findFirst().orElseThrow(() -> new IllegalArgumentException("Invalid id"));
-            return ResponseEntity.ok().eTag(Integer.toString(s.hashCode())).body(s);
+            return ResponseEntity.ok(s);
         } catch (IllegalArgumentException e) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -62,6 +62,6 @@ public class SecurityController {
 
     @GetMapping(headers = Constants.HEADER_ACCEPT_ALL, produces = APPLICATION_JSON_VALUE)
     public ResponseEntity<List<SecurityTo>> getSecurityList() {
-        return ResponseEntity.ok().eTag(Integer.toString(securityList.hashCode())).body(securityList);
+        return ResponseEntity.ok(securityList);
     }
 }

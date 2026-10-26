@@ -81,7 +81,7 @@ public class SearchController {
           assembler.toModel(entries, blogEntrySearchResourceAssembler, link);
       return new ResponseEntity(resources, HttpStatus.OK);
     } catch (final Exception e) {
-      log.error(e.getMessage());
+      log.error("Site-wide search failed", e);
     }
 
     return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
@@ -109,7 +109,7 @@ public class SearchController {
           assembler.toModel(entries, blogEntrySearchResourceAssembler, link);
       return new ResponseEntity(resources, HttpStatus.OK);
     } catch (final Exception e) {
-      log.error(e.getMessage());
+      log.error("Journal search failed", e);
     }
 
     return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
