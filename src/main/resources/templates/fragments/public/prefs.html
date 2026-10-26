@@ -1,0 +1,44 @@
+<div th:fragment="content" class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Preferences</h2>
+            <div th:if="${authenticatedUsername == null}" class="alert alert-info" id="prefs-login">
+                Please <a href="/">log in</a> to change your preferences.
+            </div>
+            <div th:if="${authenticatedUsername != null}" class="list-group" id="prefs-list">
+                <a href="/prefs/journal" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-sliders"></i> Journal</h4>
+                    <p class="list-group-item-text">Journal name, style, privacy and other display settings.</p>
+                </a>
+                <a href="/prefs/biography" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-book"></i> Biography</h4>
+                    <p class="list-group-item-text">Tell readers about yourself on your profile.</p>
+                </a>
+                <a href="/prefs/contact" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-address-card"></i> Contact</h4>
+                    <p class="list-group-item-text">Contact information shown to your friends.</p>
+                </a>
+                <a href="/prefs/avatar" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-address-card-o"></i> Avatar</h4>
+                    <p class="list-group-item-text">Upload the picture shown with your entries.</p>
+                </a>
+                <a href="/prefs/image" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-picture-o"></i> Pictures</h4>
+                    <p class="list-group-item-text">Add and remove pictures in your gallery.</p>
+                </a>
+                <a href="/prefs/links" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-external-link-square"></i> Links</h4>
+                    <p class="list-group-item-text">Links shown in your journal's sidebar.</p>
+                </a>
+                <a href="/prefs/password" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-key"></i> Password</h4>
+                    <p class="list-group-item-text">Change your password.</p>
+                </a>
+                <a href="/prefs/journaldelete" class="list-group-item">
+                    <h4 class="list-group-item-heading"><i class="fa fa-trash"></i> Delete Journal</h4>
+                    <p class="list-group-item-text">Discontinue Just Journal service and remove your journal.</p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

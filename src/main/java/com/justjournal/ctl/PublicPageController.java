@@ -60,6 +60,11 @@ public class PublicPageController {
     return renderPage(model, session, "Just Journal: Mood List", "moodlist", "fragments/public/moodlist");
   }
 
+  @GetMapping("/prefs")
+  public String prefs(Model model, HttpSession session) {
+    return renderPage(model, session, "Just Journal: Preferences", "prefs", "fragments/public/prefs");
+  }
+
   @GetMapping("/prefs/avatar")
   public String prefsAvatar(Model model, HttpSession session) {
     return renderPage(

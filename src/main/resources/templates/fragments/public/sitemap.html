@@ -5,9 +5,9 @@
             <p>Account</p>
             <ul>
                 <li><a href="/" title="Create a new account">New</a></li>
-                <li><a href="/prefs/journaldelete" title="Discontinue Just Journal service">Cancel</a></li>
-                <li><a href="/prefs/journal">Preferences</a></li>
-                <li><a href="/logout">Logout</a></li>
+                <li th:if="${authenticatedUsername != null}"><a href="/prefs/journaldelete" title="Discontinue Just Journal service">Cancel</a></li>
+                <li th:if="${authenticatedUsername != null}"><a href="/prefs" title="Change your account and journal settings">Preferences</a></li>
+                <li th:if="${authenticatedUsername != null}"><a href="/logout">Logout</a></li>
                 <li><a href="/members">Member List</a></li>
             </ul>
             <p>Support</p>

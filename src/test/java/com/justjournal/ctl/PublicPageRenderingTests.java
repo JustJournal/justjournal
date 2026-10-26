@@ -9,9 +9,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
+import com.justjournal.core.Constants;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -82,5 +85,53 @@ class PublicPageRenderingTests {
     assertFalse(html.contains("th:fragment"), "unprocessed fragment for " + path);
     assertFalse(html.contains("Loading…"), "layout placeholder not replaced for " + path);
     assertTrue(html.trim().endsWith("</html>"), "page cut short for " + path);
+  }
+
+  private static String render(final String path, final String username) throws Exception {
+    final MockHttpSession session = new MockHttpSession();
+    if (username != null) session.setAttribute(Constants.LOGIN_ATTRNAME, username);
+    return mockMvc
+        .perform(get(path).session(session))
+        .andExpect(status().isOk())
+        .andReturn()
+        .getResponse()
+        .getContentAsString(StandardCharsets.UTF_8);
+  }
+
+  @Test
+  void sitemap_hidesAccountLinksWhenLoggedOut() throws Exception {
+    final String html = render("/sitemap", null);
+    assertFalse(html.contains(">Preferences</a>"));
+    assertFalse(html.contains("href=\"/prefs/journaldelete\""));
+    assertFalse(html.contains("href=\"/logout\""));
+  }
+
+  @Test
+  void sitemap_showsAccountLinksWhenLoggedIn() throws Exception {
+    final String html = render("/sitemap", "someone");
+    assertTrue(html.contains("href=\"/prefs\""));
+    assertTrue(html.contains("href=\"/prefs/journaldelete\""));
+    assertTrue(html.contains("href=\"/logout\""));
+  }
+
+  @Test
+  void prefs_listsEveryPreferencePageWhenLoggedIn() throws Exception {
+    final String html = render("/prefs", "someone");
+    for (final Method m : PublicPageController.class.getDeclaredMethods()) {
+      final GetMapping mapping = m.getAnnotation(GetMapping.class);
+      if (mapping == null) continue;
+      for (final String path : mapping.value()) {
+        if (path.startsWith("/prefs/")) {
+          assertTrue(html.contains("href=\"" + path + "\""), "landing page missing " + path);
+        }
+      }
+    }
+  }
+
+  @Test
+  void prefs_asksToLogInWhenLoggedOut() throws Exception {
+    final String html = render("/prefs", null);
+    assertTrue(html.contains("id=\"prefs-login\""));
+    assertFalse(html.contains("id=\"prefs-list\""));
   }
 }
