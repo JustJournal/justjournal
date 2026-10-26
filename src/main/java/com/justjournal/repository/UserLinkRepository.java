@@ -44,7 +44,7 @@ public interface UserLinkRepository extends JpaRepository<UserLink, Integer> {
 
   @Query(
       "select ul from UserLink ul, User u where ul.user = u and LOWER(u.username) ="
-          + " LOWER(:username)")
+          + " LOWER(:username) order by ul.title asc")
   public List<UserLink> findByUsernameOrderByTitleTitleAsc(@Param("username") String username);
 
   void deleteByUser(User user);

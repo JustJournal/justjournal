@@ -716,6 +716,110 @@
         });
     }
 
+    function initLinks() {
+        var username = currentUsername();
+        if (!username) {
+            $('#frmAddLink').find('input, button').prop('disabled', true);
+            showMessage('#links-error', 'You must be logged in to edit your links.');
+            return;
+        }
+
+        function clearMessages() {
+            showMessage('#links-error', '');
+            showMessage('#links-success', '');
+        }
+
+        function linkRow(link) {
+            var $row = $('<tr/>').attr('data-link-id', link.id);
+            $row.append($('<td/>').append(
+                $('<input type="text" class="form-control input-sm link-title" maxlength="50" required>').val(link.title)));
+            $row.append($('<td/>').append(
+                $('<input type="url" class="form-control input-sm link-uri" maxlength="255" required>').val(link.uri)));
+            $row.append($('<td class="text-nowrap"/>')
+                .append('<button type="button" class="btn btn-default btn-sm link-save"><i class="fa fa-save"></i> Save</button> ')
+                .append('<button type="button" class="btn btn-danger btn-sm link-delete"><i class="fa fa-trash"></i> Delete</button>'));
+            return $row;
+        }
+
+        function loadLinks() {
+            $.getJSON('/api/link/user/' + encodeURIComponent(username)).done(function (links) {
+                var $list = $('#links-list').empty();
+                $.each(links || [], function (_, link) {
+                    $list.append(linkRow(link));
+                });
+                $('#links-table').toggle($list.children().length > 0);
+                $('#links-empty').toggle($list.children().length === 0);
+            }).fail(function (xhr) {
+                showMessage('#links-error', escapeHtml(parseError(xhr, 'Unable to load links')));
+            });
+        }
+
+        loadLinks();
+
+        $('#frmAddLink').on('submit', function (event) {
+            event.preventDefault();
+            clearMessages();
+
+            $.ajax({
+                url: '/api/link',
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    title: $('#link-title').val().trim(),
+                    uri: $('#link-uri').val().trim()
+                })
+            }).done(function () {
+                track('link_add', 'Preferences', 'Links');
+                showMessage('#links-success', 'Link added.', 'success');
+                $('#frmAddLink')[0].reset();
+                loadLinks();
+            }).fail(function (xhr) {
+                showMessage('#links-error', escapeHtml(parseError(xhr, 'Unable to add link')));
+            });
+        });
+
+        $('#links-list').on('click', '.link-save', function () {
+            var $row = $(this).closest('tr');
+            clearMessages();
+
+            $.ajax({
+                url: '/api/link/' + encodeURIComponent($row.attr('data-link-id')),
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    title: $row.find('.link-title').val().trim(),
+                    uri: $row.find('.link-uri').val().trim()
+                })
+            }).done(function () {
+                track('link_edit', 'Preferences', 'Links');
+                showMessage('#links-success', 'Link updated.', 'success');
+                loadLinks();
+            }).fail(function (xhr) {
+                showMessage('#links-error', escapeHtml(parseError(xhr, 'Unable to update link')));
+            });
+        });
+
+        $('#links-list').on('click', '.link-delete', function () {
+            var $row = $(this).closest('tr');
+            clearMessages();
+
+            if (!window.confirm('Delete the link "' + $row.find('.link-title').val() + '"?')) {
+                return;
+            }
+
+            $.ajax({
+                url: '/api/link/' + encodeURIComponent($row.attr('data-link-id')),
+                method: 'DELETE'
+            }).done(function () {
+                track('link_delete', 'Preferences', 'Links');
+                showMessage('#links-success', 'Link deleted.', 'success');
+                loadLinks();
+            }).fail(function (xhr) {
+                showMessage('#links-error', escapeHtml(parseError(xhr, 'Unable to delete link')));
+            });
+        });
+    }
+
     function initAvatar() {
         function showPreference(pref) {
             $('#avatar-show').prop('checked', pref.show === true).prop('disabled', pref.available !== true && pref.show !== true);
@@ -893,6 +997,9 @@
                 break;
             case 'prefs-contact':
                 initContact();
+                break;
+            case 'prefs-links':
+                initLinks();
                 break;
             case 'prefs-journal':
                 initJournal();

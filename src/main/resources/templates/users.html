@@ -175,6 +175,9 @@
                                     <li th:if="${authenticatedUsername != null}"><a href="/prefs/contact">
                                         <i class="fa fa-address-card"></i> Contact</a></li>
 
+                                    <li th:if="${authenticatedUsername != null}"><a href="/prefs/links">
+                                        <i class="fa fa-external-link-square"></i> Links</a></li>
+
                                     <li th:if="${authenticatedUsername != null}"><a href="/prefs/journal">
                                            <i class="fa fa-sliders"></i> Journal</a></li>
 
@@ -360,8 +363,12 @@
         $.get('/api/link/user/' + username,
                 function (data) {
                     for (var i = 0; i < data.length; i++) {
-                        var link = '<li class="list-group-item"><a href="' + data[i].uri + '">' + data[i].title + '</a></li>';
-                        $('ul#userlinkList').append(link);
+                        // only render http(s) links; title and uri are user supplied so never build them as html
+                        if (!/^https?:\/\//i.test(data[i].uri || '')) {
+                            continue;
+                        }
+                        var $a = $('<a rel="nofollow noopener ugc"></a>').attr('href', data[i].uri).text(data[i].title);
+                        $('ul#userlinkList').append($('<li class="list-group-item"></li>').append($a));
                     }
                 }
         );

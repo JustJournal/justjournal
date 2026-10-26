@@ -28,6 +28,7 @@ package com.justjournal.services;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,6 +48,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
 /** @author Lucas Holt */
@@ -58,6 +60,8 @@ class UserLinkServiceTests {
 
   @Mock private UserRepository userRepository;
 
+  @Mock private UserLinkValidator userLinkValidator;
+
   @InjectMocks private UserLinkService userLinkService;
 
   @Test
@@ -68,10 +72,84 @@ class UserLinkServiceTests {
     UserLink item =
         UserLink.builder().id(1).title("foo").uri("http://mysite.com").user(new User()).build();
 
-    when(userLinkRepository.save(any())).thenReturn(item);
+    when(userLinkRepository.saveAndFlush(any())).thenReturn(item);
     UserLinkTo result = userLinkService.create(link);
     Assertions.assertNotNull(result);
-    verify(userLinkRepository, times(1)).save(any(UserLink.class));
+    verify(userLinkValidator).validate("foo", "http://mysite.com");
+    verify(userLinkRepository, times(1)).saveAndFlush(any(UserLink.class));
+  }
+
+  @Test
+  void testCreateIgnoresIncomingIdAndTrims() {
+    UserLinkTo link =
+        UserLinkTo.builder().id(99).title(" foo ").uri(" http://mysite.com ").userId(1).build();
+    when(userLinkRepository.saveAndFlush(any()))
+        .thenAnswer(
+            inv -> {
+              UserLink saved = inv.getArgument(0);
+              Assertions.assertEquals(0, saved.getId());
+              Assertions.assertEquals("foo", saved.getTitle());
+              Assertions.assertEquals("http://mysite.com", saved.getUri());
+              saved.setId(5);
+              saved.setUser(new User());
+              return saved;
+            });
+
+    Assertions.assertEquals(5, userLinkService.create(link).getId());
+  }
+
+  @Test
+  void testCreateInvalid() {
+    UserLinkTo link = UserLinkTo.builder().title("foo").uri("https://bit.ly/x").userId(1).build();
+    when(userLinkValidator.validate(anyString(), anyString())).thenReturn(Optional.of("bad"));
+
+    IllegalArgumentException e =
+        Assertions.assertThrows(IllegalArgumentException.class, () -> userLinkService.create(link));
+    Assertions.assertEquals("bad", e.getMessage());
+    verify(userLinkRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void testCreateDuplicate() {
+    UserLinkTo link = UserLinkTo.builder().title("foo").uri("http://mysite.com").userId(1).build();
+    when(userLinkRepository.saveAndFlush(any()))
+        .thenThrow(new DataIntegrityViolationException("dup"));
+
+    Assertions.assertThrows(IllegalArgumentException.class, () -> userLinkService.create(link));
+  }
+
+  @Test
+  void testUpdate() {
+    User owner = new User();
+    owner.setId(1);
+    UserLink item = UserLink.builder().id(3).title("old").uri("http://old.com").user(owner).build();
+    when(userLinkRepository.findById(3)).thenReturn(Optional.of(item));
+    when(userLinkRepository.saveAndFlush(item)).thenReturn(item);
+
+    Optional<UserLinkTo> result =
+        userLinkService.update(
+            1, 3, UserLinkTo.builder().title(" new ").uri("https://new.com ").build());
+
+    Assertions.assertTrue(result.isPresent());
+    Assertions.assertEquals("new", result.get().getTitle());
+    Assertions.assertEquals("https://new.com", result.get().getUri());
+    Assertions.assertEquals(3, result.get().getId());
+  }
+
+  @Test
+  void testUpdateOtherUsersLink() {
+    User owner = new User();
+    owner.setId(2);
+    UserLink item = UserLink.builder().id(3).title("old").uri("http://old.com").user(owner).build();
+    when(userLinkRepository.findById(3)).thenReturn(Optional.of(item));
+
+    Optional<UserLinkTo> result =
+        userLinkService.update(
+            1, 3, UserLinkTo.builder().title("new").uri("https://new.com").build());
+
+    Assertions.assertTrue(result.isEmpty());
+    Assertions.assertEquals("old", item.getTitle());
+    verify(userLinkRepository, never()).saveAndFlush(any());
   }
 
   @Test

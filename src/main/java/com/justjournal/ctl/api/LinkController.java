@@ -94,19 +94,60 @@ public class LinkController {
       final HttpServletResponse response) {
 
     if (!Login.isAuthenticated(session)) {
-      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return ErrorHandler.modelError(ERR_INVALID_LOGIN);
     }
 
     try {
       link.setUserId(Login.currentLoginId(session));
       final UserLinkTo l = userLinkService.create(link);
-      return java.util.Collections.singletonMap("id", Integer.toString(l.getId()));
+      return Collections.singletonMap("id", Integer.toString(l.getId()));
+    } catch (final IllegalArgumentException e) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError(e.getMessage());
     } catch (final Exception e) {
       log.error(e.getMessage(), e);
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError("Error adding link.");
     }
+  }
+
+  @PutMapping("{id}")
+  public Map<String, String> update(
+      @PathVariable("id") final int linkId,
+      @RequestBody final UserLinkTo link,
+      final HttpSession session,
+      final HttpServletResponse response) {
+
+    if (!Login.isAuthenticated(session)) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return ErrorHandler.modelError(ERR_INVALID_LOGIN);
+    }
+
+    try {
+      final Optional<UserLinkTo> updated =
+          userLinkService.update(Login.currentLoginId(session), linkId, link);
+      if (updated.isEmpty()) {
+        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        return ErrorHandler.modelError("Link not found.");
+      }
+      return Collections.singletonMap("id", Integer.toString(linkId));
+    } catch (final IllegalArgumentException e) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError(e.getMessage());
+    } catch (final Exception e) {
+      log.error(e.getMessage(), e);
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError("Error updating link.");
+    }
+  }
+
+  @DeleteMapping("{id}")
+  public Map<String, String> deleteById(
+      @PathVariable("id") final int linkId,
+      final HttpSession session,
+      final HttpServletResponse response) {
+    return delete(linkId, session, response);
   }
 
   @DeleteMapping
@@ -116,7 +157,7 @@ public class LinkController {
       final HttpServletResponse response) {
 
     if (!Login.isAuthenticated(session)) {
-      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return ErrorHandler.modelError(Constants.ERR_INVALID_LOGIN);
     }
 
@@ -124,16 +165,13 @@ public class LinkController {
       /* valid link id */
       final Optional<UserLinkTo> link = userLinkService.get(linkId);
 
-      if (link.isEmpty()) {
+      if (link.isEmpty() || link.get().getUserId() != Login.currentLoginId(session)) {
         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-        return Collections.emptyMap();
+        return ErrorHandler.modelError("Link not found.");
       }
 
-      if (link.get().getUserId() == Login.currentLoginId(session)) {
-        userLinkService.delete(linkId);
-
-        return java.util.Collections.singletonMap("id", Integer.toString(linkId));
-      }
+      userLinkService.delete(linkId);
+      return Collections.singletonMap("id", Integer.toString(linkId));
     }
     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
     return ErrorHandler.modelError("Error deleting your link. Bad link id.");

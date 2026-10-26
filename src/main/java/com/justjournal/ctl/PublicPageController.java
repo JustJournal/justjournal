@@ -76,6 +76,12 @@ public class PublicPageController {
         "fragments/public/prefs-biography");
   }
 
+  @GetMapping("/prefs/links")
+  public String prefsLinks(Model model, HttpSession session) {
+    return renderPage(
+        model, session, "Just Journal: Link Preferences", "prefs-links", "fragments/public/prefs-links");
+  }
+
   @GetMapping("/prefs/password")
   public String prefsPassword(Model model, HttpSession session) {
     return renderPage(
