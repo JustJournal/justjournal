@@ -43,16 +43,44 @@ body {
     text-align: center;
 }
 
+/* year view: one month per row on phones, more side by side as the column widens */
+.fullcalendars {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20em), 1fr));
+    gap: 1.5em;
+    /* don't stretch shorter months to the height of their neighbors */
+    align-items: start;
+    margin-top: 1em;
+}
+
 .fullcalendar {
-    margin-top: .2in;
     border: 1px solid rgba(128, 128, 128, .5);
-    width: 400px;
+    width: 100%;
+    /* equal width day columns regardless of content */
+    table-layout: fixed;
+    margin: 0;
+    font-size: 1.1em;
+}
+
+.fullcalendar caption {
+    color: inherit;
+    font-size: 1.15em;
+    font-weight: bold;
+}
+
+.fullcalendar th,
+.fullcalendar td {
+    border: 1px solid rgba(128, 128, 128, .25);
 }
 
 .fullcalendarth {
     background: rgba(128, 128, 128, .15);
     color: inherit;
-    width: 14%;
+    padding: .35em 0;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
 }
 
 .fullcalendaroffrow {
@@ -62,11 +90,35 @@ body {
 .fullcalendarrow {
     background: transparent;
     color: inherit;
+    height: 3.8em;
+    padding: .25em .35em;
+    position: relative;
     vertical-align: top;
+}
+
+.fullcalendarday {
+    font-weight: bold;
+}
+
+/* entry count, a link to that day */
+.fullcalendar a.fullcalendarcount {
+    position: absolute;
+    right: .3em;
+    bottom: .25em;
+    min-width: 1.6em;
+    padding: 0 .35em;
+    border-radius: .8em;
+    background: rgba(128, 128, 128, .25);
+    font-size: .8em;
+    font-weight: bold;
+    line-height: 1.7em;
+    text-align: center;
+    text-decoration: none;
 }
 
 .fullcalendarsub {
     background: rgba(128, 128, 128, .15);
+    padding: .35em 0;
     text-align: center;
 }
 

@@ -159,6 +159,8 @@ public final class Cal {
     final Iterator<CalMonth> itr = monthList.listIterator();
 
     calStartComment(sb);
+    // months flow into as many columns as fit, see .fullcalendars in users.css
+    sb.append("<div class=\"fullcalendars\">\n");
 
     for (int i = 0, n = monthList.size(); i < n; i++) {
       o = itr.next();
@@ -194,13 +196,14 @@ public final class Cal {
           tableRowOpen(sb);
         }
 
-        sb.append("\t<td class=\"fullcalendarrow\"><strong>");
+        sb.append("\t<td class=\"fullcalendarrow\"><span class=\"fullcalendarday\">");
         sb.append(y + 1);
-        sb.append("</strong><br /><span style=\"float: right;\">");
-        if (o.getStorage()[y] == 0) {
-          sb.append("&nbsp;");
-        } else {
-          sb.append("<a href=\"");
+        sb.append("</span>");
+        if (o.getStorage()[y] != 0) {
+          sb.append("<a class=\"fullcalendarcount\" title=\"");
+          sb.append(o.getStorage()[y]);
+          sb.append(o.getStorage()[y] == 1 ? " entry" : " entries");
+          sb.append("\" href=\"");
 
           // year
           sb.append(o.getYear());
@@ -222,7 +225,7 @@ public final class Cal {
           sb.append(o.getStorage()[y]);
           sb.append("</a>");
         }
-        sb.append("</span></td>\n");
+        sb.append("</td>\n");
 
         if (dayinweek == 6) {
           tableRowClose(sb);
@@ -238,6 +241,7 @@ public final class Cal {
       tableBodyClose(sb);
       tableClose(sb);
     }
+    sb.append("</div>\n");
     return sb.toString();
   }
 
