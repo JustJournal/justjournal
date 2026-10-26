@@ -46,6 +46,7 @@ import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.UserRepository;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Arrays;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Verifies entry bodies are cleaned before they are saved through the MetaWeblog API. */
 @ExtendWith(MockitoExtension.class)
@@ -79,7 +81,7 @@ class MetaWeblogTests {
     journal.setPingServices(false);
     user.getJournals().add(journal);
 
-    when(webLogin.validate("laffer1", "secret")).thenReturn(1);
+    lenient().when(webLogin.validate("laffer1", "secret")).thenReturn(1);
     lenient().when(userRepository.findById(1)).thenReturn(Optional.of(user));
     lenient().when(locationDao.findById(anyInt())).thenReturn(Optional.of(new Location()));
   }
@@ -121,5 +123,16 @@ class MetaWeblogTests {
     assertTrue(existing.getBody().contains("</textarea>"), existing.getBody());
     assertEquals(FormatType.HTML, existing.getFormat());
     assertEquals(PrefBool.N, existing.getAutoFormat());
+  }
+
+  /**
+   * XML-RPC requests do not get open-session-in-view, so without a transaction the "Not Specified"
+   * location (id 0) is detached and Hibernate writes a NULL location.
+   */
+  @Test
+  void postMethodsAreTransactional() {
+    Arrays.stream(MetaWeblog.class.getMethods())
+        .filter(m -> m.getName().equals("newPost") || m.getName().equals("editPost"))
+        .forEach(m -> assertTrue(m.isAnnotationPresent(Transactional.class), m.getName()));
   }
 }

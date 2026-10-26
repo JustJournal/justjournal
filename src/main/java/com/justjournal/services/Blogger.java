@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A blogger 1 compatible interface exposed by XML-RPC
@@ -179,6 +180,7 @@ public class Blogger extends BaseXmlRpcService {
    *     drafts yet.
    * @return The entry id of the entry as a string or an error.
    */
+  @Transactional
   public Serializable newPost(
       String appkey,
       String blogid,
@@ -318,6 +320,7 @@ public class Blogger extends BaseXmlRpcService {
    *     drafts yet.
    * @return The entry id of the entry as a string or an error.
    */
+  @Transactional
   public Serializable editPost(
       String appkey,
       String postid,

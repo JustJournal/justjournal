@@ -34,4 +34,11 @@ class EntryTests {
         entry.setSubject("Release plans & CVE list");
         Assertions.assertEquals("Release plans & CVE list", entry.getSubject());
     }
+
+    @Test
+    void musicNullBecomesEmpty() {
+        var entry = new Entry();
+        entry.setMusic(null);
+        Assertions.assertEquals("", entry.getMusic());
+    }
 }

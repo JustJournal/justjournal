@@ -126,7 +126,6 @@ public class Entry implements Serializable {
   @Lob
   private String body = "";
 
-  @Setter
   @JsonProperty("music")
   @Column(name = "music", length = 125)
   private String music = "";
@@ -286,6 +285,10 @@ public class Entry implements Serializable {
    *
    * @param subject plain text subject
    */
+  public void setMusic(final String music) {
+    this.music = music == null ? "" : music;
+  }
+
   public void setSubject(final String subject) {
     this.subject = subject == null ? "" : HTMLUtil.stripHTMLTags(subject).trim();
   }

@@ -160,4 +160,17 @@ class EntryControllerTests {
     verify(entryRepository).save(captor.capture());
     assertTrue(captor.getValue().getBody().contains("</textarea>"), captor.getValue().getBody());
   }
+
+  @Test
+  void postWithNullMusicSavesEmptyMusic() {
+    when(entryRepository.saveAndFlush(any(Entry.class))).thenAnswer(inv -> inv.getArgument(0));
+    final EntryTo to = entryTo("TEXT");
+    to.setMusic(null);
+
+    entryController.post(to, session, response, new ExtendedModelMap());
+
+    final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
+    verify(entryRepository).saveAndFlush(captor.capture());
+    assertEquals("", captor.getValue().getMusic());
+  }
 }

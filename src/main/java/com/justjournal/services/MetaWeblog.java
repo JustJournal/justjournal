@@ -50,6 +50,7 @@ import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The MetaWeblog API interface for blogging. Similar to Blogger 1.0 API.
@@ -189,6 +190,7 @@ public class MetaWeblog extends BaseXmlRpcService {
    *     drafts yet.
    * @return The entry id of the entry as a string or an error.
    */
+  @Transactional
   public Serializable newPost(
       String blogid, String username, String password, Map content, Boolean publish) {
     String result = "";
@@ -313,6 +315,7 @@ public class MetaWeblog extends BaseXmlRpcService {
    *     drafts yet.
    * @return The entry id of the entry as a string or an error.
    */
+  @Transactional
   public Serializable editPost(
       String postid, String username, String password, Map content, Boolean publish) {
     int userId;
