@@ -41,7 +41,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.server.core.Relation;
 
 /**
  * Journal entry transfer object.
@@ -54,7 +54,8 @@ import org.springframework.hateoas.EntityModel;
 @Builder
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class EntryTo extends EntityModel<EntryTo> implements Serializable {
+@Relation(itemRelation = "entryTo", collectionRelation = "entryToList")
+public class EntryTo implements Serializable {
   @Serial
   private static final long serialVersionUID = 6558001750470601777L;
 

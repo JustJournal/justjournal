@@ -31,7 +31,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justjournal.model.Entry;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.hateoas.Link;
+import org.springframework.hateoas.PagedModel;
+import org.springframework.hateoas.mediatype.MessageResolver;
+import org.springframework.hateoas.mediatype.hal.CurieProvider;
+import org.springframework.hateoas.mediatype.hal.HalConfiguration;
+import org.springframework.hateoas.mediatype.hal.Jackson2HalModule;
+import org.springframework.hateoas.server.core.AnnotationLinkRelationProvider;
+import org.springframework.hateoas.server.core.DelegatingLinkRelationProvider;
+import org.springframework.hateoas.server.core.EvoInflectorLinkRelationProvider;
 
 /** Entries posted to /api/entry are deserialized by Jackson; omitted fields must keep their defaults. */
 class EntryToTests {
@@ -67,5 +78,34 @@ class EntryToTests {
 
     assertEquals("", entry.getMusic());
     assertEquals("text", entry.getBody());
+  }
+
+  /** Mirrors /api/entry/{username}/size/{size}/page/{page}, which clients read as HAL. */
+  @Test
+  void pagedEntriesRenderAsHal() throws Exception {
+    final ObjectMapper hal = new ObjectMapper();
+    hal.registerModule(new Jackson2HalModule());
+    hal.setHandlerInstantiator(
+        new Jackson2HalModule.HalHandlerInstantiator(
+            new DelegatingLinkRelationProvider(
+                new AnnotationLinkRelationProvider(), new EvoInflectorLinkRelationProvider()),
+            CurieProvider.NONE,
+            MessageResolver.DEFAULTS_ONLY,
+            new HalConfiguration(),
+            new DefaultListableBeanFactory()));
+
+    final EntryTo entry = EntryTo.builder().entryId(7).subject("hi").body("text").build();
+    final PagedModel<EntryTo> page =
+        PagedModel.of(
+            List.of(entry),
+            new PagedModel.PageMetadata(20, 0, 1, 1),
+            List.of(Link.of("/api/entry/laffer1/size/20/page/0")));
+
+    final var json = hal.readTree(hal.writeValueAsString(page));
+
+    assertEquals(7, json.at("/_embedded/entryToList/0/entryId").asInt());
+    assertEquals("hi", json.at("/_embedded/entryToList/0/subject").asText());
+    assertEquals(1, json.at("/page/totalElements").asInt());
+    assertEquals(0, json.at("/page/number").asInt());
   }
 }

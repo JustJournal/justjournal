@@ -32,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +54,12 @@ import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.TrackbackService;
 import java.util.Optional;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.hateoas.PagedModel;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,7 +102,7 @@ class EntryControllerTests {
 
     final User user = new User();
     user.setId(1);
-    when(userRepository.findById(1)).thenReturn(Optional.of(user));
+    lenient().when(userRepository.findById(1)).thenReturn(Optional.of(user));
     lenient().when(locationRepository.findById(anyInt())).thenReturn(Optional.of(new Location()));
     lenient().when(recentBlogsRepository.delete()).thenReturn(Mono.just(true));
   }
@@ -172,5 +180,48 @@ class EntryControllerTests {
     final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
     verify(entryRepository).saveAndFlush(captor.capture());
     assertEquals("", captor.getValue().getMusic());
+  }
+
+  @Test
+  void pagedEntriesUseRequestedPageNewestFirst() throws Exception {
+    final Entry entry = new Entry();
+    entry.setId(7);
+    entry.setSubject("hi");
+    final Pageable expected = PageRequest.of(2, 5, Sort.by(Sort.Direction.DESC, "date"));
+    when(entryService.getPublicEntries(eq("someone"), eq(expected)))
+        .thenReturn(new PageImpl<>(java.util.List.of(entry), expected, 11));
+
+    final PagedModel<EntryTo> result =
+        entryController.getEntries(
+            "someone", 5, 2, new MockHttpServletRequest("GET", "/api/entry/someone/size/5/page/2"), response, session);
+
+    assertEquals(1, result.getContent().size());
+    assertEquals(7, result.getContent().iterator().next().getEntryId());
+    assertEquals(5, result.getMetadata().getSize());
+    assertEquals(2, result.getMetadata().getNumber());
+    assertEquals(11, result.getMetadata().getTotalElements());
+    assertEquals(3, result.getMetadata().getTotalPages());
+  }
+
+  @Test
+  void pagedEntriesForOwnerIncludeAllEntries() throws Exception {
+    final Pageable expected = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "date"));
+    when(entryService.getEntries(eq("laffer1"), eq(expected)))
+        .thenReturn(new PageImpl<>(java.util.List.of(), expected, 0));
+
+    entryController.getEntries("laffer1", 20, 0, new MockHttpServletRequest("GET", "/api/entry/someone/size/5/page/2"), response, session);
+
+    verify(entryService, never()).getPublicEntries(any(), any());
+  }
+
+  @Test
+  void pagedEntriesRejectBadPaging() throws Exception {
+    for (final int[] sp : new int[][] {{0, 0}, {-1, 0}, {101, 0}, {20, -1}}) {
+      response = new MockHttpServletResponse();
+      entryController.getEntries(
+          "laffer1", sp[0], sp[1], new MockHttpServletRequest("GET", "/api/entry/someone/size/5/page/2"), response, session);
+      assertEquals(400, response.getStatus(), "size=" + sp[0] + " page=" + sp[1]);
+    }
+    verify(entryService, never()).getEntries(any(), any());
   }
 }

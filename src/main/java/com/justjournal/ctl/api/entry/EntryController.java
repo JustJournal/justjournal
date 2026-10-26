@@ -93,6 +93,7 @@ import reactor.core.publisher.Flux;
 public class EntryController {
 
   private static final int DEFAULT_SIZE = 20;
+  private static final int MAX_PAGE_SIZE = 100;
 
   private final CommentRepository commentDao;
 
@@ -176,6 +177,11 @@ public class EntryController {
 
     if (!Login.isUserName(username)) {
       throw new NotFoundException();
+    }
+
+    if (size < 1 || size > MAX_PAGE_SIZE || page < 0) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return null;
     }
 
     final Page<Entry> entries;
