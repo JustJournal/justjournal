@@ -28,6 +28,7 @@ package com.justjournal.ctl.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -48,6 +49,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.HateoasPageableHandlerMethodArgumentResolver;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.hateoas.PagedModel;
@@ -83,10 +85,13 @@ class SearchControllerTests {
 
   @Test
   void siteSearch() {
-    when(blogSearchService.publicSearch("linux", page)).thenReturn(results());
+    // clients asking for a different size or order still get 20 newest first
+    final Pageable requested = PageRequest.of(0, 100, Sort.by("subject"));
+    when(blogSearchService.publicSearch("linux", SearchController.sitePage(requested)))
+        .thenReturn(results());
 
     final ResponseEntity<PagedModel<BlogEntry>> response =
-        searchController.search("linux", page, assembler);
+        searchController.search("linux", requested, assembler);
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     assertNotNull(response.getBody());
@@ -123,5 +128,24 @@ class SearchControllerTests {
     assertThrows(
         NotFoundException.class, () -> searchController.search("bad user!", "news", page, assembler));
     verify(blogSearchService, never()).publicSearch(anyString(), anyString(), any(Pageable.class));
+  }
+
+  @Test
+  void sitePageIsTwentyNewestFirst() {
+    final Pageable result = SearchController.sitePage(PageRequest.of(3, 5, Sort.by("subject")));
+
+    assertEquals(3, result.getPageNumber());
+    assertEquals(SearchController.SITE_PAGE_SIZE, result.getPageSize());
+    assertEquals(Sort.by(Sort.Direction.DESC, "date"), result.getSort());
+  }
+
+  @Test
+  void sitePageStopsAtResultWindow() {
+    final Pageable result = SearchController.sitePage(PageRequest.of(100_000, 20));
+
+    assertEquals(SearchController.SITE_MAX_PAGE, result.getPageNumber());
+    assertTrue(
+        (result.getPageNumber() + 1) * result.getPageSize() <= 10_000,
+        "last page must stay inside elasticsearch's result window");
   }
 }

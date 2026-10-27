@@ -37,7 +37,9 @@ import com.justjournal.services.BlogSearchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.Link;
@@ -65,12 +67,28 @@ public class SearchController {
     this.blogSearchService = blogSearchService;
   }
 
+  /** Site-wide search results per page. */
+  static final int SITE_PAGE_SIZE = 20;
+
+  /** Elasticsearch won't return hits past its default max_result_window of 10,000. */
+  static final int SITE_MAX_PAGE = 10_000 / SITE_PAGE_SIZE - 1;
+
+  /**
+   * Page of site-wide results, newest first. The size and order are fixed so every client pages
+   * the same way.
+   */
+  static Pageable sitePage(final Pageable requested) {
+    final int number = Math.min(Math.max(requested.getPageNumber(), 0), SITE_MAX_PAGE);
+    return PageRequest.of(number, SITE_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "date"));
+  }
+
   @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<PagedModel<BlogEntry>> search(
       @RequestParam("term") final String term,
-      final Pageable page,
+      final Pageable requested,
       final PagedResourcesAssembler<BlogEntry> assembler) {
 
+    final Pageable page = sitePage(requested);
     try {
       final Page<BlogEntry> entries = blogSearchService.publicSearch(term, page);
 

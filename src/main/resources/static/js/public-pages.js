@@ -186,9 +186,69 @@
         });
     }
 
+    // the server returns 20 newest first and stops at page 500 (elasticsearch's 10,000 hit window)
+    var SEARCH_MAX_PAGES = 500;
+
+    function renderSearchPager(number, totalPages) {
+        var last = Math.min(totalPages, SEARCH_MAX_PAGES) - 1;
+        if (last < 1) {
+            return '';
+        }
+
+        function item(page, label, extraClass, ariaLabel) {
+            var disabled = page < 0 || page > last;
+            var current = page === number && !ariaLabel;
+            var cls = disabled ? 'disabled' : (current ? 'active' : '');
+            var attrs = ariaLabel ? ' aria-label="' + escapeAttr(ariaLabel) + '"' : '';
+            if (current) {
+                attrs += ' aria-current="page"';
+            }
+            var inner = disabled || current
+                ? '<span' + attrs + '>' + label + '</span>'
+                : '<a href="#" data-page="' + page + '"' + attrs + '>' + label + '</a>';
+            return '<li class="' + cls + (extraClass ? ' ' + extraClass : '') + '">' + inner + '</li>';
+        }
+
+        function gap() {
+            return '<li class="disabled"><span>&hellip;</span></li>';
+        }
+
+        var html = ['<nav aria-label="Search result pages"><ul class="pagination">'];
+        html.push(item(number - 1, '&laquo; Newer', '', 'Newer results'));
+
+        var from = Math.max(0, number - 2);
+        var to = Math.min(last, number + 2);
+        if (from > 0) {
+            html.push(item(0, '1'));
+            if (from > 1) {
+                html.push(gap());
+            }
+        }
+        for (var page = from; page <= to; page++) {
+            html.push(item(page, String(page + 1)));
+        }
+        if (to < last) {
+            if (to < last - 1) {
+                html.push(gap());
+            }
+            html.push(item(last, String(last + 1)));
+        }
+
+        html.push(item(number + 1, 'Older &raquo;', '', 'Older results'));
+        html.push('</ul></nav>');
+        return html.join('');
+    }
+
     function renderSearchResults(results) {
         var entries = (results && results._embedded && results._embedded.blogEntries) ? results._embedded.blogEntries : [];
+        var meta = (results && results.page) ? results.page : {number: 0, size: entries.length, totalPages: 1, totalElements: entries.length};
         var html = [];
+
+        if (entries.length > 0) {
+            var first = meta.number * meta.size + 1;
+            html.push('<p class="search-summary">Showing ' + first + '&ndash;' + (first + entries.length - 1) +
+                ' of ' + meta.totalElements + ' results, newest first.</p>');
+        }
 
         $.each(entries, function (_, entry) {
             html.push(
@@ -211,20 +271,62 @@
             html.push('<p>No results found.</p>');
         }
 
+        html.push(renderSearchPager(meta.number, meta.totalPages));
         $('#search-results').html(html.join(''));
     }
 
     function initSearch() {
-        $('#bsearch').on('submit', function (event) {
-            event.preventDefault();
-            showMessage('#search-error', '');
+        var currentTerm = '';
 
-            $.getJSON('/api/search', {term: $('#bquery').val().trim()})
-                .done(renderSearchResults)
+        function runSearch(term, page, scroll) {
+            currentTerm = term;
+            showMessage('#search-error', '');
+            if (!term) {
+                $('#search-results').empty();
+                return;
+            }
+
+            $.getJSON('/api/search', {term: term, page: page})
+                .done(function (results) {
+                    renderSearchResults(results);
+                    if (scroll) {
+                        $('html, body').scrollTop($('#search-results').offset().top - 20);
+                    }
+                })
                 .fail(function (xhr) {
                     showMessage('#search-error', parseError(xhr, 'Search failed'));
                 });
+        }
+
+        // keep the term and page in the address bar so back/forward and shared links work
+        function go(term, page, scroll) {
+            var query = '?term=' + encodeURIComponent(term) + (page > 0 ? '&page=' + page : '');
+            if (window.location.search !== query) {
+                window.history.pushState({term: term, page: page}, '', window.location.pathname + query);
+            }
+            runSearch(term, page, scroll);
+        }
+
+        function fromLocation() {
+            var params = new URLSearchParams(window.location.search);
+            var term = (params.get('term') || '').trim();
+            var page = Math.max(0, parseInt(params.get('page'), 10) || 0);
+            $('#bquery').val(term);
+            runSearch(term, page, false);
+        }
+
+        $('#bsearch').on('submit', function (event) {
+            event.preventDefault();
+            go($('#bquery').val().trim(), 0, false);
         });
+
+        $('#search-results').on('click', '.pagination a[data-page]', function (event) {
+            event.preventDefault();
+            go(currentTerm, parseInt($(this).data('page'), 10), true);
+        });
+
+        $(window).on('popstate', fromLocation);
+        fromLocation();
     }
 
     function initStats() {
