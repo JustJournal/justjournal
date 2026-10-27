@@ -39,6 +39,7 @@ import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.HTMLUtil;
+import com.justjournal.utility.StopWords;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -350,7 +351,10 @@ public class MetaWeblog extends BaseXmlRpcService {
 
           String[] tags = (String[]) content.get("categories");
           for (final String tag : tags) {
+            if (StopWords.isStopWord(tag)) continue;
+
             final Tag tag1 = tagDao.findByName(tag);
+            if (tag1 == null) continue;
 
             final EntryTag entryTags = new EntryTag();
             entryTags.setTag(tag1);

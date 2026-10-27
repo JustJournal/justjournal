@@ -28,6 +28,7 @@ package com.justjournal.services;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.justjournal.Application;
 import com.justjournal.core.CustomObjectMapper;
+import com.justjournal.model.EntryTag;
 import com.justjournal.model.Tag;
 import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.TagRepository;
@@ -231,5 +232,23 @@ class TagServiceTests {
     assertFalse(result.isPresent());
     verify(tagRepository).findById(tagId);
     verify(valueOperations, never()).set(any(), any(), any(Duration.class));
+  }
+
+  @Test
+  void deleteStopWordTagsRemovesOnlyStopWords() {
+    final Tag to = new Tag("to");
+    to.setId(1);
+    final Tag java = new Tag("java");
+    java.setId(2);
+    final List<EntryTag> links = List.of(new EntryTag());
+    when(tagRepository.findAll()).thenReturn(List.of(to, java));
+    when(entryTagsRepository.findByTag(to)).thenReturn(links);
+
+    assertEquals(1, tagService.deleteStopWordTags());
+
+    verify(entryTagsRepository).deleteAll(links);
+    verify(tagRepository).delete(to);
+    verify(tagRepository, never()).delete(java);
+    verify(entryTagsRepository, never()).findByTag(java);
   }
 }

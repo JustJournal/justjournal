@@ -31,6 +31,7 @@ import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Tag;
 import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.TagRepository;
+import com.justjournal.utility.StopWords;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -129,6 +130,25 @@ public class TagService {
 
   public void deleteTag(final int tagId) {
     tagDao.deleteById(tagId);
+  }
+
+  /**
+   * Remove stop word tags, and their links to entries, that were saved before stop words were
+   * rejected.
+   *
+   * @return number of tags removed
+   */
+  public int deleteStopWordTags() {
+    int removed = 0;
+    for (final Tag tag : tagDao.findAll()) {
+      if (!StopWords.isStopWord(tag.getName())) continue;
+
+      entryTagsRepository.deleteAll(entryTagsRepository.findByTag(tag));
+      tagDao.delete(tag);
+      log.info("Removed stop word tag {}", tag.getName());
+      removed++;
+    }
+    return removed;
   }
 
   @Getter

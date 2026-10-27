@@ -51,11 +51,13 @@ public class ScheduledMaintenance {
     this.transactionTemplate = transactionTemplate;
   }
 
-  /** Remove old tags that are no longer connected to any entries. */
+  /** Remove stop word tags and old tags that are no longer connected to any entries. */
   @Scheduled(fixedDelay = 1000 * 60 * 30, initialDelay = 120000)
   public void tagCleanup() {
     transactionTemplate.execute(new TransactionCallbackWithoutResult() {
       protected void doInTransactionWithoutResult(@NotNull TransactionStatus status) {
+
+        tagService.deleteStopWordTags();
 
         tagService
                 .getTags()

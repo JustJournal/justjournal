@@ -32,6 +32,7 @@ import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.utility.HTMLUtil;
+import com.justjournal.utility.StopWords;
 import com.justjournal.utility.Xml;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -247,10 +249,16 @@ public class EntryService {
    * Add and remove tags on an entry from a list.
    *
    * @param entry entry to modify
-   * @param tags tags that should be present (removes anything not listed)
+   * @param requested tags that should be present (removes anything not listed)
    */
-  public void applyTags(final Entry entry, final Set<String> tags) {
-    if (tags == null) return;
+  public void applyTags(final Entry entry, final Set<String> requested) {
+    if (requested == null) return;
+
+    // stop words are dropped, which also removes any the entry was tagged with before
+    final Set<String> tags =
+        requested.stream()
+            .filter(tag -> !StopWords.isStopWord(tag))
+            .collect(Collectors.toSet());
 
     final List<EntryTag> entryTags = entryTagsRepository.findByEntry(entry);
 
@@ -288,9 +296,11 @@ public class EntryService {
    * Add a tag to an entry
    *
    * @param entry entry to add tags to
-   * @param tag tag name
+   * @param tag tag name, ignored if it is a stop word
    */
   public void addTagToEntry(final Entry entry, final String tag) {
+    if (StopWords.isStopWord(tag)) return;
+
     Tag t = tagDao.findByName(tag);
     if (t == null) t = tagDao.save(new Tag(tag));
 

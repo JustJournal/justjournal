@@ -42,10 +42,12 @@ import org.springframework.data.domain.PageImpl;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 /**
@@ -235,5 +237,35 @@ class EntryServiceTests {
     void applyTagsIgnoresNullTags() {
         entryService.applyTags(new Entry(), null);
         verifyNoInteractions(entryTagsRepository, tagDao);
+    }
+
+    @Test
+    void addTagToEntryIgnoresStopWords() {
+        entryService.addTagToEntry(new Entry(1, "Test Entry"), "The");
+        verifyNoInteractions(entryTagsRepository, tagDao);
+    }
+
+    @Test
+    void applyTagsDropsStopWordsAndRemovesExistingOnes() {
+        Entry entry = new Entry(1, "Test Entry");
+        Tag to = new Tag("to");
+        to.setId(1);
+        EntryTag existing = new EntryTag();
+        existing.setTag(to);
+        existing.setEntry(entry);
+        Tag java = new Tag("java");
+        java.setId(2);
+
+        when(entryTagsRepository.findByEntry(entry)).thenReturn(List.of(existing));
+        when(tagDao.findByName("java")).thenReturn(java);
+        when(tagDao.findByName("to")).thenReturn(to);
+        when(entryTagsRepository.findByEntryAndTag(entry, java)).thenReturn(null);
+        when(entryTagsRepository.findByEntryAndTag(entry, to)).thenReturn(existing);
+
+        entryService.applyTags(entry, Set.of("java", "to", "and"));
+
+        verify(tagDao, never()).findByName("and");
+        verify(entryTagsRepository).save(argThat(et -> et.getTag() == java));
+        verify(entryTagsRepository).delete(existing);
     }
 }
