@@ -228,6 +228,15 @@ textarea:focus-visible, .btn:focus-visible, [tabindex]:focus-visible {
 
 /* ---- buttons ---- */
 
+/* entry action icons are link styled buttons */
+.btn-link.entry-action {
+    color: var(--ll-link);
+}
+
+.btn-link.entry-action:hover {
+    color: var(--ll-link-hover);
+}
+
 .btn-default {
     background-color: var(--ll-surface-2);
     background-image: none;

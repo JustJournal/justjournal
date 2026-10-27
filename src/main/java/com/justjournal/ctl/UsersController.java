@@ -1203,27 +1203,20 @@ public class UsersController {
 
           if (uc.getAuthenticatedUser() != null
                   && uc.getAuthenticatedUser().getId() == o.getUser().getId()) {
-            sb.append("<td width=\"30\"><a title=\"Edit Entry\" href=\"/entry/").append(o.getId());
-            sb.append("\"><i class=\"fa fa-pencil-square-o\"></i></a></td>");
+            sb.append("<td width=\"30\">").append(entryEditLink(o.getId())).append("</td>");
             sb.append(ENDL);
-            sb.append("<td width=\"30\"><a title=\"Delete Entry\" onclick=\"return" + " deleteEntry(")
-                    .append(o.getId())
-                    .append(")\"");
-            sb.append("><i class=\"fa fa-trash-o\"></i></a>");
-            sb.append("</td>");
+            sb.append("<td width=\"30\">")
+                    .append(entryActionButton("Delete Entry", "deleteEntry(" + o.getId() + ")", "fa-trash-o"))
+                    .append("</td>");
             sb.append(ENDL);
-
-            sb.append(
-                    "<td width=\"30\"><a title=\"Remove Favorite\" onclick=\"return"
-                            + " deleteFavorite(");
-            sb.append(o.getId());
-            sb.append(")\"><i class=\"fa fa-heart-o\"></i></a></td>");
+            sb.append("<td width=\"30\">")
+                    .append(entryActionButton("Remove Favorite", "deleteFavorite(" + o.getId() + ")", "fa-heart-o"))
+                    .append("</td>");
             sb.append(ENDL);
           } else if (uc.getAuthenticatedUser() != null) {
-            sb.append(
-                    "<td width=\"30\"><a title=\"Add Favorite\" onclick=\"return" + " addFavorite(");
-            sb.append(o.getId());
-            sb.append(")\"><i class=\"fa fa-heart\"></i></a></td>");
+            sb.append("<td width=\"30\">")
+                    .append(entryActionButton("Add Favorite", "addFavorite(" + o.getId() + ")", "fa-heart"))
+                    .append("</td>");
             sb.append(ENDL);
           }
 
@@ -1444,26 +1437,20 @@ public class UsersController {
 
         if (uc.getAuthenticatedUser() != null
             && uc.getAuthenticatedUser().getId() == o.getUser().getId()) {
-          sb.append("<td width=\"30\"><a title=\"Edit Entry\" href=\"/entry/").append(o.getId());
-          sb.append("\"><i class=\"fa fa-pencil-square-o\"></i></a></td>");
+          sb.append("<td width=\"30\">").append(entryEditLink(o.getId())).append("</td>");
           sb.append(ENDL);
-          sb.append("<td width=\"30\"><a title=\"Delete Entry\" onclick=\"return" + " deleteEntry(")
-              .append(o.getId())
-              .append(")\"");
-          sb.append("><i class=\"fa fa-trash-o\"></i></a>");
-          sb.append("</td>");
+          sb.append("<td width=\"30\">")
+              .append(entryActionButton("Delete Entry", "deleteEntry(" + o.getId() + ")", "fa-trash-o"))
+              .append("</td>");
           sb.append(ENDL);
-
-          sb.append(
-              "<td width=\"30\"><a title=\"Add Favorite\" onclick=\"return" + " addFavorite(\"");
-          sb.append(o.getId());
-          sb.append("\"><i class=\"fa fa-heart\"></i></a></td>");
+          sb.append("<td width=\"30\">")
+              .append(entryActionButton("Add Favorite", "addFavorite(" + o.getId() + ")", "fa-heart"))
+              .append("</td>");
           sb.append(ENDL);
         } else if (uc.getAuthenticatedUser() != null) {
-          sb.append(
-              "<td width=\"30\"><a title=\"Add Favorite\" onclick=\"return" + " addFavorite(\"");
-          sb.append(o.getId());
-          sb.append("\"><i class=\"fa fa-heart\"></i></a></td>");
+          sb.append("<td width=\"30\">")
+              .append(entryActionButton("Add Favorite", "addFavorite(" + o.getId() + ")", "fa-heart"))
+              .append("</td>");
           sb.append(ENDL);
         }
 
@@ -2079,23 +2066,15 @@ public class UsersController {
     sb.append(ENDL);
 
     if (uc.isAuthBlog()) {
-      sb.append("<td style=\"width: 30px\"><a title=\"Edit Entry\" href=\"/entry/");
-      sb.append(o.getId());
-      sb.append("\"><i class=\"fa fa-pencil-square-o\"></i></a></td>");
+      sb.append("<td style=\"width: 30px\">").append(entryEditLink(o.getId())).append("</td>");
       sb.append(ENDL);
-      sb.append(
-          "<td style=\"width: 30px\"><a title=\"Delete Entry\" onclick=\"return"
-              + " deleteEntry("
-              + o.getId()
-              + ");\"");
-      sb.append("><i class=\"fa fa-trash-o\"></i></a>");
-      sb.append("</td>");
+      sb.append("<td style=\"width: 30px\">")
+          .append(entryActionButton("Delete Entry", "deleteEntry(" + o.getId() + ")", "fa-trash-o"))
+          .append("</td>");
       sb.append(ENDL);
-
-      sb.append(
-          "<td style=\"width: 30px\"><a title=\"Add Favorite\" onclick=\"return" + " addFavorite(");
-      sb.append(o.getId());
-      sb.append(")\"><i class=\"fa fa-heart\"></i></a></td>");
+      sb.append("<td style=\"width: 30px\">")
+          .append(entryActionButton("Add Favorite", "addFavorite(" + o.getId() + ")", "fa-heart"))
+          .append("</td>");
       sb.append(ENDL);
     }
 
@@ -2123,7 +2102,8 @@ public class UsersController {
           .append(o.getUser().getUsername())
           .append("/entry/");
       sb.append(o.getId());
-      sb.append("\" title=\"Link to this entry\"><i class=\"fa fa-external-link\"></i></a> ");
+      sb.append("\" title=\"Link to this entry\" aria-label=\"Link to this entry\">")
+          .append("<i class=\"fa fa-external-link\" aria-hidden=\"true\"></i></a> ");
 
       sb.append('(');
 
@@ -2146,7 +2126,8 @@ public class UsersController {
       sb.append("<a href=\"/comment/");
       sb.append(o.getId());
       sb.append(
-          "\" title=\"Leave a comment on this entry\"><i class=\"fa" + " fa-comment-o\"></i></a>)");
+          "\" title=\"Leave a comment on this entry\" aria-label=\"Leave a comment on this entry\">"
+              + "<i class=\"fa fa-comment-o\" aria-hidden=\"true\"></i></a>)");
       sb.append("\t\t\t\t\t\t</div></td>");
       sb.append(ENDL);
     }
@@ -2259,5 +2240,26 @@ public class UsersController {
     sb.append(ENDL);
 
     return sb.toString();
+  }
+
+  /** Edit link for an entry. The label is read out in place of the icon. */
+  private static String entryEditLink(final int entryId) {
+    return "<a class=\"entry-action\" href=\"/entry/" + entryId
+        + "\" title=\"Edit Entry\" aria-label=\"Edit Entry\">"
+        + "<i class=\"fa fa-pencil-square-o\" aria-hidden=\"true\"></i></a>";
+  }
+
+  /**
+   * Icon button for an entry action. A button rather than a link without an href, so it can be
+   * reached and used from the keyboard.
+   *
+   * @param label text announced by screen readers and shown as a tooltip
+   * @param onclick script to run, without "return"
+   * @param icon font awesome icon class
+   */
+  private static String entryActionButton(final String label, final String onclick, final String icon) {
+    return "<button type=\"button\" class=\"btn btn-link entry-action\" title=\"" + label
+        + "\" aria-label=\"" + label + "\" onclick=\"" + onclick + "\">"
+        + "<i class=\"fa " + icon + "\" aria-hidden=\"true\"></i></button>";
   }
 }

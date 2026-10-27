@@ -23,6 +23,19 @@ body {
     vertical-align: middle;
 }
 
+/* below desktop the sidebar spans the screen: cap the width so the calendar doesn't stretch
+   across a tablet, and make the day cells taller for touch */
+@media (max-width: 991px) {
+    .minicalendar {
+        max-width: 28em;
+    }
+
+    .minicalendar th,
+    .minicalendar td {
+        height: 2.75em;
+    }
+}
+
 .minicalendarth {
     background: rgba(128, 128, 128, .15);
     color: inherit;
@@ -214,4 +227,21 @@ body {
 
 .TagCloudLarge {
     font-size: 1.3em;
+}
+/* Entry action icons (edit, delete, favorite). Buttons are styled to look like the old icon links
+   and sized to at least 24px, with a gap so delete isn't easily tapped instead of edit. */
+.entry-action,
+.btn-link.entry-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0 4px;
+    margin-right: 8px;
+    border: 0;
+    font-size: 1.15em;
+    line-height: 1;
+    vertical-align: middle;
+    text-decoration: none;
 }
