@@ -3,6 +3,108 @@ body {
     padding-top: 70px;
 }
 
+/* Text for the icon-only menu items: hidden on desktop but still read by screen readers, and
+   shown beside the icon when the menu is collapsed into a list. */
+.nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* The menu doesn't fit on one row below 992px: it wrapped to two rows and covered the top of the
+   page. Collapse it behind the toggle button until then instead of Bootstrap's 768px. Theme
+   stylesheets load after this file and carry Bootstrap's own breakpoint rules, so these selectors
+   are one class more specific. */
+@media (max-width: 991px) {
+    .navbar-fixed-top .navbar-header {
+        float: none;
+    }
+
+    .navbar-fixed-top .navbar-toggle {
+        display: block;
+    }
+
+    .navbar-fixed-top .navbar-collapse {
+        border-top: 1px solid transparent;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
+    }
+
+    .navbar-fixed-top .navbar-collapse.collapse {
+        display: none !important;
+    }
+
+    /* no height cap or scroll container here: the dropdowns float over the page and would be
+       clipped, and Bootstrap's 340px cap cut the menu's background off partway down */
+    .navbar-fixed-top .navbar-collapse.collapse.in {
+        display: block !important;
+    }
+
+    .navbar-fixed-top .navbar-collapse.collapse {
+        max-height: none;
+    }
+
+    .navbar-fixed-top .navbar-nav {
+        float: none !important;
+        margin: 7.5px -15px;
+    }
+
+    .navbar-fixed-top .navbar-nav > li {
+        float: none;
+    }
+
+    .navbar-fixed-top .navbar-nav > li > a {
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .navbar-fixed-top .navbar-left,
+    .navbar-fixed-top .navbar-right {
+        float: none !important;
+    }
+
+    .navbar-fixed-top .navbar-right {
+        margin-right: -15px;
+    }
+
+    /* open under the item's label rather than at the far right edge */
+    .navbar-fixed-top .navbar-right .dropdown-menu {
+        left: 0;
+        right: auto;
+    }
+
+    .navbar-fixed-top .navbar-form {
+        margin: 8px 0;
+        padding: 0 15px;
+    }
+
+    .navbar-fixed-top .nav-label {
+        position: static;
+        width: auto;
+        height: auto;
+        margin: 0 0 0 .5em;
+        overflow: visible;
+        clip: auto;
+    }
+
+    .navbar-fixed-top .nav-icon-suffix {
+        display: none;
+    }
+}
+
+/* on phones Bootstrap shows the dropdowns inline, so the open menu can scroll safely; let it use
+   the screen height instead of Bootstrap's 340px */
+@media (max-width: 767px) {
+    .navbar-fixed-top .navbar-collapse.in {
+        max-height: calc(100vh - 50px);
+        overflow-y: auto;
+    }
+}
+
 /* Mini calendar, calendar, and RSS styles */
 /* colors are translucent grays over the theme background and text inherits, so the calendars
    stay readable on dark themes like Cyborg as well as light ones */

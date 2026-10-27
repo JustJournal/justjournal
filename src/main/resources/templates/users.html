@@ -81,29 +81,29 @@
                             <li th:class="${entries != null} ? 'active' : ''">
                                 <a title="Home"
                                    th:href="@{'/users/' + ${user.username}}"><i
-                                        class="fa fa-home"></i></a>
+                                        class="fa fa-home" aria-hidden="true"></i><span class="nav-label">Home</span></a>
                             </li>
                             <li th:class="${calendar != null} ? 'active' : ''">
                                 <a title="Calendar"
-                                   th:href="@{'/users/' + ${user.username} + '/calendar'}"><i class="fa fa-calendar"></i></a>
+                                   th:href="@{'/users/' + ${user.username} + '/calendar'}"><i class="fa fa-calendar" aria-hidden="true"></i><span class="nav-label">Calendar</span></a>
                             </li>
                             <li th:class="${friends != null} ? 'active' : ''">
                                 <a title="Friends"
-                                   th:href="@{'/users/' + ${user.username} + '/friends'}"><i class="fa fa-group"></i></a>
+                                   th:href="@{'/users/' + ${user.username} + '/friends'}"><i class="fa fa-group" aria-hidden="true"></i><span class="nav-label">Friends</span></a>
                             </li>
                             <li th:class="${pictures != null} ? 'active' : ''">
                                 <a title="Photos"
-                                   th:href="@{'/users/' + ${user.username} + '/pictures'}"><i class="fa fa-picture-o"></i></a>
+                                   th:href="@{'/users/' + ${user.username} + '/pictures'}"><i class="fa fa-picture-o" aria-hidden="true"></i><span class="nav-label">Photos</span></a>
                             </li>
                             <li th:class="${favorites != null} ? 'active' : ''">
                                 <a title="Favorites"
                                    th:href="@{'/users/' + ${user.username} + '/favorites'}"><i
-                                        class="fa fa-heart"></i></a>
+                                        class="fa fa-heart" aria-hidden="true"></i><span class="nav-label">Favorites</span></a>
                             </li>
                             <li th:class="${subscription != null} ? 'active' : ''">
                                 <a title="Feed Reader"
                                    th:href="@{'/users/' + ${user.username} + '/subscriptions'}"><i
-                                        class="fa fa-rss"></i>r</a></li>
+                                        class="fa fa-rss" aria-hidden="true"></i><span class="nav-icon-suffix" aria-hidden="true">r</span><span class="nav-label">Feed Reader</span></a></li>
 
                             <li class="dropdown">
                                 <a href="#" class="dropdown-toggle" data-toggle="dropdown">Formats <b class="caret"></b></a>
@@ -149,7 +149,7 @@
 
                             <li class="dropdown">
                                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" title="Login &amp; Settings"><i
-                                        class="fa fa-cog"></i> <b
+                                        class="fa fa-cog" aria-hidden="true"></i><span class="nav-label">Settings</span> <b
                                         class="caret"></b></a>
                                 <ul class="dropdown-menu">
                                     <li th:if="${authenticatedUsername == null}"><a href="/"><i
