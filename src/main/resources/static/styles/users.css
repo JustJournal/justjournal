@@ -347,3 +347,81 @@ body {
     vertical-align: middle;
     text-decoration: none;
 }
+
+/* ==========================================================================
+   Readability and accessibility rules shared by every theme. Theme stylesheets load after this
+   file, so selectors that compete with a theme rule start with "html" to be one step more
+   specific. Each theme sets its colors at the end of its own file; --jj-focus and --jj-disabled
+   below are the defaults for light themes.
+   ========================================================================== */
+
+:root {
+    --jj-focus: #0b3d66;
+    --jj-disabled: #737373;
+}
+
+/* 16px text with roomier lines; most themes ship 13-15px at 1.43 */
+html body {
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* links inside posts are underlined so they don't rely on color alone. The entry title and the
+   action icons below it are inside .ebody too, but they're clearly links without it. */
+html .ebody a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+html .ebody h1 a, html .ebody h2 a, html .ebody h3 a, html .ebody h4 a,
+html .ebody td > div > a, html .ebody a.entry-action {
+    text-decoration: none;
+}
+
+html .ebody h1 a:hover, html .ebody h2 a:hover, html .ebody h3 a:hover, html .ebody h4 a:hover {
+    text-decoration: underline;
+}
+
+/* sidebar section labels have inline 10px styles, hence !important */
+.menuentity > strong {
+    font-size: 12px !important;
+    letter-spacing: 1.5px !important;
+}
+
+/* disabled pager button: readable, dashed so it reads as unavailable */
+html .pager .disabled > a, html .pager .disabled > a:hover, html .pager .disabled > a:focus,
+html .pager .disabled > span {
+    color: var(--jj-disabled);
+    border-style: dashed;
+}
+
+/* placeholder text was 1.4-2.9:1 in most themes */
+html .form-control::placeholder {
+    color: var(--jj-placeholder, #737373);
+    opacity: 1;
+}
+
+/* visible keyboard focus */
+html a:focus-visible, html button:focus-visible, html .btn:focus-visible,
+html input:focus-visible, html select:focus-visible, html textarea:focus-visible,
+html [tabindex]:focus-visible {
+    outline: 3px solid var(--jj-focus);
+    outline-offset: 2px;
+}
+
+/* white ring on the navbar (not its dropdowns, which sit on the page color); themes with a light
+   navbar set --jj-nav-focus */
+html .navbar-nav > li > a:focus-visible, html .navbar-brand:focus-visible,
+html .navbar-toggle:focus-visible, html .navbar-form input:focus-visible {
+    outline-color: var(--jj-nav-focus, #ffffff);
+    outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

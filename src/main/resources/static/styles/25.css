@@ -22,6 +22,12 @@
 :root {
     color-scheme: dark;
 
+    /* shared rules in users.css use these */
+    --jj-focus: #f0c674;
+    --jj-nav-focus: #f0c674;
+    --jj-disabled: #aaa59b;
+    --jj-placeholder: #aaa59b;
+
     --ll-bg: #1c1d21;
     --ll-surface: #25272d;
     --ll-surface-2: #2e3138;
