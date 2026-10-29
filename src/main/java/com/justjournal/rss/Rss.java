@@ -187,7 +187,7 @@ public class Rss {
         item = new RssItem();
         item.setTruncateFields(false);
         item.setTitle(imageTitle);
-        item.setLink(userBaseUrl + userName + "/pictures");
+        item.setLink(userBaseUrl + userName + "/pictures/" + rs.get("id"));
         item.setDescription("");
         item.setGuid(albumImageUrl + rs.get("id"));
         item.setEnclosureURL(albumImageUrl + rs.get("id"));

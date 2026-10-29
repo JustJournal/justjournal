@@ -330,6 +330,20 @@ body {
 .TagCloudLarge {
     font-size: 1.3em;
 }
+/* single picture page: keep tall pictures within the screen */
+.picture-page figure {
+    margin: 0 0 20px;
+}
+
+.picture-page figure img {
+    max-height: 80vh;
+    width: auto;
+}
+
+.picture-page figcaption {
+    margin-top: 8px;
+}
+
 /* Entry action icons (edit, delete, favorite). Buttons are styled to look like the old icon links
    and sized to at least 24px, with a gap so delete isn't easily tapped instead of edit. */
 .entry-action,
