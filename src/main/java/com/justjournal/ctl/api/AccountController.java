@@ -254,6 +254,10 @@ public class AccountController {
       final HttpServletResponse response) {
     try {
       final User user = userDao.findByUsername(username);
+      if (user == null) {
+        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        return null;
+      }
 
       // TODO: we should handle this per journal rather than globally if one is there. Be
       // conservative for now
@@ -268,7 +272,7 @@ public class AccountController {
 
       return user;
     } catch (final Exception e) {
-      log.error(e.getMessage());
+      log.error("Could not load account {}", username, e);
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return null;
     }
