@@ -140,7 +140,7 @@ class ImageStorageServiceTests {
   @Test
   void uploadAvatar_storageFails_recordUnchanged() throws Exception {
     when(minioClient.bucketExists(any())).thenReturn(true);
-    when(minioClient.putObject(any())).thenThrow(new IOException("down"));
+    when(minioClient.putObject(any())).thenThrow(new MinioException(new IOException("down")));
 
     assertThrows(
         ServiceException.class,

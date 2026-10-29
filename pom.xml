@@ -6,7 +6,7 @@
 
     <groupId>com.justjournal</groupId>
     <artifactId>justjournal</artifactId>
-    <version>3.1.16</version>
+    <version>3.1.17</version>
 
     <organization>
         <name>Just Journal</name>
@@ -22,6 +22,7 @@
 
     <properties>
         <java.version>21</java.version>
+        <kotlin.version>2.2.21</kotlin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <commonmark.version>0.27.0</commonmark.version>
         <esapi.version>2.6.0.0</esapi.version>
@@ -266,14 +267,6 @@
             </exclusions>
         </dependency>
 
-        <!--
-        <dependency>
-            <groupId>org.owasp</groupId>
-            <artifactId>security-logging-logback</artifactId>
-            <version>1.1.7</version>
-        </dependency>
-        -->
-
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -339,7 +332,7 @@
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
-            <version>8.5.17</version>
+            <version>9.0.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
@@ -358,6 +351,21 @@
                     <artifactId>log4j-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- Maven needs OkHttp's JVM artifact; the 5.x okhttp JAR contains only metadata. -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-jvm</artifactId>
+            <version>5.3.2</version>
+        </dependency>
+
+        <!-- Used directly by the application, previously supplied transitively by OkHttp. -->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>13.0</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
