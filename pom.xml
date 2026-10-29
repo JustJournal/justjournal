@@ -30,6 +30,8 @@
         <argLine>-Xmx786m</argLine>
         <log4j2.version>2.25.5</log4j2.version>
         <tomcat.version>10.1.61</tomcat.version>
+        <!-- Boot 3.5 manages 11.7.2, which warns that MySQL 8.4 is untested; 11.15+ supports up to 9.4 -->
+        <flyway.version>11.20.3</flyway.version>
     </properties>
 
     <profiles>
