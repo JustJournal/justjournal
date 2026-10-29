@@ -129,7 +129,8 @@ public class Rss {
         item = new RssItem();
         item.setTruncateFields(false);
         item.setTitle(o.getSubject());
-        item.setLink(userBaseUrl + o.getUser().getUsername());
+        final String entryUrl = userBaseUrl + o.getUser().getUsername() + "/entry/" + o.getId();
+        item.setLink(entryUrl);
         // RSS feeds don't like &apos; and friends.  try to go unicode
         final String descUnicode;
         if (o.getFormat().equals(FormatType.MARKDOWN))
@@ -138,7 +139,7 @@ public class Rss {
           descUnicode = HTMLUtil.clean(o.getBody(), false);
         else descUnicode = o.getBody();
         item.setDescription(HTMLUtil.convertCharacterEntities(descUnicode));
-        item.setGuid(userBaseUrl + o.getUser().getUsername() + "/entry/" + o.getId());
+        item.setGuid(entryUrl);
         item.setPubDate(new DateTimeBean(o.getDate()).toPubDate());
 
         final Date date = o.getDate();
