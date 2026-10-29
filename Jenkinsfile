@@ -4,6 +4,10 @@ pipeline {
         maven 'maven'
         jdk 'jdk21'
     }
+    options {
+        // builds share the justjournal_test database on the agent; run one at a time across all branches
+        lock(resource: 'justjournal')
+    }
     stages {
         stage ('Initialize') {
             steps {
