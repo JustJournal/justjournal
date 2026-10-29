@@ -30,6 +30,7 @@ import com.justjournal.model.Entry;
 import com.justjournal.model.EntryTag;
 import com.justjournal.model.Tag;
 import java.util.List;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
@@ -51,4 +52,15 @@ public interface EntryTagsRepository extends JpaRepository<EntryTag, Integer> {
   EntryTag findByEntryAndTag(@Param("entry") Entry entry, @Param("tag") Tag tag);
 
   long countByTag(@Param("tag") Tag tag);
+
+  /**
+   * Delete every link to a tag without loading the links. Loading them also loads their entries,
+   * whose cascading tag sets would still hold the deleted links at the next flush.
+   *
+   * @param tag tag to unlink
+   * @return number of links deleted
+   */
+  @Modifying
+  @Query("delete from EntryTag et where et.tag = :tag")
+  int deleteByTag(@Param("tag") Tag tag);
 }

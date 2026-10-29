@@ -143,7 +143,7 @@ public class TagService {
     for (final Tag tag : tagDao.findAll()) {
       if (!StopWords.isStopWord(tag.getName())) continue;
 
-      entryTagsRepository.deleteAll(entryTagsRepository.findByTag(tag));
+      entryTagsRepository.deleteByTag(tag);
       tagDao.delete(tag);
       log.info("Removed stop word tag {}", tag.getName());
       removed++;
