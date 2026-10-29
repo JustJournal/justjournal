@@ -41,8 +41,10 @@ public interface UserImageRepository extends JpaRepository<UserImage, Integer> {
           + " LOWER(:username)")
   List<UserImage> findByUsername(@Param("username") String username);
 
+  // id breaks ties so pictures with the same title keep their order between requests; the single
+  // picture page's previous and next links depend on it
   @Query(
       "select ul from UserImage ul, User u where ul.user = u and LOWER(u.username) ="
-          + " LOWER(:username) order by ul.title")
+          + " LOWER(:username) order by ul.title, ul.id")
   List<UserImage> findByUsernameOrderByTitleTitleAsc(@Param("username") String username);
 }
