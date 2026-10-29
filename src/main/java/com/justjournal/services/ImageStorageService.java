@@ -35,16 +35,10 @@ import com.justjournal.repository.UserPicRepository;
 import com.justjournal.repository.UserPrefRepository;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
-import io.minio.errors.InsufficientDataException;
-import io.minio.errors.InternalException;
-import io.minio.errors.InvalidResponseException;
-import io.minio.errors.ServerException;
-import io.minio.errors.XmlParserException;
+import io.minio.errors.MinioException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Calendar;
 import java.util.Optional;
 import lombok.NonNull;
@@ -240,20 +234,14 @@ public class ImageStorageService {
    * @param mimeType image mime type
    * @param is input stream (preferably a ByteArrayInputStream)
    * @throws IOException
-   * @throws InvalidKeyException
-   * @throws NoSuchAlgorithmException
-   * @throws InsufficientDataException
-   * @throws ErrorResponseException
-   * @throws InvalidResponseException
+   * @throws MinioException if the storage operation fails
    */
   public void uploadFile(
       @NonNull final String bucketName,
       @NonNull final String objectName,
       @NonNull final String mimeType,
       @NonNull final InputStream is)
-      throws IOException, InvalidKeyException, NoSuchAlgorithmException, InsufficientDataException,
-          ErrorResponseException, InvalidResponseException, InternalException, XmlParserException,
-          ServerException {
+      throws IOException, MinioException {
 
     if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build())) {
       log.debug("Make bucket: {}", bucketName);
@@ -264,12 +252,12 @@ public class ImageStorageService {
     if (is instanceof ByteArrayInputStream)
       minioClient.putObject(
           PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(
-                  is, is.available(), -1)
+                  is, (long) is.available(), null)
               .contentType(mimeType)
               .build());
     else
       minioClient.putObject(
-          PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(is, -1, 10485760)
+          PutObjectArgs.builder().bucket(bucketName).object(objectName).stream(is, null, 10485760L)
               .contentType(mimeType)
               .build());
     is.close();
@@ -277,9 +265,7 @@ public class ImageStorageService {
 
   public InputStream downloadFile(
       @NonNull final String bucketName, @NonNull final String objectName)
-      throws IOException, InvalidKeyException, NoSuchAlgorithmException, InsufficientDataException,
-          ErrorResponseException, InvalidResponseException, InternalException, XmlParserException,
-          ServerException {
+      throws MinioException {
 
     log.debug("Download file bucket: {}  objectName: {}", bucketName, objectName);
     return minioClient.getObject(
@@ -287,9 +273,7 @@ public class ImageStorageService {
   }
 
   public void deleteFile(@NonNull final String bucketName, @NonNull final String objectName)
-      throws IOException, InvalidKeyException, NoSuchAlgorithmException, InsufficientDataException,
-          InvalidResponseException, ErrorResponseException, InternalException, XmlParserException,
-          ServerException {
+      throws MinioException {
 
     log.debug("Delete file bucket: {}  objectName: {}", bucketName, objectName);
     minioClient.removeObject(
