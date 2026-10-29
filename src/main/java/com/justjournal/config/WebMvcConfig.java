@@ -45,6 +45,8 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.WebContentInterceptor;
+import org.springframework.web.servlet.resource.ResourceUrlEncodingFilter;
+import org.springframework.web.servlet.resource.VersionResourceResolver;
 
 import java.time.Duration;
 
@@ -67,7 +69,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
   /**
    * Serve static assets (robots.txt, /static, styles and software downloads) from the classpath
-   * with a short cache period.
+   * with a short cache period. Files under /static get a content hash in their URL when a template
+   * links them with th:href or th:src, so a changed stylesheet isn't hidden behind the long expiry
+   * the front end proxy adds.
    *
    * @param registry resource handler registry
    */
@@ -84,13 +88,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
     registry
         .addResourceHandler("/static/**")
         .addResourceLocations("classpath:/static/")
-            .setCacheControl(CacheControl.maxAge(Duration.ofSeconds(cachePeriod)));
+            .setCacheControl(CacheControl.maxAge(Duration.ofSeconds(cachePeriod)))
+            .resourceChain(true)
+            .addResolver(new VersionResourceResolver().addContentVersionStrategy("/**"));
 
 
     registry
         .addResourceHandler("/static/styles/**", "/styles/*.css", "/styles/*.map")
         .addResourceLocations("classpath:/static/styles/")
-            .setCacheControl(CacheControl.maxAge(Duration.ofSeconds(cachePeriod)));
+            .setCacheControl(CacheControl.maxAge(Duration.ofSeconds(cachePeriod)))
+            .resourceChain(true)
+            .addResolver(new VersionResourceResolver().addContentVersionStrategy("/**"));
 
     // todo: move these files to an external source
     registry
@@ -134,6 +142,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
         .connectTimeout(Duration.ofSeconds(5))
         .readTimeout(Duration.ofSeconds(10))
         .build();
+  }
+
+  /** @return filter that rewrites template links to static files to their versioned URLs */
+  @Bean
+  public ResourceUrlEncodingFilter resourceUrlEncodingFilter() {
+    return new ResourceUrlEncodingFilter();
   }
 
   @Bean

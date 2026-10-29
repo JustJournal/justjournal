@@ -17,7 +17,7 @@
     <link rel="stylesheet" type="text/css" href="/static/styles/users.css" th:href="@{/static/styles/users.css}"/>
 
     <link rel="stylesheet" type="text/css" media="screen"
-          th:href="${journal.style.id > 16} ? '/static/styles/' + ${journal.style.id} + '.css' : '/static/styles/bootstrap-theme.min.css'" />
+          th:href="${journal.style.id > 16} ? @{'/static/styles/' + ${journal.style.id} + '.css'} : @{/static/styles/bootstrap-theme.min.css}" />
 
     <link rel="stylesheet" type="text/css" href="/static/components/Font-Awesome/css/all.css" th:href="@{/components/Font-Awesome/css/all.css}" />
     <link rel="stylesheet" type="text/css" href="/static/components/Font-Awesome/css/v4-shims.css" th:href="@{/components/Font-Awesome/css/v4-shims.css}" />
