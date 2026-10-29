@@ -20,13 +20,13 @@ import java.util.Map;
 @Service
 public class BingService {
 
-    @Value("${bing.indexNowKey}")
+    @Value("${bing.indexNowKey:}")
     private String indexNowKey;
 
-    @Value("${bing.host}")
+    @Value("${bing.host:www.justjournal.com}")
     private String host;
 
-    @Value("${bing.keyLocation}")
+    @Value("${bing.keyLocation:}")
     private String keyLocation;
 
     private final RestTemplate restTemplate;
@@ -36,6 +36,11 @@ public class BingService {
     }
 
     public boolean indexNow(List<String> permalinks) {
+        if (indexNowKey == null || indexNowKey.isBlank() || keyLocation == null || keyLocation.isBlank()) {
+            log.debug("IndexNow key not configured; not submitting {} URLs", permalinks.size());
+            return false;
+        }
+
         try {
             List<String> cleanUrls = permalinks.stream()
                     .map(url -> {
