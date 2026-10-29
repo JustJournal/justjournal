@@ -264,7 +264,7 @@ public class AccountController {
       for (final Journal journal : user.getJournals()) {
         if (journal.isOwnerViewOnly()
             && (!Login.isAuthenticated(session)
-                || user.getUsername().equals(Login.currentLoginName(session)))) {
+                || !user.getUsername().equals(Login.currentLoginName(session)))) {
           response.setStatus(HttpServletResponse.SC_FORBIDDEN);
           return null;
         }
