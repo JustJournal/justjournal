@@ -28,6 +28,7 @@ package com.justjournal.services;
 import com.justjournal.model.UserImage;
 import com.justjournal.repository.UserImageRepository;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /** @author Lucas Holt */
@@ -43,4 +44,34 @@ public class UserImageService {
   public List<UserImage> getUserImages(final String username) {
     return userImageRepository.findByUsernameOrderByTitleTitleAsc(username);
   }
+
+  /**
+   * One picture with its neighbors in the gallery's title order, for the single picture page.
+   *
+   * @param username owner of the picture
+   * @param id picture id
+   * @return the picture, or empty if the user has no picture with that id
+   */
+  public Optional<PicturePage> getPicturePage(final String username, final int id) {
+    final List<UserImage> images = getUserImages(username);
+    for (int i = 0; i < images.size(); i++) {
+      if (images.get(i).getId() == id) {
+        return Optional.of(
+            new PicturePage(
+                images.get(i),
+                i > 0 ? images.get(i - 1) : null,
+                i < images.size() - 1 ? images.get(i + 1) : null));
+      }
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * A picture and the pictures before and after it in the gallery.
+   *
+   * @param picture the picture
+   * @param previous picture before it, or null if it's first
+   * @param next picture after it, or null if it's last
+   */
+  public record PicturePage(UserImage picture, UserImage previous, UserImage next) {}
 }

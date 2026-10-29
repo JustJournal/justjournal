@@ -2,15 +2,21 @@
 <html xmlns:th="http://www.thymeleaf.org">
 
 <head>
-    <title th:text="${journal.name}"></title>
+    <title th:text="${picture != null} ? ${#strings.defaultString(picture.picture.title, 'Picture')} + ' - ' + ${journal.name} : ${journal.name}"></title>
     <meta th:if="${journal.allowSpider == false}" name="robots" content="noindex, nofollow, noarchive" />
     <meta th:if="${journal.allowSpider == false}" name="googlebot" content="nosnippet" />
     <meta property="og:site_name" content="Just Journal" />
     <meta property="og:type" content="article" />
-    <meta th:if="${avatar}" property="og:image" th:content="@{'https://www.justjournal.com/Avatar/' + ${user.id}}" />
+    <meta th:if="${avatar and picture == null}" property="og:image" th:content="@{'https://www.justjournal.com/Avatar/' + ${user.id}}" />
 
     <meta th:if="${entry != null}" property="og:url"   th:content="@{'https://www.justjournal.com/users/' + ${user.username} + '/entry/' + ${entry.getId()}}" />
     <meta th:if="${entry != null}" property="og:title" th:content="${entry.getSubject()}" />
+
+    <th:block th:if="${picture != null}">
+    <meta property="og:url" th:content="@{'https://www.justjournal.com/users/' + ${user.username} + '/pictures/' + ${picture.picture.id}}" />
+    <meta property="og:title" th:content="${#strings.defaultString(picture.picture.title, 'Picture')}" />
+    <meta property="og:image" th:content="@{'https://www.justjournal.com/AlbumImage/' + ${picture.picture.id}}" />
+    </th:block>
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="/static/styles/bootstrap.min.css" th:href="@{/static/styles/bootstrap.min.css}"/>
@@ -25,6 +31,7 @@
           href="/static/components/lightbox2/dist/css/lightbox.css" th:href="@{/components/lightbox2/dist/css/lightbox.css}" />
 
     <link th:if="${entry != null}"  rel="canonical" th:href="@{'https://www.justjournal.com/users/' + ${user.username} + '/entry/' + ${entry.getId()}}" />
+    <link th:if="${picture != null}"  rel="canonical" th:href="@{'https://www.justjournal.com/users/' + ${user.username} + '/pictures/' + ${picture.picture.id}}" />
     <link rel="alternate" type="application/rss+xml" title="RSS"
           th:href="@{'https://www.justjournal.com/users/' + ${user.username} +'/rss'}" />
     <link rel="alternate" type="application/atom+xml" title="Atom"
@@ -91,7 +98,7 @@
                                 <a title="Friends"
                                    th:href="@{'/users/' + ${user.username} + '/friends'}"><i class="fa fa-group" aria-hidden="true"></i><span class="nav-label">Friends</span></a>
                             </li>
-                            <li th:class="${pictures != null} ? 'active' : ''">
+                            <li th:class="${pictures != null or picture != null} ? 'active' : ''">
                                 <a title="Photos"
                                    th:href="@{'/users/' + ${user.username} + '/pictures'}"><i class="fa fa-picture-o" aria-hidden="true"></i><span class="nav-label">Photos</span></a>
                             </li>
@@ -303,7 +310,7 @@
                                 <a th:href="@{'/AlbumImage/' + ${pic.id}}" rel="lightbox">
                                     <img th:src="@{'/AlbumImage/' + ${pic.id} + '/thumbnail'}" th:alt="${pic.title}"/>
                                 </a>
-                                <div class="caption"><span th:text="${pic.title}"></span>
+                                <div class="caption"><a th:href="@{'/users/' + ${user.username} + '/pictures/' + ${pic.id}}" th:text="${#strings.defaultString(pic.title, 'Picture')}"></a>
                                     <a class="btn btn-danger btn-xs" role="button" title="Delete picture"
                                        th:if="${authenticatedUsername != null and #strings.equalsIgnoreCase(authenticatedUsername, user.username)}"
                                        th:onclick="'javascript:deleteImage(\'' + ${pic.id} + '\');'"><i
@@ -316,6 +323,38 @@
                     <p>Subscribe to pictures <a th:href="@{'/users/' + ${user.username} + '/rsspics'}">feed</a>.</p>
 
                     <p th:if="${authenticatedUsername != null}"><a href="/prefs/image">Add more pictures</a></p>
+                </div>
+
+                <div th:if="${picture != null}" class="picture-page">
+                    <p><a th:href="@{'/users/' + ${user.username} + '/pictures'}">&larr; All pictures</a></p>
+
+                    <h2 th:text="${#strings.defaultString(picture.picture.title, 'Picture')}"></h2>
+
+                    <figure>
+                        <a th:href="@{'/AlbumImage/' + ${picture.picture.id}}">
+                            <img class="img-responsive" th:src="@{'/AlbumImage/' + ${picture.picture.id}}"
+                                 th:alt="${#strings.defaultString(picture.picture.title, 'Picture')}"/>
+                        </a>
+                        <figcaption th:if="${picture.picture.modified != null}" class="text-muted">
+                            <time th:datetime="${#dates.format(picture.picture.modified, 'yyyy-MM-dd')}"
+                                  th:text="${#dates.format(picture.picture.modified, 'MMMM d, yyyy')}"></time>
+                        </figcaption>
+                    </figure>
+
+                    <nav aria-label="Pictures">
+                        <ul class="pager">
+                            <li class="previous" th:if="${picture.previous != null}">
+                                <a th:href="@{'/users/' + ${user.username} + '/pictures/' + ${picture.previous.id}}" rel="prev">
+                                    <span aria-hidden="true">&larr;</span>
+                                    <span th:text="${#strings.defaultString(picture.previous.title, 'Previous')}"></span></a>
+                            </li>
+                            <li class="next" th:if="${picture.next != null}">
+                                <a th:href="@{'/users/' + ${user.username} + '/pictures/' + ${picture.next.id}}" rel="next">
+                                    <span th:text="${#strings.defaultString(picture.next.title, 'Next')}"></span>
+                                    <span aria-hidden="true">&rarr;</span></a>
+                            </li>
+                        </ul>
+                    </nav>
                 </div>
 
                 <div th:text="${search}"></div>

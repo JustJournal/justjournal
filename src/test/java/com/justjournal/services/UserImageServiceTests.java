@@ -79,4 +79,44 @@ class UserImageServiceTests {
 
         verify(userImageRepository, times(1)).findByUsernameOrderByTitleTitleAsc(username);
     }
+
+    private static UserImage image(int id, String title) {
+        UserImage image = new UserImage();
+        image.setId(id);
+        image.setTitle(title);
+        return image;
+    }
+
+    @Test
+    void getPicturePage_shouldReturnPictureWithNeighbors() {
+        UserImage a = image(5, "A"), b = image(3, "B"), c = image(9, "C");
+        when(userImageRepository.findByUsernameOrderByTitleTitleAsc("testuser")).thenReturn(List.of(a, b, c));
+
+        UserImageService.PicturePage page = userImageService.getPicturePage("testuser", 3).orElseThrow();
+
+        assertEquals(b, page.picture());
+        assertEquals(a, page.previous());
+        assertEquals(c, page.next());
+    }
+
+    @Test
+    void getPicturePage_shouldHaveNoPreviousForFirstOrNextForLast() {
+        UserImage a = image(5, "A"), b = image(3, "B");
+        when(userImageRepository.findByUsernameOrderByTitleTitleAsc("testuser")).thenReturn(List.of(a, b));
+
+        UserImageService.PicturePage first = userImageService.getPicturePage("testuser", 5).orElseThrow();
+        UserImageService.PicturePage last = userImageService.getPicturePage("testuser", 3).orElseThrow();
+
+        assertNull(first.previous());
+        assertEquals(b, first.next());
+        assertEquals(a, last.previous());
+        assertNull(last.next());
+    }
+
+    @Test
+    void getPicturePage_shouldBeEmpty_whenPictureBelongsToSomeoneElse() {
+        when(userImageRepository.findByUsernameOrderByTitleTitleAsc("testuser")).thenReturn(List.of(image(5, "A")));
+
+        assertTrue(userImageService.getPicturePage("testuser", 6).isEmpty());
+    }
 }

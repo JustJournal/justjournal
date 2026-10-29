@@ -93,6 +93,7 @@ public class UsersController {
   private static final String MODEL_CALENDAR_MINI = "calendarMini";
   private static final String MODEL_CALENDAR = "calendar";
   private static final String MODEL_PICTURES = "pictures";
+  private static final String MODEL_PICTURE = "picture";
   private static final String MODEL_FAVORITES = "favorites";
   private static final String MODEL_FRIENDS = "friends";
   private static final String VIEW_USERS = "users";
@@ -675,6 +676,45 @@ public class UsersController {
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
 
     model.addAttribute(MODEL_PICTURES, userImageService.getUserImages(username));
+
+    return VIEW_USERS;
+  }
+
+  @GetMapping(value = "{username}/pictures/{id}", produces = "text/html")
+  public String picture(
+      @PathVariable(PATH_USERNAME) final String username,
+      @PathVariable("id") final int id,
+      final Model model,
+      final HttpSession session,
+      final HttpServletResponse response) {
+    final UserContext userc = userContextService.getUserContext(username, session);
+
+    if (userc == null) {
+      response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+      return VIEW_NOT_FOUND;
+    }
+
+    Journal journal = new ArrayList<>(userc.getBlogUser().getJournals()).get(0);
+    model.addAttribute(MODEL_JOURNAL, journal);
+
+    model.addAttribute(MODEL_AUTHENTICATED_USER, Login.currentLoginName(session));
+    model.addAttribute(MODEL_USER, userc.getBlogUser());
+
+    if (journal.isOwnerViewOnly() && !userc.isAuthBlog()) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return "";
+    }
+
+    final Optional<UserImageService.PicturePage> page =
+        userImageService.getPicturePage(userc.getBlogUser().getUsername(), id);
+    if (page.isEmpty()) {
+      response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+      return VIEW_NOT_FOUND;
+    }
+
+    model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
+    model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userc.getBlogUser()));
+    model.addAttribute(MODEL_PICTURE, page.get());
 
     return VIEW_USERS;
   }
@@ -1827,7 +1867,7 @@ public class UsersController {
     var blogbase = settings.getBlogBaseUrl(user.getUsername());
     rss.setTitle(user.getUsername() + "'s pictures");
     rss.setLink(blogbase + "/pictures");
-    rss.setSelfLink(blogbase + "/pictures/rss");
+    rss.setSelfLink(blogbase + "/rsspics");
     rss.setDescription("Just Journal Pictures for " + user.getUsername());
     rss.setLanguage("en-us");
     rss.setCopyright("Copyright " + calendarg.get(Calendar.YEAR) + ' ' + user.getFirstName());
