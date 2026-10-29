@@ -28,7 +28,6 @@ package com.justjournal.services;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.justjournal.Application;
 import com.justjournal.core.CustomObjectMapper;
-import com.justjournal.model.EntryTag;
 import com.justjournal.model.Tag;
 import com.justjournal.repository.EntryTagsRepository;
 import com.justjournal.repository.TagRepository;
@@ -59,6 +58,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.justjournal.core.CacheKeys.TAG_KEY;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -165,12 +165,15 @@ class TagServiceTests {
   void deleteTag_shouldCallRepositoryDeleteById() {
     // Arrange
     int tagId = 1;
+    when(reactiveRedisTemplateTag.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.delete(TAG_KEY + tagId)).thenReturn(Mono.just(true));
 
     // Act
     tagService.deleteTag(tagId);
 
     // Assert
     Mockito.verify(tagRepository, times(1)).deleteById(tagId);
+    verify(valueOperations).delete(TAG_KEY + tagId);
   }
 
   @Test
@@ -240,15 +243,17 @@ class TagServiceTests {
     to.setId(1);
     final Tag java = new Tag("java");
     java.setId(2);
-    final List<EntryTag> links = List.of(new EntryTag());
     when(tagRepository.findAll()).thenReturn(List.of(to, java));
-    when(entryTagsRepository.findByTag(to)).thenReturn(links);
+    when(reactiveRedisTemplateTag.opsForValue()).thenReturn(valueOperations);
+    when(valueOperations.delete(TAG_KEY + 1)).thenReturn(Mono.just(true));
 
     assertEquals(1, tagService.deleteStopWordTags());
 
-    verify(entryTagsRepository).deleteAll(links);
+    verify(entryTagsRepository).deleteByTag(to);
     verify(tagRepository).delete(to);
     verify(tagRepository, never()).delete(java);
-    verify(entryTagsRepository, never()).findByTag(java);
+    verify(valueOperations).delete(TAG_KEY + 1);
+    verify(valueOperations, never()).delete(TAG_KEY + 2);
+    verify(entryTagsRepository, never()).deleteByTag(java);
   }
 }

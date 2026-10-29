@@ -130,6 +130,12 @@ public class TagService {
 
   public void deleteTag(final int tagId) {
     tagDao.deleteById(tagId);
+    evict(tagId);
+  }
+
+  /** Drop a deleted tag from the cache so getTag doesn't keep returning it. */
+  private void evict(final int tagId) {
+    reactiveRedisTemplateTag.opsForValue().delete(TAG_KEY + tagId).subscribe();
   }
 
   /**
@@ -143,8 +149,9 @@ public class TagService {
     for (final Tag tag : tagDao.findAll()) {
       if (!StopWords.isStopWord(tag.getName())) continue;
 
-      entryTagsRepository.deleteAll(entryTagsRepository.findByTag(tag));
+      entryTagsRepository.deleteByTag(tag);
       tagDao.delete(tag);
+      evict(tag.getId());
       log.info("Removed stop word tag {}", tag.getName());
       removed++;
     }
