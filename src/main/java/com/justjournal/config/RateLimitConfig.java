@@ -25,7 +25,9 @@ import redis.clients.jedis.JedisPoolConfig;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(prefix = "bucket4j", name = "enabled", havingValue = "true")
+// matchIfMissing like the starter itself: profiles without bucket4j settings still load the
+// starter, which refuses to start without this cache
+@ConditionalOnProperty(prefix = "bucket4j", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RateLimitConfig {
 
   static final int TIMEOUT_MS = 1_000;
