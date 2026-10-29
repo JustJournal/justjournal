@@ -41,11 +41,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class DateConvertTests {
 
+    /**
+     * Parse in a fixed zone so the expected values don't depend on the machine's time zone; they
+     * were written for midnight US Eastern.
+     */
+    private static Date parse(String date) throws ParseException {
+        DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        sdf.setTimeZone(TimeZone.getTimeZone("America/New_York"));
+        return sdf.parse(date);
+    }
+
     @Test
     void testEncode3339() throws ParseException {
-        DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String dateString = "2014-02-11";
-        Date dateObject = sdf.parse(dateString);
+        Date dateObject = parse("2014-02-11");
 
         var result = DateConvert.encode3339(dateObject);
         assertEquals("2014-02-11T05:00:00.000Z", result);
@@ -62,9 +70,7 @@ class DateConvertTests {
 
     @Test
     void testEncode822() throws ParseException {
-        DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String dateString = "2014-02-11";
-        Date dateObject = sdf.parse(dateString);
+        Date dateObject = parse("2014-02-11");
 
         var result = DateConvert.encode822(dateObject);
         assertEquals("Tue, 11 Feb 2014 05:00:00 +0000", result);
@@ -72,9 +78,7 @@ class DateConvertTests {
 
     @Test
     void testEncode822Tz() throws ParseException {
-        DateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String dateString = "2014-02-11";
-        Date dateObject = sdf.parse(dateString);
+        Date dateObject = parse("2014-02-11");
 
         var result = DateConvert.encode822(dateObject, TimeZone.getTimeZone("EST"));
         assertEquals("Tue, 11 Feb 2014 00:00:00 -0500", result);
