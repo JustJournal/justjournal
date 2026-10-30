@@ -27,10 +27,12 @@ package com.justjournal.services;
 
 
 import com.justjournal.Login;
+import com.justjournal.core.Settings;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Journal;
 import com.justjournal.model.PasswordType;
 import com.justjournal.model.PrefBool;
+import com.justjournal.model.QueueMail;
 import com.justjournal.model.Style;
 import com.justjournal.model.User;
 import com.justjournal.model.UserBio;
@@ -38,6 +40,7 @@ import com.justjournal.model.UserContact;
 import com.justjournal.model.UserPref;
 import com.justjournal.model.api.NewUser;
 import com.justjournal.repository.JournalRepository;
+import com.justjournal.repository.QueueMailRepository;
 import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserContactRepository;
 import com.justjournal.repository.UserPrefRepository;
@@ -68,9 +71,13 @@ public class AccountService {
 
   private final Login login;
 
+  private final QueueMailRepository queueMailRepository;
+
+  private final Settings settings;
+
   public AccountService(UserRepository userRepository, UserBioRepository userBioDao, UserContactRepository userContactRepository,
                         UserPrefRepository userPrefRepository, JournalRepository journalRepository, StyleService styleService,
-                        Login login) {
+                        Login login, QueueMailRepository queueMailRepository, Settings settings) {
     this.userRepository = userRepository;
     this.userBioDao = userBioDao;
     this.userContactRepository = userContactRepository;
@@ -78,6 +85,8 @@ public class AccountService {
     this.journalRepository = journalRepository;
     this.styleService = styleService;
     this.login = login;
+    this.queueMailRepository = queueMailRepository;
+    this.settings = settings;
   }
 
   public User signup(final NewUser newUser) throws ServiceException {
@@ -151,6 +160,54 @@ public class AccountService {
       log.error("Could not save user bio", e);
       throw new ServiceException("Unable to save user bio");
     }
+
+    queueWelcomeMail(user, newUser.getEmail());
     return user;
+  }
+
+  /** Greet the new member. A mail problem must never undo a signup, so failures are only logged. */
+  private void queueWelcomeMail(final User user, final String email) {
+    if (email == null || email.isBlank()) return;
+
+    try {
+      final String from = settings.getMailFrom();
+      final QueueMail mail = new QueueMail();
+      mail.setFrom(from == null || from.isBlank() ? "root@localhost" : from);
+      mail.setTo(email.trim());
+      mail.setSubject("Welcome to " + siteName());
+      mail.setBody(welcomeMailBody(user));
+      mail.setPurpose("welcome");
+      queueMailRepository.save(mail);
+    } catch (final Exception e) {
+      log.error("Could not queue welcome mail for user {}", user.getUsername(), e);
+    }
+  }
+
+  String welcomeMailBody(final User user) {
+    final String name = user.getName() == null || user.getName().isBlank() ? user.getUsername() : user.getName();
+    return "Hi "
+        + name
+        + ",\n\n"
+        + "Welcome to "
+        + siteName()
+        + "! Your account "
+        + user.getUsername()
+        + " is ready and your journal is waiting for its first entry.\n\n"
+        + "Your journal lives at:\n\n"
+        + settings.getBlogBaseUrl(user.getUsername())
+        + "\n\n"
+        + "Log in at "
+        + settings.getBaseUri()
+        + " to write, pick a style, add friends or fill in your profile.\n\n"
+        + "If you didn't create this account, you can ignore this message.\n\n"
+        + "Happy journaling,\n"
+        + "The "
+        + siteName()
+        + " team\n";
+  }
+
+  private String siteName() {
+    final String name = settings.getSiteName();
+    return name == null || name.isBlank() ? "JustJournal" : name;
   }
 }

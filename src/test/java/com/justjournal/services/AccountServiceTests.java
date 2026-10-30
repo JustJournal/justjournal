@@ -27,17 +27,23 @@ package com.justjournal.services;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.justjournal.Login;
+import com.justjournal.core.Settings;
 import com.justjournal.model.PasswordType;
+import com.justjournal.model.QueueMail;
 import com.justjournal.model.User;
 import com.justjournal.model.UserPref;
 import com.justjournal.model.api.NewUser;
 import com.justjournal.repository.JournalRepository;
+import com.justjournal.repository.QueueMailRepository;
 import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserContactRepository;
 import com.justjournal.repository.UserPrefRepository;
@@ -60,8 +66,19 @@ class AccountServiceTests {
   @Mock private JournalRepository journalRepository;
   @Mock private StyleService styleService;
   @Mock private Login login;
+  @Mock private QueueMailRepository queueMailRepository;
+  @Mock private Settings settings;
 
   @InjectMocks private AccountService accountService;
+
+  private NewUser newUser() {
+    final NewUser newUser = new NewUser();
+    newUser.setUsername("technews");
+    newUser.setPassword("secret123");
+    newUser.setEmail(" test@justjournal.com ");
+    newUser.setFirstName("Tech");
+    return newUser;
+  }
 
   @Test
   void signupSetsNotNullColumns() throws Exception {
@@ -84,5 +101,48 @@ class AccountServiceTests {
     final ArgumentCaptor<UserPref> pref = ArgumentCaptor.forClass(UserPref.class);
     verify(userPrefRepository).save(pref.capture());
     assertNotNull(pref.getValue().getModified(), "user_pref.modified is NOT NULL in the database");
+  }
+
+  @Test
+  void signupQueuesAWelcomeMailWithTheBlogLink() throws Exception {
+    when(login.getHashedPassword(anyString(), anyString())).thenReturn("$argon2id$hash");
+    when(userRepository.saveAndFlush(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(settings.getMailFrom()).thenReturn("noreply@justjournal.com");
+    when(settings.getSiteName()).thenReturn("JustJournal");
+    when(settings.getBaseUri()).thenReturn("https://www.justjournal.com/");
+    when(settings.getBlogBaseUrl("technews")).thenReturn("https://www.justjournal.com/users/technews");
+
+    accountService.signup(newUser());
+
+    final ArgumentCaptor<QueueMail> mail = ArgumentCaptor.forClass(QueueMail.class);
+    verify(queueMailRepository).save(mail.capture());
+    assertEquals("test@justjournal.com", mail.getValue().getTo(), "address is trimmed");
+    assertEquals("noreply@justjournal.com", mail.getValue().getFrom());
+    assertEquals("Welcome to JustJournal", mail.getValue().getSubject());
+    assertEquals("welcome", mail.getValue().getPurpose());
+    assertTrue(mail.getValue().getBody().contains("Hi Tech,"));
+    assertTrue(mail.getValue().getBody().contains("https://www.justjournal.com/users/technews"));
+  }
+
+  @Test
+  void signupStillSucceedsWhenTheWelcomeMailCannotBeQueued() throws Exception {
+    when(login.getHashedPassword(anyString(), anyString())).thenReturn("$argon2id$hash");
+    when(userRepository.saveAndFlush(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(settings.getBlogBaseUrl("technews")).thenReturn("https://www.justjournal.com/users/technews");
+    doThrow(new RuntimeException("db down")).when(queueMailRepository).save(any(QueueMail.class));
+
+    assertNotNull(accountService.signup(newUser()));
+  }
+
+  @Test
+  void noWelcomeMailWithoutAnAddress() throws Exception {
+    when(login.getHashedPassword(anyString(), anyString())).thenReturn("$argon2id$hash");
+    when(userRepository.saveAndFlush(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+    final NewUser user = newUser();
+    user.setEmail("");
+
+    accountService.signup(user);
+
+    verify(queueMailRepository, never()).save(any(QueueMail.class));
   }
 }
