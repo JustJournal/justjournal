@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 
 import com.justjournal.Login;
 import com.justjournal.core.Settings;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.model.User;
 import com.justjournal.model.api.NewUser;
 import com.justjournal.services.AccountService;
@@ -92,18 +93,30 @@ class SignUpControllerTests {
   void existingUsernameIsRejected() throws Exception {
     when(login.exists("technews")).thenReturn(true);
 
-    final IllegalArgumentException e =
+    final BadRequestException e =
         assertThrows(
-            IllegalArgumentException.class,
+            BadRequestException.class,
             () -> signUpController.post(newUser("technews"), response));
     assertEquals("Username is already taken", e.getMessage());
     verify(accountService, never()).signup(any());
   }
 
   @Test
+  void passwordWithOtherSymbolsIsRejectedWithTheRule() throws Exception {
+    when(login.exists("technews")).thenReturn(false);
+    final NewUser user = newUser("technews");
+    user.setPassword("has-a-dash");
+
+    final BadRequestException e =
+        assertThrows(BadRequestException.class, () -> signUpController.post(user, response));
+    assertEquals(SignUpController.PASSWORD_INVALID, e.getMessage());
+    verify(accountService, never()).signup(any());
+  }
+
+  @Test
   void invalidUsernameIsRejected() throws Exception {
     assertThrows(
-        IllegalArgumentException.class, () -> signUpController.post(newUser("bad name!"), response));
+        BadRequestException.class, () -> signUpController.post(newUser("bad name!"), response));
     verify(accountService, never()).signup(any());
   }
 }
