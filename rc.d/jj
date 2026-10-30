@@ -14,16 +14,17 @@ load_rc_config "${name}"
 : ${jj_enable="NO"}
 : ${jj_home="/usr/local/boot/"}
 : ${jj_args=""}
-: ${jj_java_opts="-Xmx16000m -Dlog4j2.formatMsgNoLookups=true"}
+: ${jj_java_opts="-Xms12G -Xmx16G -Dlog4j2.formatMsgNoLookups=true -XX:+UseG1GC"}
 : ${jj_user="jj"}
 : ${jj_group="jj"}
 : ${jj_log_file="/var/log/jj.log"}
+: ${jj_stop_timeout="60"}
 
 pidfile="/var/run/jj/jj.pid"
 command="/usr/sbin/daemon"
-java_cmd="/usr/local/bin/java"
+java_cmd="/usr/local/openjdk21/bin/java"
 procname="${java_cmd}"
-command_args="-p ${pidfile} ${java_cmd} ${jj_java_opts} -jar ${jj_home}/jj.jar ${jj_args} > ${jj_log_file} 2>&1"
+command_args="-p ${pidfile} ${java_cmd} ${jj_java_opts} ${jj_args} -jar ${jj_home}/jj.jar > ${jj_log_file} 2>&1"
 required_files="${java_cmd}"
 
 start_precmd="jj_prestart"
@@ -49,13 +50,30 @@ jj_start()
 
 jj_stop()
 {
-        if [ -f $pidfile ]; then
-                echo "Stopping ${name}."
-                kill $(cat $pidfile)
-        else
+        if [ ! -f "$pidfile" ]; then
                 echo "${name} not running."
-                exit 0
+                return 0
         fi
+        pid=$(cat "$pidfile")
+        if ! kill -0 "$pid" 2>/dev/null; then
+                echo "${name} not running."
+                return 0
+        fi
+
+        # SIGTERM lets Spring finish and close the database pool. Killing the JVM outright drops
+        # every MySQL connection at once, which has been crashing mysqld.
+        echo "Stopping ${name}."
+        kill -TERM "$pid"
+        i=0
+        while kill -0 "$pid" 2>/dev/null; do
+                if [ "$i" -ge "${jj_stop_timeout}" ]; then
+                        echo "${name} did not stop after ${jj_stop_timeout} seconds, killing it."
+                        kill -KILL "$pid"
+                        break
+                fi
+                sleep 1
+                i=$((i + 1))
+        done
 }
 
 load_rc_config $name
