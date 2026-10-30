@@ -64,8 +64,7 @@ public class SignUpController {
 
   private static final String EMAIL_INVALID = "Invalid email address.";
 
-  static final String PASSWORD_INVALID =
-      "Password must be 5-50 characters using letters, numbers, spaces and _ @ . ! & * # $ ? ^";
+  static final String PASSWORD_INVALID = Login.NEW_PASSWORD_RULE;
 
   public SignUpController(AccountService accountService, Settings settings, Login login) {
     this.accountService = accountService;
@@ -98,7 +97,7 @@ public class SignUpController {
       throw new BadRequestException("Username is already taken");
     }
 
-    if (!Login.isPassword(user.getPassword())) {
+    if (!Login.isNewPassword(user.getPassword())) {
       log.warn("Password for signup is invalid");
 
       throw new BadRequestException(PASSWORD_INVALID);

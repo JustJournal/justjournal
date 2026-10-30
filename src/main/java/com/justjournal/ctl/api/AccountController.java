@@ -131,12 +131,9 @@ public class AccountController {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError("The current password is invalid.");
     }
-    if (passNew == null
-        || passNew.length() < PASSWORD_MIN_LENGTH
-        || passNew.length() > PASSWORD_MAX_LENGTH
-        || !Login.isPassword(passNew)) {
+    if (!Login.isNewPassword(passNew)) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return ErrorHandler.modelError("The new password is invalid.");
+      return ErrorHandler.modelError(Login.NEW_PASSWORD_RULE);
     }
 
     // TODO: Refactor change pass

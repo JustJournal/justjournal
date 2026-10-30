@@ -114,6 +114,32 @@ class SignUpControllerTests {
   }
 
   @Test
+  void shortPasswordIsRejectedAtSignup() throws Exception {
+    when(login.exists("technews")).thenReturn(false);
+    final NewUser user = newUser("technews");
+    user.setPassword("seven77");
+
+    final BadRequestException e =
+        assertThrows(BadRequestException.class, () -> signUpController.post(user, response));
+    assertEquals(SignUpController.PASSWORD_INVALID, e.getMessage());
+    verify(accountService, never()).signup(any());
+  }
+
+  @Test
+  void eightCharacterPasswordIsAccepted() throws Exception {
+    final User created = new User();
+    created.setId(42);
+    when(login.exists("technews")).thenReturn(false);
+    when(accountService.signup(any())).thenReturn(created);
+    final NewUser user = newUser("technews");
+    user.setPassword("eight888");
+
+    signUpController.post(user, response);
+
+    assertEquals(201, response.getStatus());
+  }
+
+  @Test
   void invalidUsernameIsRejected() throws Exception {
     assertThrows(
         BadRequestException.class, () -> signUpController.post(newUser("bad name!"), response));

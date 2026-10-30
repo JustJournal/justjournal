@@ -848,8 +848,8 @@
                 showMessage('#reset-error', 'Passwords do not match');
                 return;
             }
-            if (password.length < 5) {
-                showMessage('#reset-error', 'Password must be greater than 4 characters');
+            if (password.length < 8) {
+                showMessage('#reset-error', 'Password must be at least 8 characters');
                 return;
             }
 
