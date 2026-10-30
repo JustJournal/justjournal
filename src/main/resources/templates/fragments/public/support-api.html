@@ -39,7 +39,19 @@
             <tr><td><code>POST /api/login</code></td>
                 <td>Body <code>{"username": "...", "password": "..."}</code>. Returns
                     <code>{"status": "JJ.LOGIN.OK", "username": "..."}</code> and sets the session cookie, or
-                    <code>401</code> with <code>"JJ.LOGIN.FAIL"</code>.</td></tr>
+                    <code>401</code> with <code>"JJ.LOGIN.FAIL"</code>. If the account has two-factor
+                    authentication turned on, the password alone returns <code>200</code> with
+                    <code>{"status": "JJ.LOGIN.2FA", "username": "...", "twoFactorMethod": "EMAIL"}</code>
+                    (or <code>"TOTP"</code>) and the session is <em>not</em> logged in yet; finish with
+                    <code>POST /api/login/2fa</code> on the same cookie.</td></tr>
+            <tr><td><code>POST /api/login/2fa</code></td>
+                <td>Body <code>{"code": "123456", "rememberDevice": false}</code>, where the code comes from the
+                    user's e-mail, authenticator app, or recovery list. Returns <code>JJ.LOGIN.OK</code> and logs the
+                    session in, <code>401</code> <code>JJ.LOGIN.FAIL</code> for a wrong code, or <code>429</code>
+                    after too many wrong codes, after which the client must start again at
+                    <code>POST /api/login</code>. The pending login expires after ten minutes.
+                    <code>GET /api/login/2fa</code> reports whether a login is waiting and by which method;
+                    <code>POST /api/login/2fa/resend</code> mails a new code for the e-mail method.</td></tr>
             <tr><td><code>GET /api/login</code></td>
                 <td>Check the current session. <code>status</code> is <code>JJ.LOGIN.OK</code> with the username, or
                     <code>JJ.LOGIN.NONE</code>.</td></tr>

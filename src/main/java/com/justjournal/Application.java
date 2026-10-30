@@ -69,8 +69,11 @@ public class Application extends SpringBootServletInitializer {
   }
 
   @Bean
-  public Login webLogin(UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
-    return new Login(userRepository, trackBackIpRepository);
+  public Login webLogin(
+      UserRepository userRepository,
+      TrackBackIpRepository trackBackIpRepository,
+      UserTwoFactorRepository userTwoFactorRepository) {
+    return new Login(userRepository, trackBackIpRepository, userTwoFactorRepository);
   }
 
   @Bean

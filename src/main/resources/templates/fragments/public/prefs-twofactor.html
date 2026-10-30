@@ -1,0 +1,107 @@
+<div th:fragment="content" class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Preferences</h2>
+            <h3>Two-Factor Authentication</h3>
+            <div th:if="${authenticatedUsername == null}" class="alert alert-info">
+                Please <a href="/">log in</a> to change your preferences.
+            </div>
+            <div th:if="${authenticatedUsername != null}" id="twofactor">
+                <p>Two-factor authentication asks for a code as well as your password when you log in on the web site.
+                    It is off unless you turn it on here.</p>
+                <div class="alert alert-warning">
+                    While it is on, the XML-RPC interface and the older Windows and Unix desktop clients cannot log in,
+                    because they have no way to ask for a code. The <a href="/support/api">JSON client API</a> supports it.
+                </div>
+
+                <div class="alert alert-danger" id="twofactor-error" style="display:none;"></div>
+                <div class="alert alert-success" id="twofactor-success" style="display:none;"></div>
+
+                <!-- status -->
+                <div id="twofactor-status" style="display:none;">
+                    <p><strong>Status:</strong> <span id="twofactor-status-text"></span></p>
+                </div>
+
+                <!-- turned off: choose a method -->
+                <div id="twofactor-off" style="display:none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4><i class="fa fa-mobile"></i> Authenticator app</h4>
+                            <p>Use Google Authenticator, Microsoft Authenticator, Duo Mobile, 1Password or any app that
+                                supports time-based codes. Works without e-mail.</p>
+                            <button type="button" class="btn btn-primary" id="totp-start">Set up an authenticator app</button>
+                        </div>
+                        <div class="col-md-6">
+                            <h4><i class="fa fa-envelope"></i> E-mail</h4>
+                            <p>A code is mailed to <span id="twofactor-email">your address</span> each time you log in.
+                                Make sure the address under <a href="/prefs/contact">Contact</a> is right first.</p>
+                            <button type="button" class="btn btn-primary" id="email-start">Use e-mail codes</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- authenticator enrollment in progress -->
+                <div id="totp-enroll" style="display:none;">
+                    <h4>Step 1: add the account to your app</h4>
+                    <p>Scan this QR code with your authenticator app.</p>
+                    <p><img id="totp-qr" alt="QR code for your authenticator app" width="240" height="240"></p>
+                    <p>Can't scan it? Enter this key by hand: <code id="totp-secret"></code></p>
+                    <h4>Step 2: enter the code the app shows</h4>
+                    <form id="frmTotpConfirm" role="form" class="form-inline">
+                        <div class="form-group">
+                            <label for="totp-code" class="sr-only">Code</label>
+                            <input type="text" id="totp-code" maxlength="6" class="form-control input-sm" placeholder="123456" autocomplete="one-time-code" inputmode="numeric" required>
+                        </div>
+                        <button class="btn btn-primary btn-sm" type="submit">Turn on</button>
+                        <button class="btn btn-default btn-sm" type="button" id="totp-cancel">Cancel</button>
+                    </form>
+                </div>
+
+                <!-- e-mail enrollment in progress -->
+                <div id="email-enroll" style="display:none;">
+                    <h4>Enter the code we just e-mailed you</h4>
+                    <form id="frmEmailConfirm" role="form" class="form-inline">
+                        <div class="form-group">
+                            <label for="email-code" class="sr-only">Code</label>
+                            <input type="text" id="email-code" maxlength="6" class="form-control input-sm" placeholder="123456" autocomplete="one-time-code" inputmode="numeric" required>
+                        </div>
+                        <button class="btn btn-primary btn-sm" type="submit">Turn on</button>
+                        <button class="btn btn-default btn-sm" type="button" id="email-cancel">Cancel</button>
+                    </form>
+                </div>
+
+                <!-- recovery codes, shown once -->
+                <div id="recovery-codes" style="display:none;">
+                    <h4>Recovery codes</h4>
+                    <p>Each of these works once if you can't use your usual method. Save them somewhere safe; they are
+                        not shown again.</p>
+                    <pre id="recovery-codes-list"></pre>
+                </div>
+
+                <!-- turned on: management -->
+                <div id="twofactor-on" style="display:none;">
+                    <p>Recovery codes left: <span id="recovery-left"></span>.
+                        Remembered browsers: <span id="trusted-count"></span>.</p>
+                    <form id="frmTwoFactorManage" role="form" class="form-horizontal">
+                        <fieldset>
+                            <legend>Changes need your password</legend>
+                            <div class="form-group">
+                                <label for="twofactor-password" class="col-sm-2 control-label">Password</label>
+                                <div class="col-sm-4">
+                                    <input type="password" id="twofactor-password" maxlength="50" class="form-control input-sm" placeholder="Password" autocomplete="current-password">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="col-sm-offset-2 col-sm-10">
+                                    <button type="button" class="btn btn-default btn-sm" id="recovery-regenerate" style="display:none;">New recovery codes</button>
+                                    <button type="button" class="btn btn-default btn-sm" id="trusted-forget">Forget remembered browsers</button>
+                                    <button type="button" class="btn btn-danger btn-sm" id="twofactor-disable">Turn off two-factor authentication</button>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

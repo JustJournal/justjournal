@@ -1,0 +1,36 @@
+<div th:fragment="content" class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Verify Your Login</h2>
+            <p id="verify-intro-email" style="display:none;">We sent a code to the e-mail address on your account. Enter it below to finish logging in.</p>
+            <p id="verify-intro-totp" style="display:none;">Enter the code from your authenticator app to finish logging in.</p>
+            <form id="frmVerify" role="form" class="form-horizontal">
+                <fieldset>
+                    <div class="form-group">
+                        <label for="verify-code" class="col-sm-2 control-label">Code</label>
+                        <div class="col-sm-4">
+                            <input type="text" name="code" id="verify-code" maxlength="12" class="form-control input-sm" placeholder="123456" autocomplete="one-time-code" inputmode="numeric" required autofocus>
+                            <span class="help-block">Lost your device? Enter one of your recovery codes instead.</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <div class="checkbox">
+                                <label><input type="checkbox" id="verify-remember"> Remember this browser for 30 days</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button class="btn btn-primary btn-md" type="submit">Verify</button>
+                            <button class="btn btn-default btn-md" type="button" id="verify-resend" style="display:none;">Send a new code</button>
+                        </div>
+                    </div>
+                </fieldset>
+            </form>
+            <div class="alert alert-danger" id="verify-error" style="display:none;"></div>
+            <div class="alert alert-success" id="verify-success" style="display:none;"></div>
+            <p><a href="/">Start over</a></p>
+        </div>
+    </div>
+</div>

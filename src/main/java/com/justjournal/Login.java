@@ -29,7 +29,9 @@ import static com.justjournal.core.Constants.*;
 
 import com.justjournal.exception.HashNotSupportedException;
 import com.justjournal.model.PasswordType;
+import com.justjournal.model.TwoFactorMethod;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.repository.UserTwoFactorRepository;
 import com.justjournal.repository.cache.TrackBackIpRepository;
 import com.justjournal.utility.StringUtil;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +42,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
@@ -60,13 +63,22 @@ import org.springframework.stereotype.Service;
 @Service
 public class Login {
 
+  /** How long a session may sit between the password check and the second factor. */
+  public static final Duration PENDING_LOGIN_TTL = Duration.ofMinutes(10);
+
   private final UserRepository userRepository;
 
   private final TrackBackIpRepository trackBackIpRepository;
 
-  public Login(final UserRepository userRepository, TrackBackIpRepository trackBackIpRepository) {
+  private final UserTwoFactorRepository userTwoFactorRepository;
+
+  public Login(
+      final UserRepository userRepository,
+      final TrackBackIpRepository trackBackIpRepository,
+      final UserTwoFactorRepository userTwoFactorRepository) {
     this.userRepository = userRepository;
     this.trackBackIpRepository = trackBackIpRepository;
+    this.userTwoFactorRepository = userTwoFactorRepository;
   }
 
   public static boolean isAuthenticated(HttpSession session) {
@@ -93,6 +105,66 @@ public class Login {
   protected static void logout(HttpSession session) {
     session.removeAttribute(LOGIN_ATTRNAME);
     session.removeAttribute(LOGIN_ATTRID);
+  }
+
+  /**
+   * Has this session passed the password check and is now waiting on a second factor? Such a
+   * session is not logged in; {@link #isAuthenticated(HttpSession)} stays false.
+   */
+  public static boolean isPendingSecondFactor(HttpSession session) {
+    return session.getAttribute(LOGIN_PENDING_ATTRID) instanceof Integer id
+        && id > BAD_USER_ID
+        && session.getAttribute(LOGIN_PENDING_SINCE) instanceof Long since
+        && System.currentTimeMillis() - since <= PENDING_LOGIN_TTL.toMillis();
+  }
+
+  public static int pendingLoginId(HttpSession session) {
+    if (!isPendingSecondFactor(session)) return BAD_USER_ID;
+    return (Integer) session.getAttribute(LOGIN_PENDING_ATTRID);
+  }
+
+  @Nullable
+  public static String pendingLoginName(HttpSession session) {
+    if (!isPendingSecondFactor(session)) return null;
+    return (String) session.getAttribute(LOGIN_PENDING_ATTRNAME);
+  }
+
+  @Nullable
+  public static TwoFactorMethod pendingMethod(HttpSession session) {
+    if (!isPendingSecondFactor(session)) return null;
+    return (TwoFactorMethod) session.getAttribute(LOGIN_PENDING_METHOD);
+  }
+
+  public static void setPendingSecondFactor(
+      HttpSession session, int userId, String userName, TwoFactorMethod method) {
+    session.setAttribute(LOGIN_PENDING_ATTRID, userId);
+    session.setAttribute(LOGIN_PENDING_ATTRNAME, userName);
+    session.setAttribute(LOGIN_PENDING_METHOD, method);
+    session.setAttribute(LOGIN_PENDING_SINCE, System.currentTimeMillis());
+  }
+
+  public static void clearPendingSecondFactor(HttpSession session) {
+    session.removeAttribute(LOGIN_PENDING_ATTRID);
+    session.removeAttribute(LOGIN_PENDING_ATTRNAME);
+    session.removeAttribute(LOGIN_PENDING_METHOD);
+    session.removeAttribute(LOGIN_PENDING_SINCE);
+  }
+
+  /**
+   * Mark the session as logged in once every factor has been checked. The session id is changed so
+   * an id handed out before the login can't be used to ride on it.
+   *
+   * @param request current request, must already have a session
+   * @param userId user who logged in
+   * @param userName username as entered
+   */
+  public void completeLogin(HttpServletRequest request, int userId, String userName) {
+    final HttpSession session = request.getSession(true);
+    clearPendingSecondFactor(session);
+    request.changeSessionId();
+    session.setAttribute(LOGIN_ATTRID, userId);
+    session.setAttribute(LOGIN_ATTRNAME, userName);
+    setLastLogin(userId);
   }
 
   public static boolean isUserName(@Nullable String input) {
@@ -199,13 +271,48 @@ public class Login {
   }
 
   /**
-   * Authenticate the user using clear text username and password.
+   * Authenticate the user using clear text username and password. This is a complete login, so
+   * users who turned on a second factor are refused here: callers that can't ask for a code (XML-RPC
+   * and the old desktop clients) must not get in with the password alone. Web logins go through
+   * {@link #validatePassword(String, String)} and then the second factor.
    *
    * @param userName Three to Fifteen characters...
    * @param password Clear text password
    * @return user id of the user who logged in or 0 if the login failed.
    */
   public int validate(String userName, String password) {
+    final int userId = validatePassword(userName, password);
+    if (userId == BAD_USER_ID) return BAD_USER_ID;
+
+    if (hasSecondFactor(userId)) {
+      log.warn(
+          "Password only login refused for {}: two factor authentication is turned on", userName);
+      return BAD_USER_ID;
+    }
+
+    setLastLogin(userId);
+    return userId;
+  }
+
+  /**
+   * Does the user require a second factor after the password?
+   *
+   * @param userId user id
+   * @return true if two factor authentication is turned on for the account
+   */
+  public boolean hasSecondFactor(final int userId) {
+    return userId > BAD_USER_ID && userTwoFactorRepository.existsByUserId(userId);
+  }
+
+  /**
+   * Check the username and password only. Does not record the login; the caller finishes the
+   * login once any second factor is satisfied.
+   *
+   * @param userName Three to Fifteen characters...
+   * @param password Clear text password
+   * @return user id if the password is right or 0 if it isn't.
+   */
+  public int validatePassword(String userName, String password) {
 
     if (isIpSketch()) {
       blockIp(30); // second+ attempt, bump block time.
@@ -227,12 +334,10 @@ public class Login {
       final int userId = lookupUserId(userName, password);
       if (userId == BAD_USER_ID) {
         blockIp(5);
-      } else {
-        setLastLogin(userId);
       }
       return userId;
     } catch (final Exception e) {
-      log.error("validate(): {}", e.getMessage());
+      log.error("validatePassword(): {}", e.getMessage());
     }
     return BAD_USER_ID;
   }
@@ -270,7 +375,8 @@ public class Login {
     final int uid;
 
     try {
-      uid = validate(userName, password);
+      // password only: the caller is already in a logged in session, second factor included
+      uid = validatePassword(userName, password);
 
       if (uid > BAD_USER_ID && isPassword(newPass)) {
         final com.justjournal.model.User user = lookupUser(userName, password);

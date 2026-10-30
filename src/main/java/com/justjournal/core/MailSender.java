@@ -69,15 +69,7 @@ public class MailSender {
     log.info("MailSender: Init");
 
     try {
-      final Properties props = new Properties();
-      props.put("mail.smtp.host", set.getMailHost());
-      props.put("mail.smtp.user", set.getMailUser());
-      props.put("mail.smtp.auth", "true");
-
-      props.put("mail.smtp.port", set.getMailPort());
-      final Session s = Session.getInstance(props, new ForcedAuthenticator(set));
-
-        log.trace("MailSender: {}@{}:{}", set.getMailUser(), set.getMailHost(), set.getMailPort());
+      final Session s = newSession();
 
       final Iterable<QueueMail> items = queueMailRepository.findAll();
 
@@ -91,6 +83,37 @@ public class MailSender {
     } catch (final Exception me) {
       log.error("MailSender: Exception", me);
     }
+  }
+
+  /**
+   * Send one queued message right away instead of waiting for the next scheduled run, for mail
+   * that is useless if it arrives late such as login codes. The queue row is removed on success and
+   * left for the scheduled run otherwise.
+   *
+   * @param item saved queue row
+   * @return true if it was sent
+   */
+  public boolean sendNow(final QueueMail item) {
+    try {
+      if (sendMessage(newSession(), item)) {
+        queueMailRepository.deleteById(item.getId());
+        return true;
+      }
+    } catch (final Exception e) {
+      log.error("MailSender: immediate send failed, leaving it queued", e);
+    }
+    return false;
+  }
+
+  private Session newSession() {
+    final Properties props = new Properties();
+    props.put("mail.smtp.host", set.getMailHost());
+    props.put("mail.smtp.user", set.getMailUser());
+    props.put("mail.smtp.auth", "true");
+
+    props.put("mail.smtp.port", set.getMailPort());
+    log.trace("MailSender: {}@{}:{}", set.getMailUser(), set.getMailHost(), set.getMailPort());
+    return Session.getInstance(props, new ForcedAuthenticator(set));
   }
 
   private boolean sendMessage(final Session s, final QueueMail item) {

@@ -40,9 +40,18 @@ public class Constants {
   public static final String JJ_LOGIN_OK = "JJ.LOGIN.OK";
   public static final String JJ_LOGIN_FAIL = "JJ.LOGIN.FAIL";
   public static final String JJ_LOGIN_NONE = "JJ.LOGIN.NONE";
+  /** Password accepted, a second factor is still needed before the session is logged in. */
+  public static final String JJ_LOGIN_2FA = "JJ.LOGIN.2FA";
 
   public static final String LOGIN_ATTRNAME = "auth.user";
   public static final String LOGIN_ATTRID = "auth.uid";
+  /* Session attributes for a login waiting on its second factor. Never treated as logged in. */
+  public static final String LOGIN_PENDING_ATTRID = "auth.pending_uid";
+  public static final String LOGIN_PENDING_ATTRNAME = "auth.pending_user";
+  public static final String LOGIN_PENDING_METHOD = "auth.pending_method";
+  public static final String LOGIN_PENDING_SINCE = "auth.pending_since";
+  /** Cookie holding the token for a browser the user chose to remember. */
+  public static final String TWO_FACTOR_TRUST_COOKIE = "jj_2fa_trust";
 
   public static final int USERNAME_MAX_LENGTH = 50;
   public static final int USERNAME_MIN_LENGTH = 3;

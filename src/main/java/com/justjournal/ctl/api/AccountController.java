@@ -199,6 +199,10 @@ public class AccountController {
       albumImageService.deleteAll(userID);
       jdbcTemplate.execute("DELETE FROM user_images_album WHERE owner=" + userID + ";");
 
+      jdbcTemplate.execute("DELETE FROM user_two_factor_trusted WHERE user_id=" + userID + ";");
+      jdbcTemplate.execute("DELETE FROM user_two_factor_recovery WHERE user_id=" + userID + ";");
+      jdbcTemplate.execute("DELETE FROM user_two_factor WHERE user_id=" + userID + ";");
+
       jdbcTemplate.execute("DELETE FROM user_pref WHERE user_id=" + userID + ";");
 
       jdbcTemplate.execute("DELETE FROM journal WHERE user_id=" + userID + ";");

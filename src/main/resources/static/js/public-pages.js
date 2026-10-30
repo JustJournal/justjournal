@@ -97,6 +97,12 @@
                     return;
                 }
 
+                if (response && response.status === 'JJ.LOGIN.2FA') {
+                    // password accepted; the second factor is asked for on its own page
+                    window.location.href = '/login/verify';
+                    return;
+                }
+
                 showMessage('#login-error', 'Your login information was invalid. Please try again');
             }).fail(function () {
                 showMessage('#login-error', 'Your login information was invalid. Please try again');
@@ -136,6 +142,10 @@
                 }).done(function (response) {
                     if (response && response.status === 'JJ.LOGIN.OK') {
                         window.location.href = '/users/' + response.username;
+                        return;
+                    }
+                    if (response && response.status === 'JJ.LOGIN.2FA') {
+                        window.location.href = '/login/verify';
                         return;
                     }
                     showMessage('#signup-error', 'Your account was created, but automatic login failed.');
@@ -1131,6 +1141,242 @@
         });
     }
 
+    function initLoginVerify() {
+        var method = '';
+
+        $.ajax({url: '/api/login/2fa', method: 'GET', dataType: 'json'}).done(function (response) {
+            method = (response && response.twoFactorMethod) || '';
+            if (method === 'EMAIL') {
+                $('#verify-intro-email').show();
+                $('#verify-resend').show();
+            } else {
+                $('#verify-intro-totp').show();
+            }
+        }).fail(function () {
+            // nothing is waiting on this session; go back to the login form
+            window.location.href = '/';
+        });
+
+        $('#frmVerify').on('submit', function (event) {
+            event.preventDefault();
+            showMessage('#verify-error', '');
+            showMessage('#verify-success', '');
+
+            $.ajax({
+                url: '/api/login/2fa',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    code: $('#verify-code').val().trim(),
+                    rememberDevice: $('#verify-remember').is(':checked')
+                })
+            }).done(function (response) {
+                if (response && response.status === 'JJ.LOGIN.OK') {
+                    track('login', 'Authentication', 'Login2FA');
+                    window.location.href = '/users/' + response.username;
+                    return;
+                }
+                showMessage('#verify-error', 'That code was not accepted. Please try again.');
+            }).fail(function (xhr) {
+                if (xhr && xhr.status === 429) {
+                    showMessage('#verify-error', 'Too many wrong codes. Please <a href="/">log in again</a>.');
+                    $('#frmVerify button[type=submit]').prop('disabled', true);
+                    return;
+                }
+                if (xhr && xhr.responseJSON && xhr.responseJSON.status === 'JJ.LOGIN.NONE') {
+                    showMessage('#verify-error', 'Your login timed out. Please <a href="/">log in again</a>.');
+                    return;
+                }
+                showMessage('#verify-error', 'That code was not accepted. Please try again.');
+            });
+        });
+
+        $('#verify-resend').on('click', function () {
+            showMessage('#verify-error', '');
+            showMessage('#verify-success', '');
+            var $button = $(this).prop('disabled', true);
+
+            $.ajax({url: '/api/login/2fa/resend', method: 'POST'}).done(function (response) {
+                showMessage('#verify-success', (response && response.status) || 'A new code has been sent.', 'success');
+            }).fail(function (xhr) {
+                showMessage('#verify-error', parseError(xhr, 'Unable to send a new code right now.'));
+            }).always(function () {
+                window.setTimeout(function () {
+                    $button.prop('disabled', false);
+                }, 60000);
+            });
+        });
+    }
+
+    function initTwoFactorPrefs() {
+        if (!currentUsername()) {
+            return;
+        }
+
+        function clearMessages() {
+            showMessage('#twofactor-error', '');
+            showMessage('#twofactor-success', '');
+        }
+
+        function showRecoveryCodes(codes) {
+            if (!codes || !codes.length) {
+                return;
+            }
+            $('#recovery-codes-list').text(codes.join('\n'));
+            $('#recovery-codes').show();
+        }
+
+        function render(status) {
+            $('#totp-enroll, #email-enroll').hide();
+            $('#twofactor-status').show();
+
+            if (status.enabled) {
+                var how = status.method === 'TOTP' ? 'an authenticator app' : 'e-mail codes';
+                $('#twofactor-status-text').text('On, using ' + how + '.');
+                $('#recovery-left').text(status.recoveryCodesLeft);
+                $('#trusted-count').text(status.trustedBrowsers);
+                $('#recovery-regenerate').toggle(status.method === 'TOTP');
+                $('#twofactor-off').hide();
+                $('#twofactor-on').show();
+            } else {
+                $('#twofactor-status-text').text('Off.');
+                $('#twofactor-email').text(status.email || 'the address on your account');
+                $('#email-start').prop('disabled', !status.email);
+                $('#twofactor-on').hide();
+                $('#twofactor-off').show();
+            }
+        }
+
+        function load() {
+            $.ajax({url: '/api/account/2fa', method: 'GET', dataType: 'json'}).done(render).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'Unable to load two-factor settings'));
+            });
+        }
+
+        function password() {
+            return $('#twofactor-password').val();
+        }
+
+        $('#totp-start').on('click', function () {
+            clearMessages();
+            $('#recovery-codes').hide();
+            $.ajax({url: '/api/account/2fa/totp/start', method: 'POST', dataType: 'json'}).done(function (enrollment) {
+                $('#totp-secret').text(enrollment.secret);
+                $('#totp-qr').attr('src', '/api/account/2fa/totp/qr?t=' + Date.now());
+                $('#totp-code').val('');
+                $('#twofactor-off').hide();
+                $('#totp-enroll').show();
+                $('#totp-code').focus();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'Unable to start authenticator setup'));
+            });
+        });
+
+        $('#totp-cancel, #email-cancel').on('click', function () {
+            clearMessages();
+            load();
+        });
+
+        $('#frmTotpConfirm').on('submit', function (event) {
+            event.preventDefault();
+            clearMessages();
+            $.ajax({
+                url: '/api/account/2fa/totp/confirm',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({code: $('#totp-code').val().trim()})
+            }).done(function (response) {
+                track('two_factor_on', 'Authentication', 'TOTP');
+                showMessage('#twofactor-success', response.status, 'success');
+                showRecoveryCodes(response.recoveryCodes);
+                load();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'That code was not accepted'));
+            });
+        });
+
+        $('#email-start').on('click', function () {
+            clearMessages();
+            var $button = $(this).prop('disabled', true);
+            $.ajax({url: '/api/account/2fa/email/start', method: 'POST', dataType: 'json'}).done(function (response) {
+                showMessage('#twofactor-success', response.status, 'success');
+                $('#email-code').val('');
+                $('#twofactor-off').hide();
+                $('#email-enroll').show();
+                $('#email-code').focus();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'Unable to send a code'));
+            }).always(function () {
+                $button.prop('disabled', false);
+            });
+        });
+
+        $('#frmEmailConfirm').on('submit', function (event) {
+            event.preventDefault();
+            clearMessages();
+            $.ajax({
+                url: '/api/account/2fa/email/confirm',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({code: $('#email-code').val().trim()})
+            }).done(function (response) {
+                track('two_factor_on', 'Authentication', 'Email');
+                showMessage('#twofactor-success', response.status, 'success');
+                load();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'That code was not accepted'));
+            });
+        });
+
+        $('#recovery-regenerate').on('click', function () {
+            clearMessages();
+            $('#recovery-codes').hide();
+            $.ajax({
+                url: '/api/account/2fa/recovery',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({password: password()})
+            }).done(function (response) {
+                showMessage('#twofactor-success', 'New recovery codes made. The old ones no longer work.', 'success');
+                showRecoveryCodes(response.recoveryCodes);
+                $('#twofactor-password').val('');
+                load();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'Unable to make new recovery codes'));
+            });
+        });
+
+        $('#trusted-forget').on('click', function () {
+            clearMessages();
+            $.ajax({url: '/api/account/2fa/trusted', method: 'DELETE', dataType: 'json'}).done(function (response) {
+                showMessage('#twofactor-success', response.status, 'success');
+                load();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'Unable to forget remembered browsers'));
+            });
+        });
+
+        $('#twofactor-disable').on('click', function () {
+            clearMessages();
+            $('#recovery-codes').hide();
+            $.ajax({
+                url: '/api/account/2fa',
+                method: 'DELETE',
+                contentType: 'application/json',
+                data: JSON.stringify({password: password()})
+            }).done(function (response) {
+                track('two_factor_off', 'Authentication', 'Disable');
+                showMessage('#twofactor-success', response.status, 'success');
+                $('#twofactor-password').val('');
+                load();
+            }).fail(function (xhr) {
+                showMessage('#twofactor-error', parseError(xhr, 'Unable to turn off two-factor authentication'));
+            });
+        });
+
+        load();
+    }
+
     function initPageView() {
         var pageId = pageData('page') || window.location.pathname;
         track('page_view', pageId, pageId);
@@ -1196,6 +1442,12 @@
                 break;
             case 'prefs-journaldelete':
                 initDeleteAccount();
+                break;
+            case 'prefs-twofactor':
+                initTwoFactorPrefs();
+                break;
+            case 'login-verify':
+                initLoginVerify();
                 break;
             default:
                 break;

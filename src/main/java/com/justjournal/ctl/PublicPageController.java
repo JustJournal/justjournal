@@ -51,6 +51,14 @@ public class PublicPageController {
     return renderPage(model, session, "Just Journal: Edit Entry", "entry", "fragments/public/entry");
   }
 
+  @GetMapping("/login/verify")
+  public String loginVerify(Model model, HttpSession session, HttpServletResponse response) {
+    // shown mid-login; keep it out of caches
+    response.setHeader("Cache-Control", "no-store");
+    return renderPage(
+        model, session, "Just Journal: Verify Login", "login-verify", "fragments/public/login-verify");
+  }
+
   @GetMapping("/members")
   public String members(Model model, HttpSession session) {
     return renderPage(model, session, "Just Journal: Members", "members", "fragments/public/members");
@@ -137,6 +145,18 @@ public class PublicPageController {
         "Just Journal: Journal Preferences",
         "prefs-journal",
         "fragments/public/prefs-journal");
+  }
+
+  @GetMapping("/prefs/twofactor")
+  public String prefsTwoFactor(Model model, HttpSession session, HttpServletResponse response) {
+    // recovery codes and QR codes are shown here
+    response.setHeader("Cache-Control", "no-store");
+    return renderPage(
+        model,
+        session,
+        "Just Journal: Two-Factor Authentication",
+        "prefs-twofactor",
+        "fragments/public/prefs-twofactor");
   }
 
   @GetMapping("/prefs/journaldelete")

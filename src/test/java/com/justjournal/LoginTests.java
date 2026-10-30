@@ -28,6 +28,7 @@ package com.justjournal;
 import com.justjournal.model.PasswordType;
 import com.justjournal.model.User;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.repository.UserTwoFactorRepository;
 import com.justjournal.repository.cache.TrackBackIpRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,8 +45,10 @@ import java.security.NoSuchAlgorithmException;
 
 import static com.justjournal.core.Constants.BAD_USER_ID;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +64,9 @@ class LoginTests {
 
   @Mock
   RequestContextHolder requestContextHolder;
+
+  @Mock
+  UserTwoFactorRepository userTwoFactorRepository;
 
   @InjectMocks private Login login;
 
@@ -167,5 +173,57 @@ class LoginTests {
     verify(userRepository).findByUsername(anyString());
     verify(trackBackIpRepository).getIpAddress(anyString());
 
+  }
+
+  private User userWithTwoFactor() {
+    User user = new User();
+    user.setId(1);
+    user.setUsername("abc");
+    user.setPassword(login.getHashedPassword("abc", "basic"));
+    user.setPasswordType(PasswordType.ARGON2);
+
+    when(userRepository.findByUsername(anyString())).thenReturn(user);
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+    return user;
+  }
+
+  /** XML-RPC and the old clients call validate(); the password alone must not get a 2FA user in. */
+  @Test
+  void testValidateRefusesTwoFactorUsers() {
+    userWithTwoFactor();
+    when(userTwoFactorRepository.existsByUserId(1)).thenReturn(true);
+
+    int result = login.validate("abc", "basic");
+    assertEquals(BAD_USER_ID, result);
+
+    verify(userRepository, never()).findById(anyInt());
+  }
+
+  @Test
+  void testValidatePasswordAcceptsTwoFactorUsers() {
+    userWithTwoFactor();
+
+    int result = login.validatePassword("abc", "basic");
+    assertEquals(1, result);
+
+    // the login isn't recorded until the second factor is done
+    verify(userRepository, never()).findById(anyInt());
+  }
+
+  @Test
+  void testHasSecondFactor() {
+    when(userTwoFactorRepository.existsByUserId(1)).thenReturn(true);
+    assertTrue(login.hasSecondFactor(1));
+    assertFalse(login.hasSecondFactor(2));
+    assertFalse(login.hasSecondFactor(BAD_USER_ID));
+  }
+
+  @Test
+  void testChangePassWorksForTwoFactorUsers() {
+    User user = userWithTwoFactor();
+    when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
+
+    assertTrue(login.changePass("abc", "basic", "newpass1"));
+    assertEquals(PasswordType.ARGON2, user.getPasswordType());
   }
 }

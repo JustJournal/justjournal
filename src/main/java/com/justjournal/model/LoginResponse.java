@@ -29,6 +29,7 @@ package com.justjournal.model;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -40,6 +41,10 @@ public class LoginResponse implements Serializable {
   private static final long serialVersionUID = 6809817814936626615L;
   private String status = null;
   private String username = null;
+
+  /** Only present with status JJ.LOGIN.2FA: how the second factor is delivered (EMAIL or TOTP). */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private String twoFactorMethod = null;
 
   @JsonCreator
   public LoginResponse() {
@@ -58,6 +63,14 @@ public class LoginResponse implements Serializable {
     return status;
   }
 
+  public String getTwoFactorMethod() {
+    return twoFactorMethod;
+  }
+
+  public void setTwoFactorMethod(final String twoFactorMethod) {
+    this.twoFactorMethod = twoFactorMethod;
+  }
+
   public void setStatus(final String status) {
     this.status = status;
   }
@@ -65,6 +78,16 @@ public class LoginResponse implements Serializable {
   @JsonIgnore
   @Override
   public String toString() {
-    return "LoginResponse{" + "status='" + status + '\'' + ", username='" + username + '\'' + '}';
+    return "LoginResponse{"
+        + "status='"
+        + status
+        + '\''
+        + ", username='"
+        + username
+        + '\''
+        + ", twoFactorMethod='"
+        + twoFactorMethod
+        + '\''
+        + '}';
   }
 }

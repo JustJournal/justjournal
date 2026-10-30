@@ -35,4 +35,9 @@ public class CacheKeys {
   public static final String PASSWORD_RESET_USER_KEY = "passwordreset_user:";
   public static final String PASSWORD_RESET_THROTTLE_KEY = "passwordreset_throttle:";
   public static final String PASSWORD_RESET_IP_KEY = "passwordreset_ip:";
+  public static final String TWO_FACTOR_EMAIL_KEY = "twofactor_email:";
+  public static final String TWO_FACTOR_EMAIL_THROTTLE_KEY = "twofactor_email_throttle:";
+  public static final String TWO_FACTOR_ATTEMPTS_KEY = "twofactor_attempts:";
+  public static final String TWO_FACTOR_TOTP_PENDING_KEY = "twofactor_totp_pending:";
+  public static final String TWO_FACTOR_TOTP_USED_KEY = "twofactor_totp_used:";
 }

@@ -29,10 +29,15 @@ import static com.justjournal.core.Constants.*;
 
 import com.justjournal.Login;
 import com.justjournal.model.LoginResponse;
+import com.justjournal.model.TwoFactorMethod;
+import com.justjournal.model.UserTwoFactor;
+import com.justjournal.repository.UserRepository;
+import com.justjournal.services.TwoFactorService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,11 +45,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Log user into session
+ * Log user into session. Accounts with a second factor turned on get status {@code JJ.LOGIN.2FA}
+ * back and finish the login at {@code /api/login/2fa}.
  *
  * @author Lucas Holt
  */
@@ -55,8 +60,15 @@ public class LoginController {
 
   private final com.justjournal.Login webLogin;
 
-  public LoginController(Login webLogin) {
+  private final UserRepository userRepository;
+
+  private final TwoFactorService twoFactorService;
+
+  public LoginController(
+      Login webLogin, UserRepository userRepository, TwoFactorService twoFactorService) {
     this.webLogin = webLogin;
+    this.userRepository = userRepository;
+    this.twoFactorService = twoFactorService;
   }
 
   /**
@@ -89,25 +101,50 @@ public class LoginController {
         session.invalidate();
         session = request.getSession(true); // reset
       }
+      // a fresh password attempt also drops any half finished login
+      Login.clearPendingSecondFactor(session);
 
-      final int userID = webLogin.validate(login.getUsername(), login.getPassword());
-      if (userID > BAD_USER_ID) {
-        log.debug("LoginController.post(): Username is " + login.getUsername());
-        session.setAttribute(LOGIN_ATTRID, userID);
-        session.setAttribute(LOGIN_ATTRNAME, login.getUsername());
-      } else {
+      final int userID = webLogin.validatePassword(login.getUsername(), login.getPassword());
+      if (userID <= BAD_USER_ID) {
         log.error("Login attempt failed with user: " + login.getUsername());
 
         loginResponse.setStatus(JJ_LOGIN_FAIL);
         return new ResponseEntity<>(loginResponse, HttpStatus.UNAUTHORIZED);
       }
-
+      log.debug("LoginController.post(): Username is " + login.getUsername());
       loginResponse.setUsername(login.getUsername());
+
+      final Optional<UserTwoFactor> twoFactor = twoFactorService.find(userID);
+      if (twoFactor.isPresent()
+          && !twoFactorService.isTrustedDevice(
+              userID, cookieValue(request, TWO_FACTOR_TRUST_COOKIE))) {
+        // password is right but the session stays logged out until the code comes back
+        Login.setPendingSecondFactor(
+            session, userID, login.getUsername(), twoFactor.get().getMethod());
+        if (twoFactor.get().getMethod() == TwoFactorMethod.EMAIL) {
+          userRepository.findById(userID).ifPresent(twoFactorService::sendLoginCode);
+        }
+
+        loginResponse.setStatus(JJ_LOGIN_2FA);
+        loginResponse.setTwoFactorMethod(twoFactor.get().getMethod().name());
+        return new ResponseEntity<>(loginResponse, HttpStatus.OK);
+      }
+
+      webLogin.completeLogin(request, userID, login.getUsername());
       loginResponse.setStatus(JJ_LOGIN_OK);
       return new ResponseEntity<>(loginResponse, HttpStatus.OK);
     } catch (final Exception e) {
       log.error(e.getMessage(), e);
       return new ResponseEntity<>(loginResponse, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  static String cookieValue(final HttpServletRequest request, final String name) {
+    final Cookie[] cookies = request.getCookies();
+    if (cookies == null) return null;
+    for (final Cookie cookie : cookies) {
+      if (name.equals(cookie.getName())) return cookie.getValue();
+    }
+    return null;
   }
 }
