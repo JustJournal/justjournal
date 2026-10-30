@@ -185,6 +185,22 @@ public class Login {
    * @param password clear text password
    * @return true if valid, false otherwise
    */
+  /** Shown when a freshly chosen password breaks {@link #isNewPassword(String)}. */
+  public static final String NEW_PASSWORD_RULE =
+      "Password must be "
+          + NEW_PASSWORD_MIN_LENGTH
+          + "-"
+          + PASSWORD_MAX_LENGTH
+          + " characters using letters, numbers, spaces and _ @ . ! & * # $ ? ^";
+
+  /**
+   * Rule for a password being set now (signup, change, reset). Stricter than {@link
+   * #isPassword(String)}, which stays lenient so existing short passwords still log in.
+   */
+  public static boolean isNewPassword(@Nullable String password) {
+    return isPassword(password) && password.length() >= NEW_PASSWORD_MIN_LENGTH;
+  }
+
   public static boolean isPassword(String password) {
     if (!StringUtil.lengthCheck(password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)) {
       return false;
@@ -378,7 +394,7 @@ public class Login {
       // password only: the caller is already in a logged in session, second factor included
       uid = validatePassword(userName, password);
 
-      if (uid > BAD_USER_ID && isPassword(newPass)) {
+      if (uid > BAD_USER_ID && isNewPassword(newPass)) {
         final com.justjournal.model.User user = lookupUser(userName, password);
         if (user == null) {
           log.error("changePass(): Unable to find user.");
@@ -407,7 +423,7 @@ public class Login {
    * @return true if the password was changed.
    */
   public boolean resetPass(final int userId, final String newPass) {
-    if (userId < 1 || !isPassword(newPass)) return false;
+    if (userId < 1 || !isNewPassword(newPass)) return false;
 
     try {
       final com.justjournal.model.User user = userRepository.findById(userId).orElse(null);

@@ -85,6 +85,15 @@ class LoginTests {
     assertFalse(result);
   }
 
+  @Test
+  void testIsNewPasswordNeedsEightCharacters() {
+    assertTrue(Login.isNewPassword("eight888"));
+    assertFalse(Login.isNewPassword("seven77"));
+    assertFalse(Login.isNewPassword("has-dash-8"));
+    assertFalse(Login.isNewPassword(null));
+    assertTrue(Login.isPassword("seven77"), "existing short passwords still log in");
+  }
+
   @ParameterizedTest
   @ValueSource(strings = { "%_@.!&*#$?^ ", "foo bar"})
   void testIsUserNameInvalid(String username) {
@@ -224,6 +233,7 @@ class LoginTests {
     when(userRepository.saveAndFlush(any(User.class))).thenReturn(user);
 
     assertTrue(login.changePass("abc", "basic", "newpass1"));
+    assertFalse(login.changePass("abc", "basic", "seven77"), "new passwords need 8 characters");
     assertEquals(PasswordType.ARGON2, user.getPasswordType());
   }
 }

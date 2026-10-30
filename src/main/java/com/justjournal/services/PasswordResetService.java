@@ -161,7 +161,7 @@ public class PasswordResetService {
    * @return true if the password was changed, false if the token is invalid or expired
    */
   public boolean resetPassword(final String token, final String newPassword) {
-    if (token == null || !TOKEN_PATTERN.matcher(token).matches() || !Login.isPassword(newPassword))
+    if (token == null || !TOKEN_PATTERN.matcher(token).matches() || !Login.isNewPassword(newPassword))
       return false;
 
     final Integer userId =

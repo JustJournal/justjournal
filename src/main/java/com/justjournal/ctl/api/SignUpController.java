@@ -29,6 +29,7 @@ package com.justjournal.ctl.api;
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
 import com.justjournal.core.Settings;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.ctl.error.ErrorHandler;
 import com.justjournal.model.User;
 import com.justjournal.model.api.NewUser;
@@ -63,6 +64,8 @@ public class SignUpController {
 
   private static final String EMAIL_INVALID = "Invalid email address.";
 
+  static final String PASSWORD_INVALID = Login.NEW_PASSWORD_RULE;
+
   public SignUpController(AccountService accountService, Settings settings, Login login) {
     this.accountService = accountService;
     this.settings = settings;
@@ -79,25 +82,25 @@ public class SignUpController {
     }
 
     if (!StringUtil.isEmailValid(user.getEmail()) || !DNSUtil.isEmailDomainValid((user.getEmail()))) {
-      throw new IllegalArgumentException(EMAIL_INVALID);
+      throw new BadRequestException(EMAIL_INVALID);
     }
 
     if (!Login.isUserName(user.getUsername())) {
       log.warn("Username used for signup is invalid: {}", user.getUsername());
 
-      throw new IllegalArgumentException("Username must be letters and numbers only");
+      throw new BadRequestException("Username must be letters and numbers only");
     }
 
     if (login.exists(user.getUsername())) {
       log.warn("Username used for signup is taken: {}", user.getUsername());
 
-      throw new IllegalArgumentException("Username is already taken");
+      throw new BadRequestException("Username is already taken");
     }
 
-    if (!Login.isPassword(user.getPassword())) {
+    if (!Login.isNewPassword(user.getPassword())) {
       log.warn("Password for signup is invalid");
 
-      throw new IllegalArgumentException("Password must be 5-18 characters.");
+      throw new BadRequestException(PASSWORD_INVALID);
     }
 
     return newUser(user, response);

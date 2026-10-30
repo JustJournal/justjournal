@@ -112,9 +112,9 @@ public class PasswordResetController {
   public Map<String, String> reset(
       @RequestBody final PasswordReset passwordReset, final HttpServletResponse response) {
 
-    if (!Login.isPassword(passwordReset.getPassword())) {
+    if (!Login.isNewPassword(passwordReset.getPassword())) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-      return ErrorHandler.modelError("The new password is invalid.");
+      return ErrorHandler.modelError(Login.NEW_PASSWORD_RULE);
     }
 
     if (!passwordResetService.resetPassword(
