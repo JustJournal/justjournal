@@ -1131,6 +1131,9 @@ INSERT INTO `tags` (id, name) VALUES('1', 'footest');
 
 INSERT INTO `entry_tags` (id, entryid, tagid) VALUES('1', '33660', '1');
 
+-- RSS reader subscription for testuser; ITAppTest reads it back as /api/rssreader/7
+INSERT INTO `rss_subscriptions` (`id`, `uri`, `subid`) VALUES (2908, 'https://www.justjournal.com/users/testuser/rss', 7);
+
 -- Create friends
 
 INSERT INTO `friends` (
