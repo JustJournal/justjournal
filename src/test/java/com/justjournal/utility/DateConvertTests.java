@@ -96,11 +96,14 @@ class DateConvertTests {
     }
 
     @Test
-    void decode3339_zuluTimes_acceptOptionalFractions() throws ParseException {
-        Date zulu = DateConvert.decode3339("2014-02-11T05:00:00Z");
-        Date fraction = DateConvert.decode3339("2014-02-11T05:00:00.250Z");
+    void decode3339_zuluTimes_areUtc_withOptionalFractions() throws ParseException {
+        Date fiveUtc = new java.util.GregorianCalendar(TimeZone.getTimeZone("UTC")) {{
+            clear();
+            set(2014, java.util.Calendar.FEBRUARY, 11, 5, 0, 0);
+        }}.getTime();
 
-        assertEquals(zulu.getTime() + 250, fraction.getTime());
+        assertEquals(fiveUtc, DateConvert.decode3339("2014-02-11T05:00:00Z"));
+        assertEquals(fiveUtc.getTime() + 250, DateConvert.decode3339("2014-02-11T05:00:00.250Z").getTime());
     }
 
     @Test
@@ -112,10 +115,14 @@ class DateConvertTests {
     }
 
     @Test
-    void encode8601_isUtcWithAnExplicitOffset() throws ParseException {
-        var result = DateConvert.encode8601(parse("2014-02-11"));
-        org.junit.jupiter.api.Assertions.assertTrue(result.startsWith("2014-02-11T05:00"), result);
-        org.junit.jupiter.api.Assertions.assertTrue(result.endsWith("+00:00"), result);
+    void encode8601_isUtcWithAnExplicitOffset_keepingTheMinutesAndSeconds() throws ParseException {
+        assertEquals("2014-02-11T05:00:00+00:00", DateConvert.encode8601(parse("2014-02-11")));
+
+        Date fiveSevenNine = new java.util.GregorianCalendar(TimeZone.getTimeZone("UTC")) {{
+            clear();
+            set(2014, java.util.Calendar.FEBRUARY, 11, 5, 7, 9);
+        }}.getTime();
+        assertEquals("2014-02-11T05:07:09+00:00", DateConvert.encode8601(fiveSevenNine));
 
         var now = DateConvert.encode8601();
         org.junit.jupiter.api.Assertions.assertTrue(now.endsWith("+00:00"), now);
