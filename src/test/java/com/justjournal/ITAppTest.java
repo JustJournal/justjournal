@@ -44,6 +44,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -236,7 +237,8 @@ class ITAppTest {
 
   @Test
   void apiStatisticsInvalid() throws Exception {
-    mockMvc.perform(get("/api/statistics/r")).andExpect(status().isBadRequest());
+    // a name that fails Login.isUserName is treated as an unknown user, like the entry endpoints
+    mockMvc.perform(get("/api/statistics/r")).andExpect(status().isNotFound());
   }
 
   @Test
@@ -277,10 +279,18 @@ class ITAppTest {
 
   @Test
   void apiEntryRecentWithUser() throws Exception {
+    // the endpoint returns a Flux, so Spring MVC completes it asynchronously and the
+    // status and headers are only visible after the async dispatch
+    MvcResult result =
+        mockMvc
+            .perform(
+                get("/api/entry/testuser/recent")
+                    .accept(MediaType.parseMediaType("application/json;charset=UTF-8")))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+
     mockMvc
-        .perform(
-            get("/api/entry/testuser/recent")
-                .accept(MediaType.parseMediaType("application/json;charset=UTF-8")))
+        .perform(asyncDispatch(result))
         .andExpect(status().isOk())
         .andExpect(content().contentTypeCompatibleWith("application/json;charset=UTF-8"));
   }
