@@ -379,12 +379,8 @@ public class UpdateJournal extends HttpServlet {
           webLogin.setLastLogin(userID);
         }
       } catch (Exception e3) {
-        if (myclient == ClientType.web)
-          ErrorPage.display(
-              "Authentication Error",
-              "Unable to login.  Please check your username and password.",
-              sb);
-        else sb.append(JJ_LOGIN_FAIL);
+        // userID is still BAD_USER_ID here; the failure is reported once, below.
+        log.debug("login failed: " + e3.getMessage());
       }
     }
 
@@ -504,6 +500,8 @@ public class UpdateJournal extends HttpServlet {
         log.error(e.getMessage());
         if (myclient == ClientType.web) ErrorPage.display("Input Error", "Date Parse failure", sb);
         else sb.append("JJ.JOURNAL.UPDATE.FAIL");
+
+        blnError = true;
       }
 
       final String isSpellCheck = request.getParameter("spellcheck");

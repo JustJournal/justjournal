@@ -339,6 +339,10 @@ public final class HTMLUtil {
       tidy.setSmartIndent(true);
       tidy.setIndentAttributes(true);
       tidy.setWord2000(true);
+      // Without this, JTidy emits nothing at all when the input has a tag it does not know
+      // (for example <music>), which would discard the whole body. With it, the unknown tag is
+      // dropped and its text content is kept.
+      tidy.setForceOutput(true);
       tidy.parse(bais, baos);
       output = baos.toString();
     } catch (final Exception e) {

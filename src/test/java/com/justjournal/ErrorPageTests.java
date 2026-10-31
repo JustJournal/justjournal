@@ -55,7 +55,8 @@ class ErrorPageTests {
     ErrorPage.display("Oops", "Try again.", sb);
     final String html = sb.toString();
 
-    assertFalse(html.contains("half a page of garbag"), html);
+    assertTrue(html.startsWith("<!DOCTYPE html PUBLIC"), html);
+    assertFalse(html.contains("garbage"), html);
     assertTrue(html.contains("<title>Oops</title>"), html);
     assertTrue(html.contains("<p>Try again.</p>"), html);
   }

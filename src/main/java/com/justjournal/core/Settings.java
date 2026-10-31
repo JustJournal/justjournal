@@ -139,7 +139,7 @@ public class Settings {
         } else if (name.equalsIgnoreCase("commentMailEnable")) {
           commentMailEnable = value.equalsIgnoreCase("true");
         } else if (name.equalsIgnoreCase("commentEnableAnonymous")) {
-          mailEnable = value.equalsIgnoreCase("true");
+          commentEnableAnonymous = value.equalsIgnoreCase("true");
         } else if (name.equalsIgnoreCase("tzOffset")) tzOffset = Integer.parseInt(value);
         else if (name.equalsIgnoreCase("tzName")) tzName = value;
         else if (name.equalsIgnoreCase("tzLocalize")) {

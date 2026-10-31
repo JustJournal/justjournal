@@ -224,6 +224,7 @@ public class CommentController {
       Comment comment =
           Comment.builder()
               .id(commentTo.getId())
+              .subject(commentTo.getSubject())
               .body(commentTo.getBody())
               .date(commentTo.getDate())
               .eid(commentTo.getEid())
