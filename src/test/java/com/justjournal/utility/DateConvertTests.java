@@ -83,4 +83,42 @@ class DateConvertTests {
         var result = DateConvert.encode822(dateObject, TimeZone.getTimeZone("EST"));
         assertEquals("Tue, 11 Feb 2014 00:00:00 -0500", result);
     }
+
+    @Test
+    void decode3339_handlesNegativeOffsets_withOrWithoutFractions() throws ParseException {
+        Date fiveUtc = new java.util.GregorianCalendar(TimeZone.getTimeZone("UTC")) {{
+            clear();
+            set(2014, java.util.Calendar.FEBRUARY, 11, 5, 0, 0);
+        }}.getTime();
+
+        assertEquals(fiveUtc, DateConvert.decode3339("2014-02-11T00:00:00-05:00"));
+        assertEquals(fiveUtc.getTime() + 250, DateConvert.decode3339("2014-02-11T00:00:00.250-05:00").getTime());
+    }
+
+    @Test
+    void decode3339_zuluTimes_acceptOptionalFractions() throws ParseException {
+        Date zulu = DateConvert.decode3339("2014-02-11T05:00:00Z");
+        Date fraction = DateConvert.decode3339("2014-02-11T05:00:00.250Z");
+
+        assertEquals(zulu.getTime() + 250, fraction.getTime());
+    }
+
+    @Test
+    void decode8601_handlesZuluAndOffsets() throws ParseException {
+        Date zulu = DateConvert.decode8601("2014-02-11T05:00:00Z");
+        assertEquals("2014-02-11T05:00:00.000Z", DateConvert.encode3339(zulu));
+        assertEquals(zulu, DateConvert.decode8601("2014-02-11T00:00:00-05:00"));
+        assertEquals(zulu, DateConvert.decode8601("2014-02-11T06:00:00+01:00"));
+    }
+
+    @Test
+    void encode8601_isUtcWithAnExplicitOffset() throws ParseException {
+        var result = DateConvert.encode8601(parse("2014-02-11"));
+        org.junit.jupiter.api.Assertions.assertTrue(result.startsWith("2014-02-11T05:00"), result);
+        org.junit.jupiter.api.Assertions.assertTrue(result.endsWith("+00:00"), result);
+
+        var now = DateConvert.encode8601();
+        org.junit.jupiter.api.Assertions.assertTrue(now.endsWith("+00:00"), now);
+        assertNotNull(DateConvert.encode822());
+    }
 }

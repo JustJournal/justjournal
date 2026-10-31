@@ -30,7 +30,11 @@ import static com.justjournal.core.Constants.LOGIN_ATTRNAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.justjournal.model.Comment;
@@ -44,7 +48,12 @@ import com.justjournal.model.User;
 import com.justjournal.model.api.CommentTo;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
+import com.justjournal.repository.QueueMailRepository;
+import com.justjournal.repository.SettingsRepository;
+import com.justjournal.repository.UserRepository;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +77,9 @@ class CommentControllerTests {
 
   @Mock private CommentRepository commentRepository;
   @Mock private EntryRepository entryRepository;
+  @Mock private UserRepository userRepository;
+  @Mock private SettingsRepository settingsRepository;
+  @Mock private QueueMailRepository queueMailRepository;
 
   @InjectMocks private CommentController commentController;
 
@@ -252,5 +264,92 @@ class CommentControllerTests {
     when(commentRepository.findById(99)).thenReturn(Optional.empty());
 
     assertEquals(404, commentController.getById(99, session).getStatusCode().value());
+  }
+  // ---- deleting -----------------------------------------------------------------------------
+
+  @Test
+  void deleteRequiresALogin() {
+    final Map<String, String> result = commentController.delete(COMMENT_ID, session, response);
+
+    assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+    assertTrue(result.containsKey("error"), result.toString());
+    verify(commentRepository, never()).deleteById(anyInt());
+  }
+
+  @Test
+  void authorCanDeleteOwnComment() {
+    login(3, "commenter");
+
+    final Map<String, String> result = commentController.delete(COMMENT_ID, session, response);
+
+    assertEquals(200, response.getStatus());
+    assertEquals(Map.of("id", "20"), result);
+    verify(commentRepository).deleteById(COMMENT_ID);
+  }
+
+  @Test
+  void someoneElsesCommentIsLeftAlone() {
+    login(OTHER_ID, "other");
+
+    final Map<String, String> result = commentController.delete(COMMENT_ID, session, response);
+
+    assertEquals(200, response.getStatus());
+    assertEquals(Map.of("id", "20"), result);
+    verify(commentRepository, never()).deleteById(anyInt());
+  }
+
+  @Test
+  void deletingAMissingCommentIsABadRequest() {
+    login(3, "commenter");
+    when(commentRepository.findById(99)).thenReturn(Optional.empty());
+
+    final Map<String, String> result = commentController.delete(99, session, response);
+
+    assertEquals(HttpServletResponse.SC_BAD_REQUEST, response.getStatus());
+    assertEquals("Could not delete the comment.", result.get("error"));
+  }
+
+  // ---- posting ------------------------------------------------------------------------------
+
+  private static CommentTo commentTo(final int entryId) {
+    final CommentTo to = new CommentTo();
+    to.setEid(entryId);
+    to.setSubject("hello");
+    to.setBody("a comment body");
+    return to;
+  }
+
+  @Test
+  void postRequiresALogin() {
+    final Map<String, String> result = commentController.post(commentTo(ENTRY_ID), session, response);
+
+    assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+    assertTrue(result.containsKey("error"), result.toString());
+    verify(commentRepository, never()).save(any());
+  }
+
+  @Test
+  void postToAMissingEntryIsNotFound() {
+    login(3, "commenter");
+    when(entryRepository.findById(99)).thenReturn(Optional.empty());
+
+    final Map<String, String> result = commentController.post(commentTo(99), session, response);
+
+    assertEquals(HttpServletResponse.SC_NOT_FOUND, response.getStatus());
+    assertEquals("No entry for this comment", result.get("error"));
+    verify(commentRepository, never()).save(any());
+  }
+
+  @Test
+  void postIsRefusedWhenTheEntryBlocksComments() {
+    login(3, "commenter");
+    entry.setAllowComments(PrefBool.N);
+
+    final Map<String, String> result = commentController.put(commentTo(ENTRY_ID), session, response);
+
+    assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+    assertEquals("Comments blocked by owner of this blog entry.", result.get("error"));
+    verify(commentRepository, never()).save(any());
+    verify(queueMailRepository, never()).save(any());
   }
 }
