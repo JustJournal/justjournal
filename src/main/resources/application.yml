@@ -78,8 +78,9 @@ server:
   forward-headers-strategy: native
   tomcat:
     remoteip:
-      # the proxies whose X-Forwarded-For is believed; a deployment adds its own front-end proxy
-      internal-proxies: '127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0:0:0:0:0:0:0:1|::1'
+      # the header carrying the client address (Tomcat's own default); internal-proxies keeps
+      # Spring Boot's default of the private and loopback ranges unless a deployment overrides it
+      remote-ip-header: X-Forwarded-For
 
 app:
   minio:
