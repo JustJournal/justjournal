@@ -307,6 +307,7 @@ class BloggerTests {
   void deletePost_badInput_isAFault() {
     assertFault(blogger.deletePost("key", "5", "laffer1", "wrong", true), AUTH_FAULT);
     assertFault(blogger.deletePost("key", "0", "laffer1", "secret", true), "Invalid entry id 0");
+    assertFault(blogger.deletePost("key", "abc", "laffer1", "secret", true), "Invalid entry id abc");
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(blogger.deletePost("key", "9", "laffer1", "secret", true), "Invalid entry id 9");
     verify(entryRepository, never()).deleteById(anyInt());
@@ -332,6 +333,8 @@ class BloggerTests {
     assertFault(blogger.editPost("key", "6", "laffer1", "secret", "x", true), AUTH_FAULT);
     assertFault(blogger.editPost("key", "5", "laffer1", "wrong", "x", true), AUTH_FAULT);
     assertFault(blogger.editPost("key", "0", "laffer1", "secret", "x", true), "Invalid entry id 0");
+    assertFault(
+        blogger.editPost("key", "abc", "laffer1", "secret", "x", true), "Invalid entry id abc");
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(blogger.editPost("key", "9", "laffer1", "secret", "x", true), "Invalid entry id 9");
     verify(entryRepository, never()).save(any());

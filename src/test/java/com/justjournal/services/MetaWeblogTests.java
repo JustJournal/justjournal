@@ -288,6 +288,8 @@ class MetaWeblogTests {
   void deletePost_badInput_isAFault() {
     assertFault(metaWeblog.deletePost("key", "5", "laffer1", "wrong", true), 4, AUTH_FAULT);
     assertFault(metaWeblog.deletePost("key", "0", "laffer1", "secret", true), 4, "Invalid entry id 0");
+    assertFault(
+        metaWeblog.deletePost("key", "abc", "laffer1", "secret", true), 4, "Invalid entry id abc");
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(metaWeblog.deletePost("key", "9", "laffer1", "secret", true), 4, "Invalid entry id 9");
     verify(entryRepository, never()).deleteById(anyInt());
@@ -335,6 +337,8 @@ class MetaWeblogTests {
   void editPost_badInput_isAFault() {
     assertFault(metaWeblog.editPost("5", "laffer1", "wrong", content(), true), 4, AUTH_FAULT);
     assertFault(metaWeblog.editPost("0", "laffer1", "secret", content(), true), 4, "Invalid entry id 0");
+    assertFault(
+        metaWeblog.editPost("abc", "laffer1", "secret", content(), true), 4, "Invalid entry id abc");
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(metaWeblog.editPost("9", "laffer1", "secret", content(), true), 4, "Invalid entry id 9");
   }
