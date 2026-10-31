@@ -26,7 +26,10 @@
 package com.justjournal.utility;
 
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
@@ -63,13 +66,15 @@ public class RequestUtil {
 
       HttpServletRequest request = ((ServletRequestAttributes) (attributes)).getRequest();
 
-      String ip =
+      // proxy hops in header order, then the connecting address, comma separated
+      final List<String> hops =
           Arrays.stream(IP_HEADER_NAMES)
               .map(request::getHeader)
               .filter(h -> h != null && !h.isEmpty() && !"unknown".equalsIgnoreCase(h))
               .map(h -> h.split(",")[0])
-              .reduce("", (h1, h2) -> h1 + ":" + h2);
-      return ip + request.getRemoteAddr();
+              .collect(Collectors.toCollection(ArrayList::new));
+      hops.add(request.getRemoteAddr());
+      return String.join(",", hops);
     } catch (final Exception e) {
       log.error("Could not obtain ip address", e);
       return "0.0.0.0";
