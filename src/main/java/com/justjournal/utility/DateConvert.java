@@ -126,9 +126,11 @@ public final class DateConvert {
       return d;
     }
 
-    // step one, split off the timezone.
-    String firstpart = input.substring(0, input.lastIndexOf('-'));
-    String secondpart = input.substring(input.lastIndexOf('-'));
+    // step one, split off the timezone. It starts at the last '+' or '-'; the date's own dashes
+    // come before the 'T', so the later of the two is the offset sign.
+    final int tzStart = Math.max(input.lastIndexOf('+'), input.lastIndexOf('-'));
+    String firstpart = input.substring(0, tzStart);
+    String secondpart = input.substring(tzStart);
 
     // step two, remove the colon from the timezone offset
     secondpart =

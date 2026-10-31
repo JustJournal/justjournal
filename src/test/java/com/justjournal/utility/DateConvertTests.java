@@ -96,6 +96,18 @@ class DateConvertTests {
     }
 
     @Test
+    void decode3339_handlesPositiveOffsets_withOrWithoutFractions() throws ParseException {
+        Date fiveUtc = new java.util.GregorianCalendar(TimeZone.getTimeZone("UTC")) {{
+            clear();
+            set(2014, java.util.Calendar.FEBRUARY, 11, 5, 0, 0);
+        }}.getTime();
+
+        assertEquals(fiveUtc, DateConvert.decode3339("2014-02-11T06:00:00+01:00"));
+        assertEquals(fiveUtc, DateConvert.decode3339("2014-02-11T10:30:00+05:30"));
+        assertEquals(fiveUtc.getTime() + 250, DateConvert.decode3339("2014-02-11T06:00:00.250+01:00").getTime());
+    }
+
+    @Test
     void decode3339_zuluTimes_areUtc_withOptionalFractions() throws ParseException {
         Date fiveUtc = new java.util.GregorianCalendar(TimeZone.getTimeZone("UTC")) {{
             clear();
