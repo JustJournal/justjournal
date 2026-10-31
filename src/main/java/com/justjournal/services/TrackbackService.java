@@ -164,29 +164,31 @@ public class TrackbackService {
     return Optional.empty();
   }
 
+  /** The most of a fetched page that is scanned for a trackback URL. */
+  static final int MAX_HTML_LENGTH = 512 * 1024;
+
   /**
-   * Works on one line but not mulitline like this: <link rel="trackback"
-   * type="application/x-www-form-urlencoded" href="http://example.org/trackback-url" />
+   * A link element that declares rel="trackback", with the attributes in any order, such as:
+   * <link rel="trackback" type="application/x-www-form-urlencoded" href="http://example.org/tb" />
+   * Attribute values are matched with bounded character classes so a large page cannot make the
+   * scan backtrack excessively.
+   */
+  private static final Pattern LINK_TAG =
+      Pattern.compile(
+          "<link\\b(?=[^>]*\\brel=[\"']trackback[\"'])[^>]*\\bhref=[\"']([^\"']+)[\"']",
+          Pattern.CASE_INSENSITIVE);
+
+  /**
+   * Find the trackback URL advertised by a rel="trackback" link element. Other link elements
+   * (stylesheets, feeds) are ignored.
    *
-   * @param input
-   * @return
+   * @param input html document
+   * @return the href of the first trackback link, if any
    */
   public Optional<String> parseTrackbackUrlWithLinkTag(String input) {
-    final String pattern =
-        "<\\s*link[\\s\\r"
-            + "\\n"
-            + "](rel=\"trackback\"|[\\s\\n"
-            + "\\r"
-            + "]?type=\"application\\/x-www-form-urlencoded\"|[^>](.*?)([\\s\\n"
-            + "\\r"
-            + "]?href=\"(.*?)\"))[\\s\\r"
-            + "\\n"
-            + "]*\\/?>";
-
-    final Pattern p = Pattern.compile(pattern);
-    final Matcher m = p.matcher(input);
+    final Matcher m = LINK_TAG.matcher(input);
     if (m.find()) {
-      return Optional.ofNullable(m.group(4));
+      return Optional.ofNullable(m.group(1));
     }
     return Optional.empty();
   }
@@ -195,7 +197,11 @@ public class TrackbackService {
     ResponseEntity<String> result = restTemplate.getForEntity(url, String.class);
 
     if (result.getStatusCode() == HttpStatus.OK) {
-      return Optional.ofNullable(result.getBody());
+      final String body = result.getBody();
+      if (body != null && body.length() > MAX_HTML_LENGTH) {
+        return Optional.of(body.substring(0, MAX_HTML_LENGTH));
+      }
+      return Optional.ofNullable(body);
     }
 
     return Optional.empty();

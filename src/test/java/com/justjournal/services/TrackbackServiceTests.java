@@ -194,6 +194,27 @@ class TrackbackServiceTests {
     }
 
     @Test
+    void parseTrackbackUrlWithLinkTag_skipsOtherLinks_andAcceptsAnyAttributeOrder() {
+        String input = "<html><head>"
+                + "<link rel=\"stylesheet\" href=\"http://example.org/style.css\" />\n"
+                + "<LINK href='http://example.org/tb' type=\"application/x-www-form-urlencoded\" rel='trackback'>"
+                + "</head></html>";
+
+        assertEquals(Optional.of("http://example.org/tb"), trackbackService.parseTrackbackUrlWithLinkTag(input));
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag(
+                "<link rel=\"stylesheet\" href=\"http://example.org/style.css\" />").isEmpty());
+    }
+
+    @Test
+    void getHtmlDocument_capsTheScannedPage() {
+        String big = "x".repeat(TrackbackService.MAX_HTML_LENGTH + 10);
+        when(restTemplate.getForEntity("http://big", String.class)).thenReturn(new ResponseEntity<>(big, HttpStatus.OK));
+
+        assertEquals(TrackbackService.MAX_HTML_LENGTH,
+                trackbackService.getHtmlDocument("http://big").orElseThrow().length());
+    }
+
+    @Test
     void save_storesANewTrackback_withTodaysDate() {
         when(trackbackRepository.existsByEntryIdAndUrl(100, "http://example.com")).thenReturn(false);
         when(trackbackRepository.save(testTrackback)).thenReturn(testTrackback);
