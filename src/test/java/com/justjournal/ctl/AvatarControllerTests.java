@@ -69,7 +69,7 @@ class AvatarControllerTests {
   }
 
   private void verdict(final ModerationStatus status) {
-    when(moderation.moderate(any()))
+    when(moderation.moderate(any(), any()))
         .thenReturn(new ImageModerationService.Result(status, status.name().toLowerCase(), "test"));
   }
 
@@ -309,7 +309,7 @@ class AvatarControllerTests {
                 .session(loggedIn()))
         .andExpect(status().isCreated());
 
-    verify(moderation).moderate(data);
+    verify(moderation).moderate(eq(data), any());
   }
 
   private void storedAvatar(final boolean shown, final String mimeType) throws Exception {

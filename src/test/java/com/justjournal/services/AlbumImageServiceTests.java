@@ -2,6 +2,7 @@ package com.justjournal.services;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,7 +73,7 @@ class AlbumImageServiceTests {
   }
 
   private void verdict(final ModerationStatus status) {
-    when(moderation.moderate(any()))
+    when(moderation.moderate(any(), any()))
         .thenReturn(new ImageModerationService.Result(status, status.name().toLowerCase(), "test"));
   }
 
@@ -151,8 +152,11 @@ class AlbumImageServiceTests {
 
     assertEquals(ModerationStatus.APPROVED, saved.getModerationStatus());
     final ArgumentCaptor<byte[]> judged = ArgumentCaptor.forClass(byte[].class);
-    verify(moderation).moderate(judged.capture());
+    final ArgumentCaptor<byte[]> stored = ArgumentCaptor.forClass(byte[].class);
+    verify(moderation).moderate(judged.capture(), stored.capture());
     assertEquals(AlbumImageService.THUMBNAIL_SIZE, ImageIO.read(new ByteArrayInputStream(judged.getValue())).getWidth());
+    // the original goes along, so an animated GIF can be told from its still thumbnail
+    assertEquals(1600, ImageIO.read(new ByteArrayInputStream(stored.getValue())).getWidth());
   }
 
   @Test
@@ -197,7 +201,9 @@ class AlbumImageServiceTests {
     final InputStream stream = new ByteArrayInputStream(new byte[] {1});
     when(storage.downloadFile("pics", "5/a.jpg")).thenReturn(stream);
 
-    assertEquals(stream, service.picture(7, 5).stream());
+    final AlbumImageService.Picture picture = service.picture(7, 5);
+    assertEquals(stream, picture.stream());
+    assertFalse(picture.approved());
   }
 
   @Test

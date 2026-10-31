@@ -61,7 +61,7 @@ class AlbumImageControllerTests {
   }
 
   private static AlbumImageService.Picture picture(final String mimeType) {
-    return new AlbumImageService.Picture(new ByteArrayInputStream(new byte[] {1, 2, 3}), mimeType);
+    return new AlbumImageService.Picture(new ByteArrayInputStream(new byte[] {1, 2, 3}), mimeType, true);
   }
 
   @Test
@@ -103,6 +103,19 @@ class AlbumImageControllerTests {
 
     mockMvc.perform(get("/AlbumImage/7").session(loggedIn())).andExpect(status().isOk());
     verify(albumImageService).picture(7, USER_ID);
+  }
+
+  @Test
+  void get_awaitingReview_shownToOwnerWithoutCaching() throws Exception {
+    when(albumImageService.picture(7, USER_ID))
+        .thenReturn(
+            new AlbumImageService.Picture(
+                new ByteArrayInputStream(new byte[] {1}), MediaType.IMAGE_JPEG_VALUE, false));
+
+    mockMvc
+        .perform(get("/AlbumImage/7").session(loggedIn()))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Cache-Control", "no-store"));
   }
 
   @Test

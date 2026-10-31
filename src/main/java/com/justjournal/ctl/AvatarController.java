@@ -177,7 +177,7 @@ public class AvatarController {
     try {
       final ImageService.EncodedImage avatar = imageService.encodeAvatar(file.getBytes());
 
-      final ImageModerationService.Result verdict = imageModerationService.moderate(file.getBytes());
+      final ImageModerationService.Result verdict = imageModerationService.moderate(file.getBytes(), avatar.data());
       if (verdict.rejected()) {
         log.info("Avatar upload by user {} rejected by the content filter: {}", userID, verdict.category());
         throw new BadRequestException(REJECTED_MESSAGE);

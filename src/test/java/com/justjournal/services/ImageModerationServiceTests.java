@@ -17,7 +17,10 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,12 +38,58 @@ class ImageModerationServiceTests {
     service.setModel("vision");
     service.setOnSuggestive(ModerationStatus.REVIEW);
     service.setOnError(ModerationStatus.REVIEW);
+    service.setOnAnimated(ModerationStatus.REVIEW);
   }
 
   private static byte[] png(final int width, final int height) throws IOException {
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
     ImageIO.write(new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB), "png", out);
     return out.toByteArray();
+  }
+
+  private static byte[] gif(final int frames) throws IOException {
+    final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    final ImageWriter writer = ImageIO.getImageWritersByFormatName("gif").next();
+    try (ImageOutputStream ios = ImageIO.createImageOutputStream(out)) {
+      writer.setOutput(ios);
+      writer.prepareWriteSequence(null);
+      for (int i = 0; i < frames; i++) {
+        final BufferedImage frame = new BufferedImage(20, 20, BufferedImage.TYPE_INT_RGB);
+        writer.writeToSequence(new IIOImage(frame, null, null), null);
+      }
+      writer.endWriteSequence();
+    } finally {
+      writer.dispose();
+    }
+    return out.toByteArray();
+  }
+
+  @Test
+  void animatedGif_modelSeesOneFrame_heldForReview() throws Exception {
+    answers("safe");
+
+    final ImageModerationService.Result result = service.moderate(gif(3));
+
+    assertEquals(ModerationStatus.REVIEW, result.status());
+    assertEquals(ImageModerationService.CATEGORY_ANIMATED, result.category());
+
+    service.setOnAnimated(ModerationStatus.APPROVED);
+    assertEquals(ModerationStatus.APPROVED, service.moderate(gif(3)).status());
+  }
+
+  @Test
+  void animatedGif_nudity_stillRejected() throws Exception {
+    answers("nudity");
+    assertTrue(service.moderate(gif(3)).rejected());
+  }
+
+  @Test
+  void stillImages_notTreatedAsAnimated() throws Exception {
+    answers("safe");
+    assertEquals(ModerationStatus.APPROVED, service.moderate(gif(1)).status());
+    assertEquals(ModerationStatus.APPROVED, service.moderate(png(50, 50)).status());
+    // an animated avatar that was re-encoded to a single frame is judged by what is stored
+    assertEquals(ModerationStatus.APPROVED, service.moderate(gif(3), gif(1)).status());
   }
 
   private void answers(final String category) throws IOException {

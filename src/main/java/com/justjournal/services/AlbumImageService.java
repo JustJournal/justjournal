@@ -77,8 +77,13 @@ public class AlbumImageService {
     this.jdbcTemplate = jdbcTemplate;
   }
 
-  /** A picture's data and mime type. */
-  public record Picture(InputStream stream, String mimeType) {}
+  /**
+   * A picture's data and mime type.
+   *
+   * @param approved whether everyone may see it; false when it is the owner's view of a picture
+   *     awaiting review, which must not be cached for others
+   */
+  public record Picture(InputStream stream, String mimeType, boolean approved) {}
 
   /** What a {@link #migrateBlobs()} run did. */
   public record MigrationResult(int copied, int failed) {}
@@ -96,7 +101,7 @@ public class AlbumImageService {
     final byte[] thumbnail = imageService.thumbnail(data, THUMBNAIL_SIZE);
 
     // the thumbnail is already small and the right way up; the model doesn't need more
-    final ImageModerationService.Result verdict = moderation.moderate(thumbnail);
+    final ImageModerationService.Result verdict = moderation.moderate(thumbnail, data);
     if (verdict.rejected()) {
       log.info("Picture upload by user {} rejected by the content filter: {}", ownerId, verdict.category());
       throw new BadRequestException(REJECTED_MESSAGE);
@@ -140,9 +145,9 @@ public class AlbumImageService {
   public Picture picture(final int id, final int viewerId) throws ServiceException {
     final UserImage image = visible(id, viewerId);
     if (image.getFilename() != null) {
-      return new Picture(get(image.getFilename()), image.getMimeType());
+      return new Picture(get(image.getFilename()), image.getMimeType(), approved(image));
     }
-    return new Picture(new ByteArrayInputStream(blob(id)), image.getMimeType());
+    return new Picture(new ByteArrayInputStream(blob(id)), image.getMimeType(), approved(image));
   }
 
   /**
@@ -154,14 +159,15 @@ public class AlbumImageService {
   public Picture thumbnail(final int id, final int viewerId) throws ServiceException, IOException {
     final UserImage image = visible(id, viewerId);
     if (image.getThumbnail() != null) {
-      return new Picture(get(image.getThumbnail()), MediaType.IMAGE_JPEG_VALUE);
+      return new Picture(get(image.getThumbnail()), MediaType.IMAGE_JPEG_VALUE, approved(image));
     }
     // not copied to MinIO yet
     final byte[] data = image.getFilename() != null ? get(image.getFilename()).readAllBytes() : blob(id);
     try {
       return new Picture(
           new ByteArrayInputStream(imageService.thumbnail(data, THUMBNAIL_SIZE)),
-          MediaType.IMAGE_JPEG_VALUE);
+          MediaType.IMAGE_JPEG_VALUE,
+          approved(image));
     } catch (final IllegalArgumentException e) {
       throw new NotFoundException("Picture " + id + " can't be shown as a thumbnail");
     }
@@ -314,6 +320,10 @@ public class AlbumImageService {
       throw new NotFoundException("No picture " + id);
     }
     return image;
+  }
+
+  private static boolean approved(final UserImage image) {
+    return image.getModerationStatus() == ModerationStatus.APPROVED;
   }
 
   private byte[] blob(final int id) {

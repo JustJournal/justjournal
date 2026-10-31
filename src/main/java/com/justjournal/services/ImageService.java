@@ -204,6 +204,26 @@ public class ImageService {
   }
 
   /**
+   * How many frames the image has: more than one for an animated GIF.
+   *
+   * @throws IllegalArgumentException if the data isn't an image format ImageIO can read
+   */
+  public int frameCount(final byte[] data) throws IOException {
+    try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+      final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+      if (!readers.hasNext()) throw new IllegalArgumentException("Unsupported image format");
+      final ImageReader reader = readers.next();
+      try {
+        // counting frames searches the stream, which a forward-only input doesn't allow
+        reader.setInput(in, false, true);
+        return reader.getNumImages(true);
+      } finally {
+        reader.dispose();
+      }
+    }
+  }
+
+  /**
    * A JPEG thumbnail that fits in a square of {@code boundSize} pixels, turned the right way up
    * for photos whose camera recorded the orientation instead of rotating the pixels. Large images
    * are read at a reduced resolution, so a phone photo isn't decoded at full size.

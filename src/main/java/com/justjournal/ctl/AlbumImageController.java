@@ -123,7 +123,9 @@ public class AlbumImageController {
     }
     return ResponseEntity.ok()
         .contentType(type)
-        .cacheControl(CacheControl.maxAge(CACHE_TIME).cachePublic())
+        // a picture awaiting review is shown only to its owner and must not be cached for others
+        .cacheControl(
+            picture.approved() ? CacheControl.maxAge(CACHE_TIME).cachePublic() : CacheControl.noStore())
         .body(new InputStreamResource(picture.stream()));
   }
 

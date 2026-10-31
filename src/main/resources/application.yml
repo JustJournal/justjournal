@@ -103,6 +103,8 @@ moderation:
   on-suggestive: REVIEW
   # when no server answers or the answer makes no sense: APPROVED, REVIEW or REJECTED
   on-error: REVIEW
+  # an animated GIF the model found safe, having seen only its first frame: APPROVED, REVIEW or REJECTED
+  on-animated: REVIEW
 
 bing:
   indexNowKey:
