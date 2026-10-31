@@ -185,8 +185,10 @@ public class TrackbackService {
 
     final Pattern p = Pattern.compile(pattern);
     final Matcher m = p.matcher(input);
-    if (m.groupCount() < 4) return Optional.empty();
-    return Optional.ofNullable(m.group(4));
+    if (m.find()) {
+      return Optional.ofNullable(m.group(4));
+    }
+    return Optional.empty();
   }
 
   public Optional<String> getHtmlDocument(String url) {

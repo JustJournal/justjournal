@@ -198,8 +198,7 @@ class AtomFeedTests {
 
     assertEquals(a, b);
     assertEquals(a.hashCode(), b.hashCode());
-    assertEquals(a, a);
-    assertNotEquals(a, null);
+    assertFalse(a.equals(null));
     assertNotEquals(a, "1");
 
     b.setContent("other");

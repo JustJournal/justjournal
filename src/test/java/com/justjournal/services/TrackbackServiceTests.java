@@ -174,8 +174,23 @@ class TrackbackServiceTests {
     }
 
     @Test
-    void parseTrackbackUrl_isEmptyWithoutAnRdfPing_butSkipsToTheLinkTagScan() {
-        assertTrue(trackbackService.parseTrackbackUrlWithRdf("<html/>").isEmpty());
+    void parseTrackbackUrl_fallsBackToTheLinkTag_whenThereIsNoRdfPing() {
+        String input = "<html><head><link rel=\"trackback\""
+                + " type=\"application/x-www-form-urlencoded\""
+                + " href=\"http://example.org/trackback-url\" /></head></html>";
+
+        assertTrue(trackbackService.parseTrackbackUrlWithRdf(input).isEmpty());
+        assertEquals(Optional.of("http://example.org/trackback-url"),
+                trackbackService.parseTrackbackUrlWithLinkTag(input));
+        assertEquals(Optional.of("http://example.org/trackback-url"),
+                trackbackService.parseTrackbackUrl(input));
+    }
+
+    @Test
+    void parseTrackbackUrlWithLinkTag_isEmptyWithoutALinkTag() {
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag("<html/>").isEmpty());
+        assertTrue(trackbackService.parseTrackbackUrl("<html><body>no trackback here</body></html>")
+                .isEmpty());
     }
 
     @Test

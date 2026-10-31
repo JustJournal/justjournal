@@ -26,6 +26,7 @@
 package com.justjournal.rss;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -174,8 +175,8 @@ class HeadlineBeanTests {
     assertEquals("", HeadlineBean.sanitizeHtml(null));
     assertEquals("", HeadlineBean.sanitizeHtml("  "));
     assertEquals("<p>ok</p>", HeadlineBean.sanitizeHtml("<p onclick=\"x()\">ok</p>").trim());
-    assertEquals(null, HeadlineBean.safeUrl(null));
-    assertEquals(null, HeadlineBean.safeUrl("javascript:alert(1)"));
+    assertNull(HeadlineBean.safeUrl(null));
+    assertNull(HeadlineBean.safeUrl("javascript:alert(1)"));
     assertEquals("https://example.com/?a=1&amp;b=2", HeadlineBean.safeUrl(" https://example.com/?a=1&b=2 "));
   }
 }

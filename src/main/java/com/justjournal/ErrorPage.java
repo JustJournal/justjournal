@@ -60,7 +60,7 @@ public final class ErrorPage {
   public static void display(final String ErrTitle, final String ErrMsg, final StringBuilder sb) {
     if (!sb.isEmpty()) {
       // reset the output to display the error.
-      sb.delete(0, sb.length() - 1);
+      sb.setLength(0);
     }
 
     headStyle(ErrTitle, sb);

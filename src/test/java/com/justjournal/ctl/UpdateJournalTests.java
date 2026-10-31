@@ -204,7 +204,7 @@ class UpdateJournalTests {
   }
 
   @Test
-  void dashboardClient_wrongPassword_getsTheFailureToken() throws Exception {
+  void dashboardClient_wrongPassword_getsTheFailureTokenOnce() throws Exception {
     final MockHttpServletRequest request = form();
     request.setParameter("client", "dash");
     request.setParameter("user", "bob");
@@ -212,8 +212,7 @@ class UpdateJournalTests {
 
     final String out = post(request);
 
-    assertTrue(out.contains("JJ.LOGIN.FAIL"), out);
-    assertFalse(out.contains("UPDATE"), out);
+    assertEquals("JJ.LOGIN.FAIL", out.trim());
     assertEquals("text/plain", response.getContentType());
     verify(entryRepository, never()).save(any());
   }
@@ -358,17 +357,20 @@ class UpdateJournalTests {
 
     assertTrue(html.contains("<title>Input Error</title>"), html);
     assertTrue(html.contains("Date Parse failure"), html);
+    assertFalse(html.contains("Entry added"), html);
+    verify(entryRepository, never()).save(any());
   }
 
   @Test
-  void unparseableDate_dashboard_getsTheFailureToken() throws Exception {
+  void unparseableDate_dashboard_getsTheFailureTokenAndSavesNothing() throws Exception {
     final MockHttpServletRequest request = loggedIn(form());
     request.setParameter("client", "dash");
     request.setParameter("date", "yesterday");
 
     final String out = post(request);
 
-    assertTrue(out.contains("JJ.JOURNAL.UPDATE.FAIL"), out);
+    assertEquals("JJ.JOURNAL.UPDATE.FAIL", out.trim());
+    verify(entryRepository, never()).save(any());
   }
 
   @Test

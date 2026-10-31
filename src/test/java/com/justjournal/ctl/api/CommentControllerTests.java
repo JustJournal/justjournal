@@ -28,7 +28,9 @@ package com.justjournal.ctl.api;
 import static com.justjournal.core.Constants.LOGIN_ATTRID;
 import static com.justjournal.core.Constants.LOGIN_ATTRNAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -59,6 +61,7 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -89,6 +92,7 @@ class CommentControllerTests {
   private Journal journal;
   private Entry entry;
   private Comment comment;
+  private User commenter;
 
   @BeforeEach
   void setUp() {
@@ -107,7 +111,7 @@ class CommentControllerTests {
     entry.setSecurity(Security.PUBLIC);
     entry.setAllowComments(PrefBool.Y);
 
-    final User commenter = new User();
+    commenter = new User();
     commenter.setId(3);
     commenter.setUsername("commenter");
 
@@ -351,5 +355,73 @@ class CommentControllerTests {
     assertEquals("Comments blocked by owner of this blog entry.", result.get("error"));
     verify(commentRepository, never()).save(any());
     verify(queueMailRepository, never()).save(any());
+  }
+
+  @Test
+  void postSavesANewCommentAndReturnsItsId() {
+    login(3, "commenter");
+    when(userRepository.findById(3)).thenReturn(Optional.of(commenter));
+    when(commentRepository.save(any(Comment.class)))
+        .thenAnswer(
+            inv -> {
+              final Comment saved = inv.getArgument(0);
+              saved.setId(21); // what the identity column does on insert
+              return saved;
+            });
+    final CommentTo to = commentTo(ENTRY_ID);
+    to.setSubject("hel\u0007lo");
+
+    final Map<String, String> result = commentController.post(to, session, response);
+
+    assertEquals(200, response.getStatus());
+    assertEquals(Map.of("id", "21"), result);
+    final ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
+    verify(commentRepository).save(captor.capture());
+    final Comment saved = captor.getValue();
+    assertSame(commenter, saved.getUser());
+    assertSame(entry, saved.getEntry());
+    assertEquals(ENTRY_ID, saved.getEid());
+    assertEquals("hello", saved.getSubject());
+    assertEquals("a comment body", saved.getBody());
+    assertEquals(FormatType.TEXT, saved.getFormat());
+    assertNotNull(saved.getDate());
+  }
+
+  @Test
+  void putEditsTheExistingComment() {
+    login(3, "commenter");
+    when(userRepository.findById(3)).thenReturn(Optional.of(commenter));
+    final CommentTo to = commentTo(ENTRY_ID);
+    to.setId(COMMENT_ID);
+    to.setSubject("edited");
+    to.setBody("edited body");
+
+    final Map<String, String> result = commentController.put(to, session, response);
+
+    assertEquals(200, response.getStatus());
+    assertEquals(Map.of("id", "20"), result);
+    verify(commentRepository).save(comment);
+    assertEquals("edited", comment.getSubject());
+    assertEquals("edited body", comment.getBody());
+    assertSame(commenter, comment.getUser());
+  }
+
+  @Test
+  void putToACommentOnAnotherEntryIsABadRequest() {
+    login(3, "commenter");
+    final Entry other = new Entry();
+    other.setId(11);
+    other.setUser(owner);
+    other.setAllowComments(PrefBool.Y);
+    when(entryRepository.findById(11)).thenReturn(Optional.of(other));
+    final CommentTo to = commentTo(11);
+    to.setId(COMMENT_ID);
+
+    final Map<String, String> result = commentController.put(to, session, response);
+
+    assertEquals(HttpServletResponse.SC_BAD_REQUEST, response.getStatus());
+    assertEquals(
+        "Error saving comment. Entry id does not match original on comment.", result.get("error"));
+    verify(commentRepository, never()).save(any());
   }
 }

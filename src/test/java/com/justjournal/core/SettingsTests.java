@@ -112,6 +112,7 @@ class SettingsTests {
     values.put("mailsubject", "Hello");
     values.put("commentenable", "false");
     values.put("commentmailenable", "false");
+    values.put("commentenableanonymous", "true");
     values.put("tzoffset", "3");
     values.put("tzname", "CET");
     values.put("tzlocalize", "false");
@@ -140,6 +141,8 @@ class SettingsTests {
     assertEquals("Hello", settings.getMailSubject());
     assertFalse(settings.isCommentEnable());
     assertFalse(settings.isCommentMailEnable());
+    // its own row, not mailEnable's (which is asserted false above)
+    assertTrue(settings.isCommentEnableAnonymous());
     assertEquals(3, settings.getTzOffset());
     assertEquals("CET", settings.getTzName());
     assertFalse(settings.isTzLocalize());

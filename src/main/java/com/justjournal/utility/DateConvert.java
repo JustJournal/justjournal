@@ -29,6 +29,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -40,6 +42,11 @@ import java.util.TimeZone;
  */
 public final class DateConvert {
   private static final int TZ_8601_OFFSET = 6;
+
+  /** UTC with an explicit "+00:00" offset ({@code xxx} never emits "Z"). */
+  private static final DateTimeFormatter ENCODE_8601 =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx", Locale.US)
+          .withZone(ZoneOffset.UTC);
 
   private DateConvert() {}
 
@@ -102,14 +109,17 @@ public final class DateConvert {
   public static Date decode3339(@NotNull String input) throws java.text.ParseException {
     Date d;
 
-    // if there is no time zone, we don't need to do any special parsing.
+    // a trailing "Z" means UTC, so parse in UTC rather than the JVM default zone.
     if (input.endsWith("Z")) {
+      final TimeZone utc = TimeZone.getTimeZone("UTC");
       try {
         SimpleDateFormat s = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"); // spec for RFC3339
+        s.setTimeZone(utc);
         d = s.parse(input);
       } catch (final java.text.ParseException pe) { // try again with optional decimals
         SimpleDateFormat s =
             new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"); // spec for RFC3339 with fractional seconds
+        s.setTimeZone(utc);
         s.setLenient(true);
         d = s.parse(input);
       }
@@ -176,14 +186,6 @@ public final class DateConvert {
 
   @NotNull
   public static String encode8601(@NotNull final Date data) {
-    final SimpleDateFormat df8601 = getDateFormat8601();
-    df8601.setTimeZone(TimeZone.getTimeZone("UTC"));
-    final String s = df8601.format(data);
-
-    String result =
-        s.substring(0, s.length() - 9) + s.substring(s.length() - TZ_8601_OFFSET);
-    result = result.replace("UTC", "+00:00");
-
-    return result;
+    return ENCODE_8601.format(data.toInstant());
   }
 }

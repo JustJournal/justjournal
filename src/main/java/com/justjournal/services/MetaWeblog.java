@@ -44,7 +44,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.IllegalFormatException;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -284,7 +283,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         log.debug( "Entry id invalid {}", postid);
         return error(ERROR_ENTRY_ID + postid);
       }
-    } catch (final IllegalFormatException ex) {
+    } catch (final NumberFormatException ex) {
       log.debug( "Entry id invalid {}", postid);
       return error(ERROR_ENTRY_ID + postid);
     }
@@ -329,7 +328,7 @@ public class MetaWeblog extends BaseXmlRpcService {
 
     try {
       eid = Integer.parseInt(postid);
-    } catch (final IllegalFormatException ex) {
+    } catch (final NumberFormatException ex) {
       return error(ERROR_ENTRY_ID + postid);
     }
 

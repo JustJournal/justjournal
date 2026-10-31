@@ -284,7 +284,7 @@ public class Blogger extends BaseXmlRpcService {
 
     try {
       eid = Integer.parseInt(postid);
-    } catch (IllegalFormatException ex) {
+    } catch (final NumberFormatException ex) {
       return error(ERROR_ENTRY_ID + postid);
     }
 
@@ -340,7 +340,7 @@ public class Blogger extends BaseXmlRpcService {
 
     try {
       eid = Integer.parseInt(postid);
-    } catch (final IllegalFormatException ex) {
+    } catch (final NumberFormatException ex) {
       return error(ERROR_ENTRY_ID + postid);
     }
 

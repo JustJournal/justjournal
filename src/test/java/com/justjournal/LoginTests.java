@@ -44,7 +44,10 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Optional;
 
 import static com.justjournal.core.Constants.BAD_USER_ID;
@@ -363,7 +366,12 @@ class LoginTests {
     final User sha1User = new User();
     sha1User.setId(3);
     sha1User.setUsername("cat");
-    sha1User.setPassword(login.sha1("basic1"));
+    // the SHA-1 digest of the password, as a pre-3.1 account would have it stored
+    sha1User.setPassword(
+        HexFormat.of()
+            .formatHex(
+                MessageDigest.getInstance("SHA-1")
+                    .digest("basic1".getBytes(StandardCharsets.ISO_8859_1))));
     when(userRepository.findByUsername("cat")).thenReturn(sha1User);
     assertEquals(3, login.validatePassword("cat", "basic1"));
     assertTrue(sha1User.getPassword().startsWith("$argon2id$"), sha1User.getPassword());

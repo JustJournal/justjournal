@@ -64,17 +64,17 @@ class RequestUtilTests {
   }
 
   @Test
-  void proxyHeaders_areIncluded_firstHopOnly_andUnknownIgnored() {
+  void proxyHeaders_areListedInOrder_firstHopOnly_thenTheRemoteAddress_commaSeparated() {
     final MockHttpServletRequest request = bind("10.0.0.7");
     request.addHeader("X-Forwarded-For", "203.0.113.5, 198.51.100.9");
     request.addHeader("Proxy-Client-IP", "unknown");
+    request.addHeader("HTTP_X_FORWARDED_FOR", "192.0.2.44");
     request.addHeader("HTTP_VIA", "");
 
     final String ip = RequestUtil.getRemoteIP();
 
-    assertTrue(ip.contains("203.0.113.5"), ip);
+    assertEquals("203.0.113.5,192.0.2.44,10.0.0.7", ip);
     assertTrue(!ip.contains("198.51.100.9"), ip);
     assertTrue(!ip.contains("unknown"), ip);
-    assertTrue(ip.endsWith("10.0.0.7"), ip);
   }
 }
