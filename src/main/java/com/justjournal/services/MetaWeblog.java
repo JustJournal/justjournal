@@ -478,7 +478,8 @@ public class MetaWeblog extends BaseXmlRpcService {
    * @param password the password of the entry
    * @return a signle entry as a hashmap for consumption by xml-rpc
    */
-  public HashMap<String, Serializable> getPost(String postid, String username, String password) {
+  public HashMap<String, Serializable> getPost( // skipcq: JAVA-W1065 xml-rpc maps
+      String postid, String username, String password) {
     final int userId;
     final HashMap<String, Serializable> entry = new HashMap<>();
     final Entry e;

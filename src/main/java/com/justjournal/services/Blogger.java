@@ -467,7 +467,7 @@ public class Blogger extends BaseXmlRpcService {
    * @param password the password of the entry
    * @return a signle entry as a hashmap for consumption by xml-rpc
    */
-  public HashMap<String, Serializable> getPost(
+  public HashMap<String, Serializable> getPost( // skipcq: JAVA-W1065 xml-rpc maps
       String appkey, String postid, String username, String password) {
     boolean blnError = false;
     int userId;
