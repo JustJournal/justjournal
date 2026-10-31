@@ -365,19 +365,23 @@ class EntryServiceTests {
     }
 
     @Test
-    void getEntryTags_mergesDuplicateNames_andSortsByCount() throws ServiceException {
+    void getEntryTags_countsTheEntriesCarryingEachTag_andSortsByCount() throws ServiceException {
+        // one row per entry carrying the tag; a count already on a row must not leak into the total
         final Tag java = new Tag("java");
         java.setCount(4);
         final Tag javaAgain = new Tag("java");
         javaAgain.setCount(4);
-        when(tagDao.findByUsername(TEST_USER)).thenReturn(List.of(java, new Tag("bsd"), javaAgain));
+        final Tag javaOnceMore = new Tag("java");
+        javaOnceMore.setCount(4);
+        when(tagDao.findByUsername(TEST_USER))
+                .thenReturn(List.of(java, new Tag("bsd"), javaAgain, javaOnceMore));
         when(tagDao.findByUsername("broken")).thenThrow(new IllegalStateException("db"));
 
         final List<Tag> tags = entryService.getEntryTags(TEST_USER).collectList().block();
 
         Assertions.assertEquals(List.of("bsd", "java"), tags.stream().map(Tag::getName).toList());
         Assertions.assertEquals(1, tags.get(0).getCount());
-        Assertions.assertEquals(5, tags.get(1).getCount());
+        Assertions.assertEquals(3, tags.get(1).getCount());
         assertThrows(ServiceException.class, () -> entryService.getEntryTags("broken"));
     }
 

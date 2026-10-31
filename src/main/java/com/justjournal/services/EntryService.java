@@ -234,7 +234,7 @@ public class EntryService {
           tags.put(t.getName(), t);
         } else {
           final Tag tag = tags.get(t.getName());
-          tag.setCount(t.getCount() + 1);
+          tag.setCount(tag.getCount() + 1);
           tags.put(t.getName(), tag);
         }
       }
