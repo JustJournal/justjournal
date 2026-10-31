@@ -414,6 +414,7 @@ class MetaWeblogTests {
     assertFault(metaWeblog.getPost("5", "laffer1", "wrong"), 4, AUTH_FAULT);
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(metaWeblog.getPost("9", "laffer1", "secret"), 4, "Invalid entry id 9");
+    assertFault(metaWeblog.getPost("abc", "laffer1", "secret"), 4, "Invalid entry id abc");
     when(entryRepository.findById(6)).thenReturn(Optional.of(someoneElses(6)));
     assertFault(metaWeblog.getPost("6", "laffer1", "secret"), 4, AUTH_FAULT);
   }

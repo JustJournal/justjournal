@@ -479,7 +479,14 @@ public class Blogger extends BaseXmlRpcService {
       return error(ERROR_USER_AUTH + username);
     }
 
-    e = entryRepository.findById(Integer.parseInt(postid)).orElse(null);
+    final int eid;
+    try {
+      eid = Integer.parseInt(postid);
+    } catch (final NumberFormatException ex) {
+      return error(ERROR_ENTRY_ID + postid);
+    }
+
+    e = entryRepository.findById(eid).orElse(null);
     if (e == null) {
       return error(ERROR_ENTRY_ID + postid);
     }

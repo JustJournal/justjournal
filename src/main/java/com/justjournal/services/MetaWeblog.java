@@ -489,7 +489,15 @@ public class MetaWeblog extends BaseXmlRpcService {
       return error(ERROR_USER_AUTH + username);
     }
 
-    e = entryRepository.findById(Integer.parseInt(postid)).orElse(null);
+    final int eid;
+    try {
+      eid = Integer.parseInt(postid);
+    } catch (final NumberFormatException ex) {
+      log.debug( "Entry id invalid {}", postid);
+      return error(ERROR_ENTRY_ID + postid);
+    }
+
+    e = entryRepository.findById(eid).orElse(null);
 
     if (e == null) {
       log.debug( "Entry id invalid {}", postid);

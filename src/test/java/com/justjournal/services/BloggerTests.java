@@ -406,6 +406,7 @@ class BloggerTests {
     assertFault(blogger.getPost("", "5", "laffer1", "wrong"), AUTH_FAULT);
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(blogger.getPost("", "9", "laffer1", "secret"), "Invalid entry id 9");
+    assertFault(blogger.getPost("", "abc", "laffer1", "secret"), "Invalid entry id abc");
     when(entryRepository.findById(6)).thenReturn(Optional.of(someoneElses(6)));
     assertFault(blogger.getPost("", "6", "laffer1", "secret"), AUTH_FAULT);
   }
