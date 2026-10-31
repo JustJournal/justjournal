@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,6 +79,22 @@ class RateLimitConfigTests {
     }
   }
 
+  /**
+   * The burst bucket refills greedily, one token every 200 ms, so a slow machine earns a few
+   * tokens back while the burst is being used up and the request right after it may still pass.
+   * Keep sending until one is rejected; that must happen within another burst's worth of requests,
+   * which only a client slower than the refill itself could miss. The header is built per request
+   * so that a spoofed address which did get through would land in a fresh bucket each time.
+   */
+  private void assertRejected(final Supplier<String> forwardedFor) throws Exception {
+    for (int i = 0; i < BURST; i++) {
+      if (status("/users/jjsite", forwardedFor.get()) == 429) {
+        return;
+      }
+    }
+    fail("no request was rejected within " + BURST + " requests past the burst");
+  }
+
   @Test
   void usesFailOpenResolver() {
     assertInstanceOf(RateLimitConfig.FailOpenCacheResolver.class, cacheResolver);
@@ -87,14 +104,14 @@ class RateLimitConfigTests {
   void pages_rejectedOnceBurstUsedUp() throws Exception {
     final String ip = randomIp();
     useUpBurst(ip);
-    assertEquals(429, status("/users/jjsite", ip));
+    assertRejected(() -> ip);
   }
 
   @Test
   void limitIsPerForwardedClientAddress() throws Exception {
     final String ip = randomIp();
     useUpBurst(ip);
-    assertEquals(429, status("/users/jjsite", ip));
+    assertRejected(() -> ip);
     assertEquals(200, status("/users/jjsite", randomIp()));
   }
 
@@ -103,14 +120,14 @@ class RateLimitConfigTests {
     final String ip = randomIp();
     useUpBurst(ip);
     // a client can't escape its bucket by prepending a made-up address; Apache appends the real one
-    assertEquals(429, status("/users/jjsite", randomIp() + ", " + ip));
+    assertRejected(() -> randomIp() + ", " + ip);
   }
 
   @Test
   void staticFiles_notLimited() throws Exception {
     final String ip = randomIp();
     useUpBurst(ip);
-    assertEquals(429, status("/users/jjsite", ip));
+    assertRejected(() -> ip);
     assertEquals(200, status("/static/app.js", ip));
     assertEquals(200, status("/favicon.ico", ip));
     assertEquals(200, status("/Avatar/1", ip));
