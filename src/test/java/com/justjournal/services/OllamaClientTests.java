@@ -1,5 +1,6 @@
 package com.justjournal.services;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
@@ -39,6 +42,16 @@ class OllamaClientTests {
     client = new OllamaClient(restTemplate);
     client.setUrls(List.of("http://one:11434", "http://two:11435"));
     format = new ObjectMapper().readTree("{\"type\":\"object\"}");
+  }
+
+  /** Two constructors: Spring must pick the one taking the builder, not look for a default one. */
+  @Test
+  void springBuildsItFromTheRestTemplateBuilder() {
+    new ApplicationContextRunner()
+        .withUserConfiguration(OllamaClient.class)
+        .withBean(RestTemplateBuilder.class, RestTemplateBuilder::new)
+        .withPropertyValues("moderation.ollama.urls=http://one:11434,http://two:11435")
+        .run(context -> assertThat(context).hasSingleBean(OllamaClient.class));
   }
 
   @Test

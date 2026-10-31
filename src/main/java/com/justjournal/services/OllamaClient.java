@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -38,6 +39,7 @@ public class OllamaClient {
   private final ObjectMapper mapper = new ObjectMapper();
   private final AtomicInteger next = new AtomicInteger();
 
+  @Autowired // there is a second constructor for tests; this is the one Spring uses
   public OllamaClient(
       final RestTemplateBuilder builder,
       @Value("${moderation.ollama.timeout-seconds:90}") final long timeoutSeconds) {
