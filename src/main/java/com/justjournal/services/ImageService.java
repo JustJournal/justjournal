@@ -233,8 +233,10 @@ public class ImageService {
   private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
 
   /**
-   * The frame count an animated PNG declares in its acTL chunk, or 0 if the PNG has none. Walks
-   * the chunk headers only; stops at the first image data, which the acTL chunk must precede.
+   * The frame count an animated PNG declares in its acTL chunk, but at least 2 whenever that chunk
+   * is there, since a crafted file can declare fewer frames than it carries; 0 if the PNG has no
+   * acTL chunk. Walks the chunk headers only; stops at the first image data, which acTL must
+   * precede.
    */
   static int apngFrames(final byte[] data) {
     if (data.length < PNG_SIGNATURE.length) return 0;
@@ -248,7 +250,7 @@ public class ImageService {
       final int type = buf.getInt();
       if (type == 0x49444154) return 0; // IDAT: image data starts, no acTL before it
       if (type == 0x6163544C) { // acTL
-        return length >= 4 && buf.remaining() >= 4 ? Math.max(buf.getInt(), 0) : 2;
+        return length >= 4 && buf.remaining() >= 4 ? Math.max(buf.getInt(), 2) : 2;
       }
       if (length + 4 > buf.remaining()) return 0; // truncated chunk
       buf.position(buf.position() + (int) length + 4); // data and CRC

@@ -121,6 +121,10 @@ class ImageModerationServiceTests {
     assertEquals(ImageModerationService.CATEGORY_ANIMATED, result.category());
     assertEquals(4, ImageService.apngFrames(apng(4)));
     assertEquals(0, ImageService.apngFrames(png(20, 20)));
+    // the declared count isn't trusted: an acTL chunk means animated, whatever it says
+    assertEquals(2, ImageService.apngFrames(apng(1)));
+    assertEquals(2, ImageService.apngFrames(apng(0)));
+    assertEquals(ModerationStatus.REVIEW, service.moderate(apng(1)).status());
   }
 
   private void answers(final String category) throws IOException {
