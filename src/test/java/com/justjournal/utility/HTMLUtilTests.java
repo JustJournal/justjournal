@@ -122,6 +122,14 @@ class HTMLUtilTests {
     }
 
     @Test
+    void testCleanKeepsTextOfUnknownTags() {
+        var result = HTMLUtil.clean("<p>Hello</p><music>Jazz</music>", false);
+        Assertions.assertTrue(result.contains("<p>Hello</p>"), result);
+        Assertions.assertTrue(result.contains("Jazz"), result);
+        Assertions.assertFalse(result.contains("<music>"), result);
+    }
+
+    @Test
     void testCleanEmpty() {
         Assertions.assertEquals("", HTMLUtil.clean(null, false));
         Assertions.assertEquals("", HTMLUtil.clean("", false));

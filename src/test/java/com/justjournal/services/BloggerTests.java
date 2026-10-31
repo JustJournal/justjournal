@@ -249,14 +249,18 @@ class BloggerTests {
   }
 
   @Test
-  void newPost_takesMusicFromAMusicTag() {
+  void newPost_takesMusicFromAMusicTagAndKeepsTheBody() {
     when(entryRepository.save(any(Entry.class))).thenAnswer(inv -> inv.getArgument(0));
 
     blogger.newPost("", "", "laffer1", "secret", "<p>Hello</p><music>Jazz</music>", true);
 
     final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
     verify(entryRepository).save(captor.capture());
-    assertEquals("Jazz", captor.getValue().getMusic());
+    final Entry saved = captor.getValue();
+    assertEquals("Jazz", saved.getMusic());
+    // the unknown <music> tag must not make the cleaner throw away the whole body
+    assertTrue(saved.getBody().contains("<p>Hello</p>"), saved.getBody());
+    assertTrue(!saved.getBody().contains("<music>"), saved.getBody());
   }
 
   @Test
