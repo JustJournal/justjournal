@@ -26,6 +26,8 @@ import com.justjournal.config.ExceptionHandlerConfig;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
+import com.justjournal.model.ModerationStatus;
+import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
 import java.awt.Color;
@@ -51,16 +53,24 @@ class AvatarControllerTests {
   private static final int USER_ID = 42;
 
   private ImageStorageService imageStorageService;
+  private ImageModerationService moderation;
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     imageStorageService = mock(ImageStorageService.class);
+    moderation = mock(ImageModerationService.class);
+    verdict(ModerationStatus.APPROVED);
     mockMvc =
         MockMvcBuilders.standaloneSetup(
-                new AvatarController(imageStorageService, new ImageService()))
+                new AvatarController(imageStorageService, new ImageService(), moderation))
             .setControllerAdvice(new ExceptionHandlerConfig())
             .build();
+  }
+
+  private void verdict(final ModerationStatus status) {
+    when(moderation.moderate(any()))
+        .thenReturn(new ImageModerationService.Result(status, status.name().toLowerCase(), "test"));
   }
 
   private static BufferedImage picture(final int width, final int height, final int type) {
@@ -105,7 +115,12 @@ class AvatarControllerTests {
 
     final ArgumentCaptor<InputStream> stored = ArgumentCaptor.forClass(InputStream.class);
     verify(imageStorageService)
-        .uploadAvatar(eq(USER_ID), eq(storedType), eq(AvatarSource.UPLOAD), stored.capture());
+        .uploadAvatar(
+            eq(USER_ID),
+            eq(storedType),
+            eq(AvatarSource.UPLOAD),
+            eq(ModerationStatus.APPROVED),
+            stored.capture());
     verify(imageStorageService).setShowAvatar(USER_ID, true);
     return stored.getValue().readAllBytes();
   }
@@ -210,14 +225,14 @@ class AvatarControllerTests {
                 .session(loggedIn()))
         .andExpect(status().isBadRequest());
 
-    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any());
+    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any());
   }
 
   @Test
   void upload_storageFails_avatarNotTurnedOn() throws Exception {
     doThrow(new ServiceException("down"))
         .when(imageStorageService)
-        .uploadAvatar(anyInt(), any(), any(), any());
+        .uploadAvatar(anyInt(), any(), any(), any(), any());
 
     mockMvc
         .perform(
@@ -234,8 +249,77 @@ class AvatarControllerTests {
     verify(imageStorageService, never()).setShowAvatar(anyInt(), anyBoolean());
   }
 
+  @Test
+  void upload_nudity_rejectedAndNotStored() throws Exception {
+    verdict(ModerationStatus.REJECTED);
+
+    mockMvc
+        .perform(
+            multipart("/Avatar")
+                .file(
+                    new MockMultipartFile(
+                        "file",
+                        "a.png",
+                        MediaType.IMAGE_PNG_VALUE,
+                        png(150, 150, BufferedImage.TYPE_INT_RGB)))
+                .session(loggedIn()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value(AvatarController.REJECTED_MESSAGE));
+
+    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any());
+    verify(imageStorageService, never()).setShowAvatar(anyInt(), anyBoolean());
+  }
+
+  @Test
+  void upload_unsure_keptForReview() throws Exception {
+    verdict(ModerationStatus.REVIEW);
+
+    mockMvc
+        .perform(
+            multipart("/Avatar")
+                .file(
+                    new MockMultipartFile(
+                        "file",
+                        "a.png",
+                        MediaType.IMAGE_PNG_VALUE,
+                        png(150, 150, BufferedImage.TYPE_INT_RGB)))
+                .session(loggedIn()))
+        .andExpect(status().isAccepted())
+        .andExpect(header().string("Location", "/Avatar/" + USER_ID))
+        .andExpect(jsonPath("$.message").value(AvatarController.REVIEW_MESSAGE));
+
+    verify(imageStorageService)
+        .uploadAvatar(
+            eq(USER_ID),
+            eq(MediaType.IMAGE_PNG_VALUE),
+            eq(AvatarSource.UPLOAD),
+            eq(ModerationStatus.REVIEW),
+            any());
+    verify(imageStorageService).setShowAvatar(USER_ID, true);
+  }
+
+  @Test
+  void upload_filterSeesTheUpload() throws Exception {
+    final byte[] data = png(150, 150, BufferedImage.TYPE_INT_RGB);
+
+    mockMvc
+        .perform(
+            multipart("/Avatar")
+                .file(new MockMultipartFile("file", "a.png", MediaType.IMAGE_PNG_VALUE, data))
+                .session(loggedIn()))
+        .andExpect(status().isCreated());
+
+    verify(moderation).moderate(data);
+  }
+
   private void storedAvatar(final boolean shown, final String mimeType) throws Exception {
+    storedAvatar(shown, true, mimeType);
+  }
+
+  private void storedAvatar(final boolean shown, final boolean approved, final String mimeType)
+      throws Exception {
     when(imageStorageService.isShowAvatar(USER_ID)).thenReturn(shown);
+    when(imageStorageService.isAvatarApproved(USER_ID)).thenReturn(approved);
     when(imageStorageService.downloadAvatar(USER_ID))
         .thenReturn(
             new ImageStorageService.StoredAvatar(
@@ -280,8 +364,31 @@ class AvatarControllerTests {
   }
 
   @Test
+  void get_awaitingReview_forbidden() throws Exception {
+    storedAvatar(true, false, MediaType.IMAGE_JPEG_VALUE);
+
+    mockMvc
+        .perform(get("/Avatar/" + USER_ID))
+        .andExpect(status().isForbidden())
+        .andExpect(header().string("Cache-Control", "no-store"));
+
+    verify(imageStorageService, never()).downloadAvatar(anyInt());
+  }
+
+  @Test
+  void get_awaitingReview_ownerCanSeeIt() throws Exception {
+    storedAvatar(true, false, MediaType.IMAGE_JPEG_VALUE);
+
+    mockMvc
+        .perform(get("/Avatar/" + USER_ID).session(loggedIn()))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Cache-Control", "no-store"));
+  }
+
+  @Test
   void get_noAvatar_notFound() throws Exception {
     when(imageStorageService.isShowAvatar(USER_ID)).thenReturn(true);
+    when(imageStorageService.isAvatarApproved(USER_ID)).thenReturn(true);
     when(imageStorageService.downloadAvatar(USER_ID)).thenThrow(new NotFoundException("none"));
 
     mockMvc.perform(get("/Avatar/" + USER_ID)).andExpect(status().isNotFound());
@@ -306,7 +413,7 @@ class AvatarControllerTests {
                 .session(loggedIn()))
         .andExpect(status().isBadRequest());
 
-    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any());
+    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any());
     verify(imageStorageService, never()).setShowAvatar(anyInt(), anyBoolean());
   }
 

@@ -1,5 +1,6 @@
 package com.justjournal.services;
 
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import com.justjournal.repository.UserImageRepository;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,21 @@ class UserImageServiceTests {
         assertEquals(expectedImages, result);
 
         verify(userImageRepository, times(1)).findByUsernameOrderByTitleTitleAsc(username);
+    }
+
+    @Test
+    void getUserImages_readersDoNotSeePicturesAwaitingReview() {
+        final UserImage approved = new UserImage();
+        approved.setId(1);
+        final UserImage held = new UserImage();
+        held.setId(2);
+        held.setModerationStatus(ModerationStatus.REVIEW);
+        when(userImageRepository.findByUsernameOrderByTitleTitleAsc("u")).thenReturn(List.of(approved, held));
+
+        assertEquals(List.of(approved), userImageService.getUserImages("u", false));
+        assertEquals(List.of(approved, held), userImageService.getUserImages("u", true));
+        assertTrue(userImageService.getPicturePage("u", 2, false).isEmpty());
+        assertTrue(userImageService.getPicturePage("u", 2, true).isPresent());
     }
 
     @Test

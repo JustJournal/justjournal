@@ -28,6 +28,7 @@ package com.justjournal.services;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.PrefBool;
 import com.justjournal.model.UserPic;
 import com.justjournal.model.UserPref;
@@ -106,8 +107,10 @@ public class ImageStorageService {
   }
 
   /**
-   * Store an avatar image. The image is uploaded before the record is saved, so a failed upload
-   * leaves any previous avatar as it was.
+   * Store an avatar image that hasn't been through the content filter: a Gravatar, or an old
+   * upload moved into storage. It counts as approved.
+   *
+   * @see #uploadAvatar(int, String, AvatarSource, ModerationStatus, InputStream)
    */
   public void uploadAvatar(
       final int userId,
@@ -115,8 +118,25 @@ public class ImageStorageService {
       @NonNull final AvatarSource source,
       @NonNull final InputStream is)
       throws ServiceException {
+    uploadAvatar(userId, mimeType, source, ModerationStatus.APPROVED, is);
+  }
+
+  /**
+   * Store an avatar image. The image is uploaded before the record is saved, so a failed upload
+   * leaves any previous avatar as it was.
+   *
+   * @param status the content filter's verdict; a REVIEW avatar is shown only to its owner
+   */
+  public void uploadAvatar(
+      final int userId,
+      @NonNull final String mimeType,
+      @NonNull final AvatarSource source,
+      @NonNull final ModerationStatus status,
+      @NonNull final InputStream is)
+      throws ServiceException {
 
     if (userId < 1) throw new IllegalArgumentException(USER_ID_ARGUMENT);
+    if (status == ModerationStatus.REJECTED) throw new IllegalArgumentException("status");
 
     final String filename = getAvatarFileName(userId, mimeType);
     try {
@@ -133,6 +153,7 @@ public class ImageStorageService {
     entity.setModified(Calendar.getInstance().getTime());
     entity.setSource(source);
     entity.setFilename(filename);
+    entity.setModerationStatus(status);
     userPicRepository.save(entity);
 
     // a new format has a new name; the old file is no longer used
@@ -163,6 +184,14 @@ public class ImageStorageService {
         .findById(userId)
         .map(pref -> pref.getShowAvatar() == PrefBool.Y)
         .orElseThrow(() -> new IllegalArgumentException(USER_ID_ARGUMENT));
+  }
+
+  /** Whether the user's avatar passed the content filter. False if they have none. */
+  public boolean isAvatarApproved(final int userId) {
+    return userPicRepository
+        .findById(userId)
+        .map(pic -> pic.getModerationStatus() == ModerationStatus.APPROVED)
+        .orElse(false);
   }
 
   /** Whether the user has an avatar image in storage, not just a record of one. */

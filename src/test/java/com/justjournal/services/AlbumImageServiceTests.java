@@ -15,9 +15,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.User;
 import com.justjournal.model.UserImage;
 import com.justjournal.repository.UserImageRepository;
@@ -45,6 +47,7 @@ class AlbumImageServiceTests {
   private UserImageRepository userImageRepository;
   private UserRepository userRepository;
   private JdbcTemplate jdbcTemplate;
+  private ImageModerationService moderation;
   private AlbumImageService service;
 
   @BeforeEach
@@ -54,10 +57,23 @@ class AlbumImageServiceTests {
     userImageRepository = mock(UserImageRepository.class);
     userRepository = mock(UserRepository.class);
     jdbcTemplate = mock(JdbcTemplate.class);
+    moderation = mock(ImageModerationService.class);
+    verdict(ModerationStatus.APPROVED);
     service =
         new AlbumImageService(
-            storage, minioClient, new ImageService(), userImageRepository, userRepository, jdbcTemplate);
+            storage,
+            minioClient,
+            new ImageService(),
+            moderation,
+            userImageRepository,
+            userRepository,
+            jdbcTemplate);
     service.setImageBucket("pics");
+  }
+
+  private void verdict(final ModerationStatus status) {
+    when(moderation.moderate(any()))
+        .thenReturn(new ImageModerationService.Result(status, status.name().toLowerCase(), "test"));
   }
 
   private static byte[] jpeg(final int width, final int height) throws IOException {
@@ -128,6 +144,63 @@ class AlbumImageServiceTests {
   }
 
   @Test
+  void upload_filterSeesTheThumbnail() throws Exception {
+    when(userImageRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+    final UserImage saved = service.upload(5, "Beach", jpeg(1600, 1200));
+
+    assertEquals(ModerationStatus.APPROVED, saved.getModerationStatus());
+    final ArgumentCaptor<byte[]> judged = ArgumentCaptor.forClass(byte[].class);
+    verify(moderation).moderate(judged.capture());
+    assertEquals(AlbumImageService.THUMBNAIL_SIZE, ImageIO.read(new ByteArrayInputStream(judged.getValue())).getWidth());
+  }
+
+  @Test
+  void upload_nudity_refusedAndNothingStored() throws Exception {
+    verdict(ModerationStatus.REJECTED);
+
+    final BadRequestException e =
+        assertThrows(BadRequestException.class, () -> service.upload(5, "Beach", jpeg(100, 100)));
+
+    assertEquals(AlbumImageService.REJECTED_MESSAGE, e.getMessage());
+    verify(storage, never()).uploadFile(any(), any(), any(), any());
+    verify(userImageRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void upload_unsure_savedForReview() throws Exception {
+    verdict(ModerationStatus.REVIEW);
+    when(userImageRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+    final UserImage saved = service.upload(5, "Beach", jpeg(100, 100));
+
+    assertEquals(ModerationStatus.REVIEW, saved.getModerationStatus());
+    verify(storage).uploadFile(eq("pics"), eq(saved.getFilename()), anyString(), any());
+  }
+
+  @Test
+  void picture_awaitingReview_hiddenFromOthers() {
+    final UserImage stored = image(7, 5, "5/a.jpg", "5/a_thumb.jpg");
+    stored.setModerationStatus(ModerationStatus.REVIEW);
+    when(userImageRepository.findById(7)).thenReturn(Optional.of(stored));
+
+    assertThrows(NotFoundException.class, () -> service.picture(7, 0));
+    assertThrows(NotFoundException.class, () -> service.picture(7, 6));
+    assertThrows(NotFoundException.class, () -> service.thumbnail(7, 6));
+  }
+
+  @Test
+  void picture_awaitingReview_ownerSeesIt() throws Exception {
+    final UserImage stored = image(7, 5, "5/a.jpg", "5/a_thumb.jpg");
+    stored.setModerationStatus(ModerationStatus.REVIEW);
+    when(userImageRepository.findById(7)).thenReturn(Optional.of(stored));
+    final InputStream stream = new ByteArrayInputStream(new byte[] {1});
+    when(storage.downloadFile("pics", "5/a.jpg")).thenReturn(stream);
+
+    assertEquals(stream, service.picture(7, 5).stream());
+  }
+
+  @Test
   void upload_notAPicture_nothingStored() throws Exception {
     assertThrows(IllegalArgumentException.class, () -> service.upload(5, "x", new byte[1000]));
 
@@ -141,7 +214,7 @@ class AlbumImageServiceTests {
     final InputStream stream = new ByteArrayInputStream(new byte[] {1});
     when(storage.downloadFile("pics", "5/a.jpg")).thenReturn(stream);
 
-    final AlbumImageService.Picture picture = service.picture(7);
+    final AlbumImageService.Picture picture = service.picture(7, 0);
 
     assertEquals("image/jpeg", picture.mimeType());
     assertEquals(stream, picture.stream());
@@ -155,7 +228,7 @@ class AlbumImageServiceTests {
     when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(7)))
         .thenReturn(java.util.List.of(new byte[] {9, 8}));
 
-    assertArrayEquals(new byte[] {9, 8}, service.picture(7).stream().readAllBytes());
+    assertArrayEquals(new byte[] {9, 8}, service.picture(7, 0).stream().readAllBytes());
     verify(storage, never()).downloadFile(any(), any());
   }
 
@@ -163,7 +236,7 @@ class AlbumImageServiceTests {
   void picture_missing_notFound() {
     when(userImageRepository.findById(7)).thenReturn(Optional.empty());
 
-    assertThrows(NotFoundException.class, () -> service.picture(7));
+    assertThrows(NotFoundException.class, () -> service.picture(7, 0));
   }
 
   @SuppressWarnings("unchecked")
@@ -174,7 +247,7 @@ class AlbumImageServiceTests {
     when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(7)))
         .thenReturn(java.util.List.of(jpeg(800, 800)));
 
-    final BufferedImage thumbnail = ImageIO.read(service.thumbnail(7).stream());
+    final BufferedImage thumbnail = ImageIO.read(service.thumbnail(7, 0).stream());
 
     assertEquals(AlbumImageService.THUMBNAIL_SIZE, thumbnail.getWidth());
   }

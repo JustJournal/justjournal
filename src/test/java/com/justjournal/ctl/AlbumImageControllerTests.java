@@ -19,8 +19,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.justjournal.config.ExceptionHandlerConfig;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.NotFoundException;
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import com.justjournal.services.AlbumImageService;
 import java.io.ByteArrayInputStream;
@@ -64,7 +66,7 @@ class AlbumImageControllerTests {
 
   @Test
   void get_servedWithStoredTypeAndCacheHeader() throws Exception {
-    when(albumImageService.picture(7)).thenReturn(picture(MediaType.IMAGE_PNG_VALUE));
+    when(albumImageService.picture(7, 0)).thenReturn(picture(MediaType.IMAGE_PNG_VALUE));
 
     mockMvc
         .perform(get("/AlbumImage/7"))
@@ -76,7 +78,7 @@ class AlbumImageControllerTests {
 
   @Test
   void get_byQueryParameter_forTheRssFeed() throws Exception {
-    when(albumImageService.picture(7)).thenReturn(picture(MediaType.IMAGE_JPEG_VALUE));
+    when(albumImageService.picture(7, 0)).thenReturn(picture(MediaType.IMAGE_JPEG_VALUE));
 
     mockMvc.perform(get("/AlbumImage").param("id", "7")).andExpect(status().isOk());
   }
@@ -90,14 +92,22 @@ class AlbumImageControllerTests {
 
   @Test
   void get_missing_notFound() throws Exception {
-    when(albumImageService.picture(7)).thenThrow(new NotFoundException("No picture 7"));
+    when(albumImageService.picture(7, 0)).thenThrow(new NotFoundException("No picture 7"));
 
     mockMvc.perform(get("/AlbumImage/7")).andExpect(status().isNotFound());
   }
 
   @Test
+  void get_loggedIn_viewerPassedAlong() throws Exception {
+    when(albumImageService.picture(7, USER_ID)).thenReturn(picture(MediaType.IMAGE_JPEG_VALUE));
+
+    mockMvc.perform(get("/AlbumImage/7").session(loggedIn())).andExpect(status().isOk());
+    verify(albumImageService).picture(7, USER_ID);
+  }
+
+  @Test
   void thumbnail_servedAsJpeg() throws Exception {
-    when(albumImageService.thumbnail(7)).thenReturn(picture(MediaType.IMAGE_JPEG_VALUE));
+    when(albumImageService.thumbnail(7, 0)).thenReturn(picture(MediaType.IMAGE_JPEG_VALUE));
 
     mockMvc
         .perform(get("/AlbumImage/7/thumbnail"))
@@ -116,6 +126,31 @@ class AlbumImageControllerTests {
             multipart("/AlbumImage").file(file(5000)).param("title", "  Beach ").session(loggedIn()))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", "/AlbumImage/99"));
+  }
+
+  @Test
+  void upload_heldForReview_accepted() throws Exception {
+    final UserImage saved = new UserImage();
+    saved.setId(99);
+    saved.setModerationStatus(ModerationStatus.REVIEW);
+    when(albumImageService.upload(eq(USER_ID), eq("Beach"), any())).thenReturn(saved);
+
+    mockMvc
+        .perform(multipart("/AlbumImage").file(file(5000)).param("title", "Beach").session(loggedIn()))
+        .andExpect(status().isAccepted())
+        .andExpect(header().string("Location", "/AlbumImage/99"))
+        .andExpect(jsonPath("$.message").value(AlbumImageController.REVIEW_MESSAGE));
+  }
+
+  @Test
+  void upload_rejectedByFilter_badRequestWithReason() throws Exception {
+    when(albumImageService.upload(eq(USER_ID), eq("Beach"), any()))
+        .thenThrow(new BadRequestException(AlbumImageService.REJECTED_MESSAGE));
+
+    mockMvc
+        .perform(multipart("/AlbumImage").file(file(5000)).param("title", "Beach").session(loggedIn()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value(AlbumImageService.REJECTED_MESSAGE));
   }
 
   @Test

@@ -170,7 +170,7 @@ public class Rss {
         "SELECT id, title, modified, mimetype, COALESCE(size, LENGTH(image)) As imglen FROM"
             + " user_images WHERE owner='"
             + userid
-            + "' ORDER BY id DESC;";
+            + "' AND moderation_status = 'APPROVED' ORDER BY id DESC;";
 
     try {
       final List<Map<String, Object>> list = jdbcTemplate.queryForList(sqlStmt);

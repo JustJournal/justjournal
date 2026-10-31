@@ -70,4 +70,10 @@ public class UserPic implements Serializable {
   @Column(name = "source", nullable = false, length = 8)
   @Enumerated(EnumType.STRING)
   private AvatarSource source = AvatarSource.UPLOAD;
+
+  /** The content filter's verdict. Anything but APPROVED is shown only to the owner. */
+  @JsonProperty("moderationStatus")
+  @Column(name = "moderation_status", nullable = false, length = 8)
+  @Enumerated(EnumType.STRING)
+  private ModerationStatus moderationStatus = ModerationStatus.APPROVED;
 }

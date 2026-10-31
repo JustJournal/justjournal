@@ -92,6 +92,12 @@ public class UserImage implements Serializable {
   @Column(name = "migrated")
   private Date migrated;
 
+  /** The content filter's verdict. Anything but APPROVED is shown only to the owner. */
+  @JsonIgnore
+  @Column(name = "moderation_status", nullable = false, length = 8)
+  @Enumerated(EnumType.STRING)
+  private ModerationStatus moderationStatus = ModerationStatus.APPROVED;
+
   @JsonCreator
   public UserImage() {
     super();
@@ -189,5 +195,13 @@ public class UserImage implements Serializable {
 
   public void setMigrated(Date migrated) {
     this.migrated = migrated;
+  }
+
+  public ModerationStatus getModerationStatus() {
+    return moderationStatus;
+  }
+
+  public void setModerationStatus(ModerationStatus moderationStatus) {
+    this.moderationStatus = moderationStatus;
   }
 }
