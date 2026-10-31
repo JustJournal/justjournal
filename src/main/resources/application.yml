@@ -96,8 +96,9 @@ moderation:
   enabled: true
   ollama:
     urls: http://192.168.1.206:11434,http://192.168.1.206:11435
-    # llama3.2-vision does not load on these servers (unknown architecture mllama); gemma4 does
-    model: gemma4:latest
+    # qwen3-vl is on both instances, so both GPUs serve; gemma4:latest (8B) also works but is only
+    # on one. llama3.2-vision has a known problem with recent Ollama versions and doesn't load.
+    model: qwen3-vl:8b
     timeout-seconds: 90
   # a sexually suggestive picture with no nudity: APPROVED, REVIEW or REJECTED
   on-suggestive: REVIEW
