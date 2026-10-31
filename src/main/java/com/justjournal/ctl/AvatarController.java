@@ -33,6 +33,8 @@ import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
+import com.justjournal.model.ModerationStatus;
+import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
 import java.io.ByteArrayInputStream;
@@ -41,6 +43,8 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Map;
+import java.util.Set;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
@@ -71,10 +75,25 @@ public class AvatarController {
 
   private final ImageService imageService;
 
-  public AvatarController(ImageStorageService imageStorageService, ImageService imageService) {
+  private final ImageModerationService imageModerationService;
+
+  public AvatarController(
+      ImageStorageService imageStorageService,
+      ImageService imageService,
+      ImageModerationService imageModerationService) {
     this.imageStorageService = imageStorageService;
     this.imageService = imageService;
+    this.imageModerationService = imageModerationService;
   }
+
+  /** Told to a user whose avatar the content filter refused. */
+  static final String REJECTED_MESSAGE =
+      "This image can't be used as an avatar. Nudity and sexual content aren't allowed.";
+
+  /** Told to a user whose avatar is kept but not shown until someone has looked at it. */
+  static final String REVIEW_MESSAGE =
+      "Your avatar was saved. The content filter wasn't sure about it, so it will be shown to"
+          + " others once it has been reviewed.";
 
   /** Largest avatar file accepted for upload. */
   static final long MAX_UPLOAD_BYTES = 100 * 1024;
@@ -84,14 +103,14 @@ public class AvatarController {
 
   /**
    * The avatar image, in the format it was stored in. 404 if the user has no avatar, 403 if they
-   * have turned it off, except for the user themselves.
+   * have turned it off or the content filter hasn't approved it, except for the user themselves.
    */
   @GetMapping("/{id}")
   public ResponseEntity<Resource> getByPath(
       @PathVariable(PARAM_ID) final int id, final HttpSession session) throws ServiceException {
     final boolean shown;
     try {
-      shown = imageStorageService.isShowAvatar(id);
+      shown = imageStorageService.isShowAvatar(id) && imageStorageService.isAvatarApproved(id);
     } catch (final IllegalArgumentException e) {
       throw new NotFoundException("No such user");
     }
@@ -138,28 +157,21 @@ public class AvatarController {
       throw new ForbiddenException("You must be logged in to upload an avatar");
     }
 
-    final String contentType = file.getContentType();
-    if (contentType == null || !(contentType.equals(MediaType.IMAGE_JPEG_VALUE) ||
-            contentType.equals(MediaType.IMAGE_PNG_VALUE) || contentType.equals(MediaType.IMAGE_GIF_VALUE) ||
-            contentType.equals("image/tiff") || contentType.equals("image/bmp"))) {
-      throw new BadRequestException(
-          "Invalid file type. Only JPEG, PNG, GIF, TIFF and BMP images are allowed.");
-    }
+    checkUpload(file);
 
-    final long sizeInBytes = file.getSize();
-    // must be large enough
-    if (file.isEmpty() || sizeInBytes < 500) {
-      throw new BadRequestException("Invalid file");
-    }
-    if (sizeInBytes > MAX_UPLOAD_BYTES) {
-      throw new BadRequestException("Avatars must be 100 KB or smaller.");
-    }
-
+    final ModerationStatus status;
     try {
       final ImageService.EncodedImage avatar = imageService.encodeAvatar(file.getBytes());
 
+      final ImageModerationService.Result verdict = imageModerationService.moderate(file.getBytes(), avatar.data());
+      if (verdict.rejected()) {
+        log.info("Avatar upload by user {} rejected by the content filter: {}", userID, verdict.category());
+        throw new BadRequestException(REJECTED_MESSAGE);
+      }
+      status = verdict.status();
+
       imageStorageService.uploadAvatar(
-          userID, avatar.mimeType(), AvatarSource.UPLOAD, new ByteArrayInputStream(avatar.data()));
+          userID, avatar.mimeType(), AvatarSource.UPLOAD, status, new ByteArrayInputStream(avatar.data()));
       imageStorageService.setShowAvatar(userID, true);
 
     } catch (final IllegalStateException | IllegalArgumentException e) {
@@ -170,7 +182,15 @@ public class AvatarController {
       return new ResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    return ResponseEntity.created(URI.create("/Avatar/" + userID)).build();
+    final URI location = URI.create("/Avatar/" + userID);
+    if (status == ModerationStatus.REVIEW) {
+      log.info("Avatar upload by user {} held for review", userID);
+      return ResponseEntity.accepted()
+          .location(location)
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(Map.of("message", REVIEW_MESSAGE));
+    }
+    return ResponseEntity.created(location).build();
   }
 
   @DeleteMapping("/{id}")
@@ -217,6 +237,32 @@ public class AvatarController {
 
     imageStorageService.setShowAvatar(userID, preference.show());
     return ResponseEntity.ok(new AvatarPreference(available, preference.show()));
+  }
+
+  private static final Set<String> UPLOAD_TYPES =
+      Set.of(
+          MediaType.IMAGE_JPEG_VALUE,
+          MediaType.IMAGE_PNG_VALUE,
+          MediaType.IMAGE_GIF_VALUE,
+          "image/tiff",
+          "image/bmp");
+
+  /** Refuse an upload that isn't an image of a sensible size. */
+  private static void checkUpload(final MultipartFile file) {
+    final String contentType = file.getContentType();
+    if (contentType == null || !UPLOAD_TYPES.contains(contentType)) {
+      throw new BadRequestException(
+          "Invalid file type. Only JPEG, PNG, GIF, TIFF and BMP images are allowed.");
+    }
+
+    final long sizeInBytes = file.getSize();
+    // must be large enough
+    if (file.isEmpty() || sizeInBytes < 500) {
+      throw new BadRequestException("Invalid file");
+    }
+    if (sizeInBytes > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException("Avatars must be 100 KB or smaller.");
+    }
   }
 
   private static int loggedInUser(final HttpSession session) {

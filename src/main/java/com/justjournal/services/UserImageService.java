@@ -25,6 +25,7 @@
  */
 package com.justjournal.services;
 
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import com.justjournal.repository.UserImageRepository;
 import java.util.List;
@@ -41,8 +42,23 @@ public class UserImageService {
     this.userImageRepository = userImageRepository;
   }
 
+  /** Every picture, including those the content filter hasn't approved. For the owner. */
   public List<UserImage> getUserImages(final String username) {
     return userImageRepository.findByUsernameOrderByTitleTitleAsc(username);
+  }
+
+  /**
+   * The pictures a viewer may see.
+   *
+   * @param owner whether the viewer owns the gallery; only the owner sees pictures the content
+   *     filter hasn't approved
+   */
+  public List<UserImage> getUserImages(final String username, final boolean owner) {
+    final List<UserImage> images = getUserImages(username);
+    if (owner) return images;
+    return images.stream()
+        .filter(image -> image.getModerationStatus() == ModerationStatus.APPROVED)
+        .toList();
   }
 
   /**
@@ -53,7 +69,18 @@ public class UserImageService {
    * @return the picture, or empty if the user has no picture with that id
    */
   public Optional<PicturePage> getPicturePage(final String username, final int id) {
-    final List<UserImage> images = getUserImages(username);
+    return getPicturePage(username, id, true);
+  }
+
+  /**
+   * One picture with its neighbors among the pictures the viewer may see.
+   *
+   * @param owner whether the viewer owns the gallery
+   * @return the picture, or empty if there is no such picture the viewer may see
+   */
+  public Optional<PicturePage> getPicturePage(
+      final String username, final int id, final boolean owner) {
+    final List<UserImage> images = getUserImages(username, owner);
     for (int i = 0; i < images.size(); i++) {
       if (images.get(i).getId() == id) {
         return Optional.of(

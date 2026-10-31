@@ -311,6 +311,7 @@
                                     <img th:src="@{'/AlbumImage/' + ${pic.id} + '/thumbnail'}" th:alt="${pic.title}"/>
                                 </a>
                                 <div class="caption"><a th:href="@{'/users/' + ${user.username} + '/pictures/' + ${pic.id}}" th:text="${#strings.defaultString(pic.title, 'Picture')}"></a>
+                                    <span th:if="${pic.moderationStatus.name() != 'APPROVED'}" class="label label-warning" title="Only you can see this picture until it has been reviewed.">Awaiting review</span>
                                     <a class="btn btn-danger btn-xs" role="button" title="Delete picture"
                                        th:if="${authenticatedUsername != null and #strings.equalsIgnoreCase(authenticatedUsername, user.username)}"
                                        th:onclick="'javascript:deleteImage(\'' + ${pic.id} + '\');'"><i

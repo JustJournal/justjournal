@@ -31,6 +31,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Iterator;
 import java.util.Locale;
 import javax.imageio.ImageIO;
@@ -201,6 +203,59 @@ public class ImageService {
         reader.dispose();
       }
     }
+  }
+
+  /**
+   * How many frames the image has: more than one for an animated GIF or PNG. ImageIO's PNG reader
+   * only knows the first frame of an animated PNG, so those are counted from the file itself.
+   *
+   * @throws IllegalArgumentException if the data isn't an image format ImageIO can read
+   */
+  public int frameCount(final byte[] data) throws IOException {
+    try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
+      final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+      if (!readers.hasNext()) throw new IllegalArgumentException("Unsupported image format");
+      final ImageReader reader = readers.next();
+      try {
+        // counting frames searches the stream, which a forward-only input doesn't allow
+        reader.setInput(in, false, true);
+        final int frames = reader.getNumImages(true);
+        if ("png".equalsIgnoreCase(reader.getFormatName())) {
+          return Math.max(frames, apngFrames(data));
+        }
+        return frames;
+      } finally {
+        reader.dispose();
+      }
+    }
+  }
+
+  private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
+
+  /**
+   * The frame count an animated PNG declares in its acTL chunk, but at least 2 whenever that chunk
+   * is there, since a crafted file can declare fewer frames than it carries; 0 if the PNG has no
+   * acTL chunk. Walks the chunk headers only; stops at the first image data, which acTL must
+   * precede.
+   */
+  static int apngFrames(final byte[] data) {
+    if (data.length < PNG_SIGNATURE.length) return 0;
+    for (int i = 0; i < PNG_SIGNATURE.length; i++) {
+      if (data[i] != PNG_SIGNATURE[i]) return 0;
+    }
+    final ByteBuffer buf = ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN);
+    buf.position(PNG_SIGNATURE.length);
+    while (buf.remaining() >= 12) {
+      final long length = buf.getInt() & 0xFFFFFFFFL;
+      final int type = buf.getInt();
+      if (type == 0x49444154) return 0; // IDAT: image data starts, no acTL before it
+      if (type == 0x6163544C) { // acTL
+        return length >= 4 && buf.remaining() >= 4 ? Math.max(buf.getInt(), 2) : 2;
+      }
+      if (length + 4 > buf.remaining()) return 0; // truncated chunk
+      buf.position(buf.position() + (int) length + 4); // data and CRC
+    }
+    return 0;
   }
 
   /**

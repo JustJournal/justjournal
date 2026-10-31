@@ -89,6 +89,23 @@ bucket:
   avatar: jjavatar
   image: jjimages
 
+# Uploaded pictures and avatars are checked for nudity by a vision model on Ollama before they are
+# stored. Nudity and sexual content are refused. REVIEW keeps the picture but shows it only to its
+# owner until its moderation_status is set to APPROVED. The model is asked on each server in turn.
+moderation:
+  enabled: true
+  ollama:
+    urls: http://192.168.1.206:11434,http://192.168.1.206:11435
+    # llama3.2-vision does not load on these servers (unknown architecture mllama); gemma4 does
+    model: gemma4:latest
+    timeout-seconds: 90
+  # a sexually suggestive picture with no nudity: APPROVED, REVIEW or REJECTED
+  on-suggestive: REVIEW
+  # when no server answers or the answer makes no sense: APPROVED, REVIEW or REJECTED
+  on-error: REVIEW
+  # an animated GIF the model found safe, having seen only its first frame: APPROVED, REVIEW or REJECTED
+  on-animated: REVIEW
+
 bing:
   indexNowKey:
 
@@ -182,6 +199,9 @@ bucket:
   avatar: jjqaavatar
   image: jjqaimages
 
+moderation:
+  enabled: false
+
 bing:
   indexNowKey:
 
@@ -217,6 +237,9 @@ app:
 bucket:
   avatar: jjqaavatar
   image: jjqaimages
+
+moderation:
+  enabled: false
 
 bing:
   indexNowKey:

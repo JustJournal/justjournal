@@ -675,7 +675,7 @@ public class UsersController {
 
     model.addAttribute(MODEL_CALENDAR_MINI, getCalendarMini(userc));
 
-    model.addAttribute(MODEL_PICTURES, userImageService.getUserImages(username));
+    model.addAttribute(MODEL_PICTURES, userImageService.getUserImages(username, userc.isAuthBlog()));
 
     return VIEW_USERS;
   }
@@ -706,7 +706,7 @@ public class UsersController {
     }
 
     final Optional<UserImageService.PicturePage> page =
-        userImageService.getPicturePage(userc.getBlogUser().getUsername(), id);
+        userImageService.getPicturePage(userc.getBlogUser().getUsername(), id, userc.isAuthBlog());
     if (page.isEmpty()) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return VIEW_NOT_FOUND;

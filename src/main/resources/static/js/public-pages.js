@@ -730,9 +730,10 @@
                     }
                     return xhr;
                 }
-            }).done(function () {
+            }).done(function (data) { // skipcq: JS-0241 this file is ES5; every callback is a function expression
                 setProgress(progressSelector, 100);
-                showMessage(successSelector, 'Upload successful.', 'success');
+                // the server explains an upload that is kept but not shown yet
+                showMessage(successSelector, (data || {}).message || 'Upload successful.', 'success');
                 if (onDone) {
                     onDone();
                 }

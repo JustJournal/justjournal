@@ -1,8 +1,10 @@
 package com.justjournal.services;
 
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import com.justjournal.repository.UserImageRepository;
 import com.justjournal.repository.UserRepository;
@@ -49,40 +51,61 @@ public class AlbumImageService {
   private final ImageStorageService storage;
   private final MinioClient minioClient;
   private final ImageService imageService;
+  private final ImageModerationService moderation;
   private final UserImageRepository userImageRepository;
   private final UserRepository userRepository;
   private final JdbcTemplate jdbcTemplate;
+
+  /** Told to a user whose picture the content filter refused. */
+  public static final String REJECTED_MESSAGE =
+      "This picture can't be posted. Nudity and sexual content aren't allowed.";
 
   public AlbumImageService(
       final ImageStorageService storage,
       final MinioClient minioClient,
       final ImageService imageService,
+      final ImageModerationService moderation,
       final UserImageRepository userImageRepository,
       final UserRepository userRepository,
       final JdbcTemplate jdbcTemplate) {
     this.storage = storage;
     this.minioClient = minioClient;
     this.imageService = imageService;
+    this.moderation = moderation;
     this.userImageRepository = userImageRepository;
     this.userRepository = userRepository;
     this.jdbcTemplate = jdbcTemplate;
   }
 
-  /** A picture's data and mime type. */
-  public record Picture(InputStream stream, String mimeType) {}
+  /**
+   * A picture's data and mime type.
+   *
+   * @param approved whether everyone may see it; false when it is the owner's view of a picture
+   *     awaiting review, which must not be cached for others
+   */
+  public record Picture(InputStream stream, String mimeType, boolean approved) {}
 
   /** What a {@link #migrateBlobs()} run did. */
   public record MigrationResult(int copied, int failed) {}
 
   /**
-   * Store a new picture and its thumbnail. Nothing is saved if storing either fails.
+   * Store a new picture and its thumbnail, once the content filter has passed it. Nothing is
+   * saved if storing either fails.
    *
    * @throws IllegalArgumentException if the data isn't a JPEG, PNG or GIF, or is too large
+   * @throws BadRequestException if the content filter refused the picture
    */
   public UserImage upload(final int ownerId, final String title, final byte[] data)
       throws IOException, ServiceException {
     final ImageService.ImageInfo info = imageService.describe(data);
     final byte[] thumbnail = imageService.thumbnail(data, THUMBNAIL_SIZE);
+
+    // the thumbnail is already small and the right way up; the model doesn't need more
+    final ImageModerationService.Result verdict = moderation.moderate(thumbnail, data);
+    if (verdict.rejected()) {
+      log.info("Picture upload by user {} rejected by the content filter: {}", ownerId, verdict.category());
+      throw new BadRequestException(REJECTED_MESSAGE);
+    }
 
     final String name = ownerId + "/" + UUID.randomUUID();
     final String filename = name + "." + info.extension();
@@ -103,6 +126,7 @@ public class AlbumImageService {
     image.setFilename(filename);
     image.setThumbnail(thumbnailName);
     image.setSize((long) data.length);
+    image.setModerationStatus(verdict.status());
     try {
       return userImageRepository.saveAndFlush(image);
     } catch (final RuntimeException e) {
@@ -113,27 +137,37 @@ public class AlbumImageService {
     }
   }
 
-  /** @throws NotFoundException if there is no such picture */
-  public Picture picture(final int id) throws ServiceException {
-    final UserImage image = find(id);
+  /**
+   * @param viewerId the logged in user, or 0; a picture the content filter hasn't approved is
+   *     only there for its owner
+   * @throws NotFoundException if there is no such picture, or the viewer may not see it
+   */
+  public Picture picture(final int id, final int viewerId) throws ServiceException {
+    final UserImage image = visible(id, viewerId);
     if (image.getFilename() != null) {
-      return new Picture(get(image.getFilename()), image.getMimeType());
+      return new Picture(get(image.getFilename()), image.getMimeType(), approved(image));
     }
-    return new Picture(new ByteArrayInputStream(blob(id)), image.getMimeType());
+    return new Picture(new ByteArrayInputStream(blob(id)), image.getMimeType(), approved(image));
   }
 
-  /** A JPEG thumbnail. @throws NotFoundException if there is no such picture */
-  public Picture thumbnail(final int id) throws ServiceException, IOException {
-    final UserImage image = find(id);
+  /**
+   * A JPEG thumbnail.
+   *
+   * @param viewerId the logged in user, or 0
+   * @throws NotFoundException if there is no such picture, or the viewer may not see it
+   */
+  public Picture thumbnail(final int id, final int viewerId) throws ServiceException, IOException {
+    final UserImage image = visible(id, viewerId);
     if (image.getThumbnail() != null) {
-      return new Picture(get(image.getThumbnail()), MediaType.IMAGE_JPEG_VALUE);
+      return new Picture(get(image.getThumbnail()), MediaType.IMAGE_JPEG_VALUE, approved(image));
     }
     // not copied to MinIO yet
     final byte[] data = image.getFilename() != null ? get(image.getFilename()).readAllBytes() : blob(id);
     try {
       return new Picture(
           new ByteArrayInputStream(imageService.thumbnail(data, THUMBNAIL_SIZE)),
-          MediaType.IMAGE_JPEG_VALUE);
+          MediaType.IMAGE_JPEG_VALUE,
+          approved(image));
     } catch (final IllegalArgumentException e) {
       throw new NotFoundException("Picture " + id + " can't be shown as a thumbnail");
     }
@@ -276,6 +310,20 @@ public class AlbumImageService {
     return userImageRepository
         .findById(id)
         .orElseThrow(() -> new NotFoundException("No picture " + id));
+  }
+
+  /** The picture, if it is approved or the viewer owns it; otherwise it doesn't exist for them. */
+  private UserImage visible(final int id, final int viewerId) {
+    final UserImage image = find(id);
+    if (image.getModerationStatus() != ModerationStatus.APPROVED
+        && (image.getUser() == null || image.getUser().getId() != viewerId)) {
+      throw new NotFoundException("No picture " + id);
+    }
+    return image;
+  }
+
+  private static boolean approved(final UserImage image) {
+    return image.getModerationStatus() == ModerationStatus.APPROVED;
   }
 
   private byte[] blob(final int id) {

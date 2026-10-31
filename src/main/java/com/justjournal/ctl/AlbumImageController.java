@@ -32,12 +32,14 @@ import static com.justjournal.core.Constants.PARAM_TITLE;
 import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.ServiceException;
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import com.justjournal.services.AlbumImageService;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
@@ -84,24 +86,30 @@ public class AlbumImageController {
     this.albumImageService = albumImageService;
   }
 
+  /** Told to a user whose picture is kept but not shown until someone has looked at it. */
+  static final String REVIEW_MESSAGE =
+      "Your picture was saved. The content filter wasn't sure about it, so only you can see it"
+          + " until it has been reviewed.";
+
   @GetMapping(value = "/{id}/thumbnail")
-  public ResponseEntity<Resource> getThumbnail(@PathVariable(PARAM_ID) final int id)
+  public ResponseEntity<Resource> getThumbnail(
+      @PathVariable(PARAM_ID) final int id, final HttpSession session)
       throws ServiceException, IOException {
-    return send(albumImageService.thumbnail(id));
+    return send(albumImageService.thumbnail(id, viewer(session)));
   }
 
   @GetMapping(value = "/{id}")
-  public ResponseEntity<Resource> getByPath(@PathVariable(PARAM_ID) final int id)
-      throws ServiceException {
-    return get(id);
+  public ResponseEntity<Resource> getByPath(
+      @PathVariable(PARAM_ID) final int id, final HttpSession session) throws ServiceException {
+    return get(id, session);
   }
 
   /** The form linked from the pictures RSS feed. */
   @GetMapping(value = "")
-  public ResponseEntity<Resource> get(@RequestParam(PARAM_ID) final int id)
+  public ResponseEntity<Resource> get(@RequestParam(PARAM_ID) final int id, final HttpSession session)
       throws ServiceException {
     if (id < 1) throw new BadRequestException("Invalid picture id");
-    return send(albumImageService.picture(id));
+    return send(albumImageService.picture(id, viewer(session)));
   }
 
   private static ResponseEntity<Resource> send(final AlbumImageService.Picture picture) {
@@ -115,12 +123,14 @@ public class AlbumImageController {
     }
     return ResponseEntity.ok()
         .contentType(type)
-        .cacheControl(CacheControl.maxAge(CACHE_TIME).cachePublic())
+        // a picture awaiting review is shown only to its owner and must not be cached for others
+        .cacheControl(
+            picture.approved() ? CacheControl.maxAge(CACHE_TIME).cachePublic() : CacheControl.noStore())
         .body(new InputStreamResource(picture.stream()));
   }
 
   @PostMapping(value = "")
-  public ResponseEntity<Void> upload(
+  public ResponseEntity<?> upload(
       @RequestPart("file") final MultipartFile file,
       @RequestParam(value = PARAM_TITLE, defaultValue = "untitled") final String title,
       final HttpSession session)
@@ -146,7 +156,15 @@ public class AlbumImageController {
           "Unsupported picture. Upload a JPEG, PNG or GIF image of up to 100 megapixels.");
     }
     log.info("Picture {} uploaded by user {}", image.getId(), userId);
-    return ResponseEntity.created(URI.create("/AlbumImage/" + image.getId())).build();
+    final URI location = URI.create("/AlbumImage/" + image.getId());
+    if (image.getModerationStatus() == ModerationStatus.REVIEW) {
+      log.info("Picture {} held for review", image.getId());
+      return ResponseEntity.accepted()
+          .location(location)
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(Map.of("message", REVIEW_MESSAGE));
+    }
+    return ResponseEntity.created(location).build();
   }
 
   @DeleteMapping(value = "/{id}")
@@ -156,6 +174,12 @@ public class AlbumImageController {
 
     albumImageService.delete(id, userId);
     return ResponseEntity.noContent().build();
+  }
+
+  /** The logged in user, or 0 for a reader who isn't logged in. */
+  private static int viewer(final HttpSession session) {
+    final Integer userId = (Integer) session.getAttribute(LOGIN_ATTRID);
+    return userId == null ? 0 : userId;
   }
 
   private static int loggedInUser(final HttpSession session) {
