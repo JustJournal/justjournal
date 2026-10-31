@@ -236,7 +236,8 @@ class ITAppTest {
 
   @Test
   void apiStatisticsInvalid() throws Exception {
-    mockMvc.perform(get("/api/statistics/r")).andExpect(status().isBadRequest());
+    // a name that fails Login.isUserName is treated as an unknown user, like the entry endpoints
+    mockMvc.perform(get("/api/statistics/r")).andExpect(status().isNotFound());
   }
 
   @Test
