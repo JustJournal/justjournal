@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -167,28 +168,49 @@ public class TrackbackService {
   /** The most of a fetched page that is scanned for a trackback URL. */
   static final int MAX_HTML_LENGTH = 512 * 1024;
 
-  /**
-   * A link element that declares rel="trackback", with the attributes in any order, such as:
-   * <link rel="trackback" type="application/x-www-form-urlencoded" href="http://example.org/tb" />
-   * Attribute values are matched with bounded character classes so a large page cannot make the
-   * scan backtrack excessively.
-   */
-  private static final Pattern LINK_TAG =
-      Pattern.compile(
-          "<link\\b(?=[^>]*\\brel=[\"']trackback[\"'])[^>]*\\bhref=[\"']([^\"']+)[\"']",
-          Pattern.CASE_INSENSITIVE);
+  /** Longest link element that is looked at; anything longer is skipped. */
+  private static final int MAX_TAG_LENGTH = 2048;
+
+  private static final Pattern REL_TRACKBACK =
+      Pattern.compile("\\brel=[\"']trackback[\"']", Pattern.CASE_INSENSITIVE);
+  private static final Pattern HREF =
+      Pattern.compile("\\bhref=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
 
   /**
-   * Find the trackback URL advertised by a rel="trackback" link element. Other link elements
-   * (stylesheets, feeds) are ignored.
+   * Find the trackback URL advertised by a link element that declares rel="trackback", with the
+   * attributes in any order, such as:
+   * <link rel="trackback" type="application/x-www-form-urlencoded" href="http://example.org/tb" />
+   * Other link elements (stylesheets, feeds) are ignored. Each tag is cut out with a bounded scan
+   * and only that slice is matched, so a large or malformed page costs linear time.
    *
    * @param input html document
    * @return the href of the first trackback link, if any
    */
   public Optional<String> parseTrackbackUrlWithLinkTag(String input) {
-    final Matcher m = LINK_TAG.matcher(input);
-    if (m.find()) {
-      return Optional.ofNullable(m.group(1));
+    final String lower = input.toLowerCase(Locale.ROOT);
+    int at = lower.indexOf("<link");
+    while (at >= 0) {
+      final int afterName = at + "<link".length();
+      final int limit = Math.min(input.length(), at + MAX_TAG_LENGTH);
+      if (afterName < input.length() && !Character.isLetterOrDigit(input.charAt(afterName))) {
+        int end = -1;
+        for (int i = afterName; i < limit; i++) {
+          if (input.charAt(i) == '>') {
+            end = i;
+            break;
+          }
+        }
+        if (end > 0) {
+          final String tag = input.substring(at, end);
+          if (REL_TRACKBACK.matcher(tag).find()) {
+            final Matcher href = HREF.matcher(tag);
+            if (href.find()) {
+              return Optional.of(href.group(1));
+            }
+          }
+        }
+      }
+      at = lower.indexOf("<link", afterName);
     }
     return Optional.empty();
   }

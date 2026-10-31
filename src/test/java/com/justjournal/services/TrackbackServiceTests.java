@@ -206,6 +206,18 @@ class TrackbackServiceTests {
     }
 
     @Test
+    void parseTrackbackUrlWithLinkTag_skipsUnterminatedOrOverlongTags_quickly() {
+        String hostile = "<link rel=\"trackback\" href=\"http://a\" ".repeat(20000);
+        String overlong = "<link rel=\"trackback\" " + " ".repeat(3000) + "href=\"http://b\">";
+
+        long start = System.nanoTime();
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag(hostile).isEmpty());
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag(overlong).isEmpty());
+        assertTrue(System.nanoTime() - start < 2_000_000_000L, "scan took too long");
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag("<linkage href=\"x\" rel=\"trackback\">").isEmpty());
+    }
+
+    @Test
     void getHtmlDocument_capsTheScannedPage() {
         String big = "x".repeat(TrackbackService.MAX_HTML_LENGTH + 10);
         when(restTemplate.getForEntity("http://big", String.class)).thenReturn(new ResponseEntity<>(big, HttpStatus.OK));
