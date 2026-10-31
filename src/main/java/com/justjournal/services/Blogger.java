@@ -215,18 +215,18 @@ public class Blogger extends BaseXmlRpcService {
       } else subject = "";
       et.setSubject(subject);
 
-      et.setBody(HTMLUtil.clean(content, false));
-      et.setFormat(FormatType.HTML);
-
       /* Allow html style music tag to set music, used by few clients */
       final String music;
       final Pattern p2 = Pattern.compile("(<music>)(.*?)(</music>)");
       final Matcher m2 = p2.matcher(content);
       if (m2.find()) {
         music = m2.group(2);
-        m.replaceAll("");
+        content = m2.replaceAll("");
       } else music = "";
       et.setMusic(music);
+
+      et.setBody(HTMLUtil.clean(content, false));
+      et.setFormat(FormatType.HTML);
 
       et.setSecurity(Security.PUBLIC); // public
       et.setLocation(locationDao.findById(0).orElse(null)); // not specified

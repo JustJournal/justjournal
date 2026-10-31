@@ -261,6 +261,8 @@ class BloggerTests {
     // the unknown <music> tag must not make the cleaner throw away the whole body
     assertTrue(saved.getBody().contains("<p>Hello</p>"), saved.getBody());
     assertTrue(!saved.getBody().contains("<music>"), saved.getBody());
+    // and the music text belongs in the music field only, not in the body
+    assertTrue(!saved.getBody().contains("Jazz"), saved.getBody());
   }
 
   @Test
