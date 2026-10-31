@@ -17,6 +17,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.CRC32;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
@@ -90,6 +93,34 @@ class ImageModerationServiceTests {
     assertEquals(ModerationStatus.APPROVED, service.moderate(png(50, 50)).status());
     // an animated avatar that was re-encoded to a single frame is judged by what is stored
     assertEquals(ModerationStatus.APPROVED, service.moderate(gif(3), gif(1)).status());
+  }
+
+  /** A PNG with an acTL chunk after its header, as an animated PNG has. */
+  private static byte[] apng(final int frames) throws IOException {
+    final byte[] png = png(20, 20);
+    final int afterHeader = 8 + 12 + 13; // signature, IHDR chunk header and data, CRC
+    final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    out.write(png, 0, afterHeader);
+    final ByteBuffer chunk = ByteBuffer.allocate(20);
+    chunk.putInt(8).put("acTL".getBytes(StandardCharsets.US_ASCII)).putInt(frames).putInt(0);
+    final CRC32 crc = new CRC32();
+    crc.update(chunk.array(), 4, 12);
+    chunk.putInt((int) crc.getValue());
+    out.write(chunk.array());
+    out.write(png, afterHeader, png.length - afterHeader);
+    return out.toByteArray();
+  }
+
+  @Test
+  void animatedPng_heldForReview() throws Exception {
+    answers("safe");
+
+    final ImageModerationService.Result result = service.moderate(apng(4));
+
+    assertEquals(ModerationStatus.REVIEW, result.status());
+    assertEquals(ImageModerationService.CATEGORY_ANIMATED, result.category());
+    assertEquals(4, ImageService.apngFrames(apng(4)));
+    assertEquals(0, ImageService.apngFrames(png(20, 20)));
   }
 
   private void answers(final String category) throws IOException {
