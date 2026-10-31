@@ -194,6 +194,39 @@ class TrackbackServiceTests {
     }
 
     @Test
+    void parseTrackbackUrlWithLinkTag_skipsOtherLinks_andAcceptsAnyAttributeOrder() {
+        String input = "<html><head>"
+                + "<link rel=\"stylesheet\" href=\"http://example.org/style.css\" />\n"
+                + "<LINK href='http://example.org/tb' type=\"application/x-www-form-urlencoded\" rel='trackback'>"
+                + "</head></html>";
+
+        assertEquals(Optional.of("http://example.org/tb"), trackbackService.parseTrackbackUrlWithLinkTag(input));
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag(
+                "<link rel=\"stylesheet\" href=\"http://example.org/style.css\" />").isEmpty());
+    }
+
+    @Test
+    void parseTrackbackUrlWithLinkTag_skipsUnterminatedOrOverlongTags_quickly() {
+        String hostile = "<link rel=\"trackback\" href=\"http://a\" ".repeat(20000);
+        String overlong = "<link rel=\"trackback\" " + " ".repeat(3000) + "href=\"http://b\">";
+
+        long start = System.nanoTime();
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag(hostile).isEmpty());
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag(overlong).isEmpty());
+        assertTrue(System.nanoTime() - start < 2_000_000_000L, "scan took too long");
+        assertTrue(trackbackService.parseTrackbackUrlWithLinkTag("<linkage href=\"x\" rel=\"trackback\">").isEmpty());
+    }
+
+    @Test
+    void getHtmlDocument_capsTheScannedPage() {
+        String big = "x".repeat(TrackbackService.MAX_HTML_LENGTH + 10);
+        when(restTemplate.getForEntity("http://big", String.class)).thenReturn(new ResponseEntity<>(big, HttpStatus.OK));
+
+        assertEquals(TrackbackService.MAX_HTML_LENGTH,
+                trackbackService.getHtmlDocument("http://big").orElseThrow().length());
+    }
+
+    @Test
     void save_storesANewTrackback_withTodaysDate() {
         when(trackbackRepository.existsByEntryIdAndUrl(100, "http://example.com")).thenReturn(false);
         when(trackbackRepository.save(testTrackback)).thenReturn(testTrackback);

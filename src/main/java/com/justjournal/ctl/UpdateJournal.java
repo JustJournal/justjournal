@@ -314,7 +314,7 @@ public class UpdateJournal extends HttpServlet {
    * @param response servlet response
    * @throws java.io.IOException it is a web app
    */
-  protected void processRequest(
+  protected void processRequest( // skipcq: JAVA-R1000 long-standing servlet entry point
       final HttpServletRequest request, final HttpServletResponse response)
       throws java.io.IOException {
 

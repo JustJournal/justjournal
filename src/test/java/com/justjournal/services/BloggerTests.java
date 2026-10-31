@@ -261,6 +261,8 @@ class BloggerTests {
     // the unknown <music> tag must not make the cleaner throw away the whole body
     assertTrue(saved.getBody().contains("<p>Hello</p>"), saved.getBody());
     assertTrue(!saved.getBody().contains("<music>"), saved.getBody());
+    // and the music text belongs in the music field only, not in the body
+    assertTrue(!saved.getBody().contains("Jazz"), saved.getBody());
   }
 
   @Test
@@ -406,6 +408,7 @@ class BloggerTests {
     assertFault(blogger.getPost("", "5", "laffer1", "wrong"), AUTH_FAULT);
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(blogger.getPost("", "9", "laffer1", "secret"), "Invalid entry id 9");
+    assertFault(blogger.getPost("", "abc", "laffer1", "secret"), "Invalid entry id abc");
     when(entryRepository.findById(6)).thenReturn(Optional.of(someoneElses(6)));
     assertFault(blogger.getPost("", "6", "laffer1", "secret"), AUTH_FAULT);
   }

@@ -215,18 +215,18 @@ public class Blogger extends BaseXmlRpcService {
       } else subject = "";
       et.setSubject(subject);
 
-      et.setBody(HTMLUtil.clean(content, false));
-      et.setFormat(FormatType.HTML);
-
       /* Allow html style music tag to set music, used by few clients */
       final String music;
       final Pattern p2 = Pattern.compile("(<music>)(.*?)(</music>)");
       final Matcher m2 = p2.matcher(content);
       if (m2.find()) {
         music = m2.group(2);
-        m.replaceAll("");
+        content = m2.replaceAll("");
       } else music = "";
       et.setMusic(music);
+
+      et.setBody(HTMLUtil.clean(content, false));
+      et.setFormat(FormatType.HTML);
 
       et.setSecurity(Security.PUBLIC); // public
       et.setLocation(locationDao.findById(0).orElse(null)); // not specified
@@ -467,7 +467,7 @@ public class Blogger extends BaseXmlRpcService {
    * @param password the password of the entry
    * @return a signle entry as a hashmap for consumption by xml-rpc
    */
-  public HashMap<String, Serializable> getPost(
+  public HashMap<String, Serializable> getPost( // skipcq: JAVA-W1065 xml-rpc maps
       String appkey, String postid, String username, String password) {
     boolean blnError = false;
     int userId;
@@ -479,7 +479,14 @@ public class Blogger extends BaseXmlRpcService {
       return error(ERROR_USER_AUTH + username);
     }
 
-    e = entryRepository.findById(Integer.parseInt(postid)).orElse(null);
+    final int eid;
+    try {
+      eid = Integer.parseInt(postid);
+    } catch (final NumberFormatException ex) {
+      return error(ERROR_ENTRY_ID + postid);
+    }
+
+    e = entryRepository.findById(eid).orElse(null);
     if (e == null) {
       return error(ERROR_ENTRY_ID + postid);
     }
