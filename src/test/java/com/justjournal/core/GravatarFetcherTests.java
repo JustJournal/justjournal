@@ -12,6 +12,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.github.natche.gravatarjavaclient.enums.GravatarRating;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.User;
 import com.justjournal.model.UserContact;
@@ -147,5 +148,13 @@ class GravatarFetcherTests {
     fetcher.run();
 
     assertTrue(openDuringFetch.isEmpty());
+  }
+
+  @Test
+  void gravatarRequest_asksForPgRatedPicturesOnly() {
+    final var request = GravatarFetcher.gravatarRequest("someone@example.com");
+
+    assertEquals(GravatarRating.PG, request.getRating());
+    assertTrue(request.getRequestUrl().contains("r=pg"), request.getRequestUrl());
   }
 }
