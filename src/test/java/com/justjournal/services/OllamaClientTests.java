@@ -62,7 +62,7 @@ class OllamaClientTests {
 
     assertEquals("safe", answer.path("category").asText());
     assertEquals("a cat", answer.path("reason").asText());
-    server.verify();
+    server.verify(); // skipcq: JAVA-E1109 checks the expected requests were made, not a Mockito verify
   }
 
   @Test
@@ -72,7 +72,7 @@ class OllamaClientTests {
     server.expect(once(), requestTo("http://one:11434/api/chat")).andRespond(withSuccess(ANSWER, MediaType.APPLICATION_JSON));
 
     for (int i = 0; i < 3; i++) client.chat("vision", "q", new byte[] {1}, format);
-    server.verify();
+    server.verify(); // skipcq: JAVA-E1109 checks the expected requests were made, not a Mockito verify
   }
 
   @Test
@@ -81,7 +81,7 @@ class OllamaClientTests {
     server.expect(once(), requestTo("http://two:11435/api/chat")).andRespond(withSuccess(ANSWER, MediaType.APPLICATION_JSON));
 
     assertEquals("safe", client.chat("vision", "q", new byte[] {1}, format).path("category").asText());
-    server.verify();
+    server.verify(); // skipcq: JAVA-E1109 checks the expected requests were made, not a Mockito verify
   }
 
   @Test
@@ -90,7 +90,7 @@ class OllamaClientTests {
     server.expect(once(), requestTo("http://two:11435/api/chat")).andRespond(withSuccess("{\"message\":{\"content\":\"\"}}", MediaType.APPLICATION_JSON));
 
     assertThrows(IOException.class, () -> client.chat("vision", "q", new byte[] {1}, format));
-    server.verify();
+    server.verify(); // skipcq: JAVA-E1109 checks the expected requests were made, not a Mockito verify
   }
 
   @Test

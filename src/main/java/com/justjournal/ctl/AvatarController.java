@@ -44,6 +44,7 @@ import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
+import java.util.Set;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
@@ -156,22 +157,7 @@ public class AvatarController {
       throw new ForbiddenException("You must be logged in to upload an avatar");
     }
 
-    final String contentType = file.getContentType();
-    if (contentType == null || !(contentType.equals(MediaType.IMAGE_JPEG_VALUE) ||
-            contentType.equals(MediaType.IMAGE_PNG_VALUE) || contentType.equals(MediaType.IMAGE_GIF_VALUE) ||
-            contentType.equals("image/tiff") || contentType.equals("image/bmp"))) {
-      throw new BadRequestException(
-          "Invalid file type. Only JPEG, PNG, GIF, TIFF and BMP images are allowed.");
-    }
-
-    final long sizeInBytes = file.getSize();
-    // must be large enough
-    if (file.isEmpty() || sizeInBytes < 500) {
-      throw new BadRequestException("Invalid file");
-    }
-    if (sizeInBytes > MAX_UPLOAD_BYTES) {
-      throw new BadRequestException("Avatars must be 100 KB or smaller.");
-    }
+    checkUpload(file);
 
     final ModerationStatus status;
     try {
@@ -251,6 +237,32 @@ public class AvatarController {
 
     imageStorageService.setShowAvatar(userID, preference.show());
     return ResponseEntity.ok(new AvatarPreference(available, preference.show()));
+  }
+
+  private static final Set<String> UPLOAD_TYPES =
+      Set.of(
+          MediaType.IMAGE_JPEG_VALUE,
+          MediaType.IMAGE_PNG_VALUE,
+          MediaType.IMAGE_GIF_VALUE,
+          "image/tiff",
+          "image/bmp");
+
+  /** Refuse an upload that isn't an image of a sensible size. */
+  private static void checkUpload(final MultipartFile file) {
+    final String contentType = file.getContentType();
+    if (contentType == null || !UPLOAD_TYPES.contains(contentType)) {
+      throw new BadRequestException(
+          "Invalid file type. Only JPEG, PNG, GIF, TIFF and BMP images are allowed.");
+    }
+
+    final long sizeInBytes = file.getSize();
+    // must be large enough
+    if (file.isEmpty() || sizeInBytes < 500) {
+      throw new BadRequestException("Invalid file");
+    }
+    if (sizeInBytes > MAX_UPLOAD_BYTES) {
+      throw new BadRequestException("Avatars must be 100 KB or smaller.");
+    }
   }
 
   private static int loggedInUser(final HttpSession session) {

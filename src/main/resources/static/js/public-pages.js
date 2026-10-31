@@ -733,8 +733,7 @@
             }).done(function (data) {
                 setProgress(progressSelector, 100);
                 // the server explains an upload that is kept but not shown yet
-                var message = data && data.message ? data.message : 'Upload successful.';
-                showMessage(successSelector, message, 'success');
+                showMessage(successSelector, (data || {}).message || 'Upload successful.', 'success');
                 if (onDone) {
                     onDone();
                 }
