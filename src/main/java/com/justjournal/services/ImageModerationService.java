@@ -58,7 +58,7 @@ public class ImageModerationService {
   private boolean enabled;
 
   @Setter
-  @Value("${moderation.ollama.model:gemma4:latest}")
+  @Value("${moderation.ollama.model:qwen3-vl:8b}")
   private String model;
 
   /** What becomes of a suggestive picture that shows no nudity. */

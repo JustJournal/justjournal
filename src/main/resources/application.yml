@@ -99,8 +99,9 @@ moderation:
   enabled: true
   ollama:
     urls: http://192.168.1.206:11434,http://192.168.1.206:11435
-    # llama3.2-vision does not load on these servers (unknown architecture mllama); gemma4 does
-    model: gemma4:latest
+    # a vision model that answers structured (JSON schema) output; requests rotate across the
+    # servers above, so it must be pulled on every one of them
+    model: qwen3-vl:8b
     timeout-seconds: 90
   # a sexually suggestive picture with no nudity: APPROVED, REVIEW or REJECTED
   on-suggestive: REVIEW
