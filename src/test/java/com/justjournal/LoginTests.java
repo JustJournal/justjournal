@@ -363,7 +363,8 @@ class LoginTests {
     final User sha1User = new User();
     sha1User.setId(3);
     sha1User.setUsername("cat");
-    sha1User.setPassword(login.sha1("basic1"));
+    // SHA-1 of "basic1", as a pre-3.1 account would have it stored
+    sha1User.setPassword("188fa8d71ce6887606b62fc6491af6a90dcc801e");
     when(userRepository.findByUsername("cat")).thenReturn(sha1User);
     assertEquals(3, login.validatePassword("cat", "basic1"));
     assertTrue(sha1User.getPassword().startsWith("$argon2id$"), sha1User.getPassword());

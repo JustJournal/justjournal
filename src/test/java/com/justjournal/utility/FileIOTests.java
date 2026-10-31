@@ -28,6 +28,7 @@ package com.justjournal.utility;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -89,6 +90,6 @@ class FileIOTests {
     assertFalse(fileIO.deleteFile(renamed));
     assertFalse(fileIO.deleteFile(dir.toString()));
     assertEquals(0, fileIO.listFiles(dir.toString()).length);
-    assertEquals(null, fileIO.listFiles(dir.resolve("nope").toString()));
+    assertNull(fileIO.listFiles(dir.resolve("nope").toString()));
   }
 }
