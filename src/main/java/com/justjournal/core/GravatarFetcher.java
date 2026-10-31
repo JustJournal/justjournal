@@ -79,13 +79,7 @@ public class GravatarFetcher {
   }
 
   byte[] getGravatar(final String email) {
-    GravatarAvatarRequest request = GravatarAvatarRequest.fromEmail(email)
-            .setSize(100)
-            .setRating(GravatarRating.R)
-            .setShouldAppendJpgSuffix(GravatarUseJpgSuffix.True)
-            .setDefaultImageType(GravatarDefaultImageType._404);
-
-    var image = request.getBufferedImage();
+    var image = gravatarRequest(email).getBufferedImage();
 
     try {
       return bufferedImageToByteArray(image, "jpg");
@@ -93,6 +87,19 @@ public class GravatarFetcher {
       log.error("Error converting BufferedImage to byte array", e);
       return new byte[0];
     }
+  }
+
+  /**
+   * The request for an address's Gravatar. Gravatars skip the upload content filter, so only
+   * pictures their owners rated PG or below are asked for; Gravatar serves its default (here a
+   * 404) for anything rated higher.
+   */
+  static GravatarAvatarRequest gravatarRequest(final String email) {
+    return GravatarAvatarRequest.fromEmail(email)
+        .setSize(100)
+        .setRating(GravatarRating.PG)
+        .setShouldAppendJpgSuffix(GravatarUseJpgSuffix.True)
+        .setDefaultImageType(GravatarDefaultImageType._404);
   }
 
   private byte[] bufferedImageToByteArray(BufferedImage image, String formatName) throws IOException {
