@@ -46,6 +46,7 @@ import io.minio.errors.ErrorResponseException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.PrefBool;
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserPic;
 import com.justjournal.model.UserPref;
 import com.justjournal.repository.UserPicRepository;
@@ -171,6 +172,26 @@ class ImageStorageServiceTests {
     ArgumentCaptor<RemoveObjectArgs> removed = ArgumentCaptor.forClass(RemoveObjectArgs.class);
     order.verify(minioClient).removeObject(removed.capture());
     assertEquals("avatar_1.jpg", removed.getValue().object());
+  }
+
+  @Test
+  void uploadAvatar_recordsTheVerdictAndWhy() throws Exception {
+    when(minioClient.bucketExists(any())).thenReturn(true);
+    UserPic userPic = new UserPic();
+    userPic.setId(1);
+    when(userPicRepository.findById(1)).thenReturn(Optional.of(userPic));
+
+    imageStorageService.uploadAvatar(
+        1,
+        "image/png",
+        AvatarSource.UPLOAD,
+        ModerationStatus.REVIEW,
+        ImageModerationService.CATEGORY_ERROR,
+        new ByteArrayInputStream(new byte[] {1}));
+
+    assertEquals(ModerationStatus.REVIEW, userPic.getModerationStatus());
+    assertEquals("error", userPic.getModerationCategory());
+    verify(userPicRepository).save(userPic);
   }
 
   @Test

@@ -120,6 +120,7 @@ class AvatarControllerTests {
             eq(storedType),
             eq(AvatarSource.UPLOAD),
             eq(ModerationStatus.APPROVED),
+            eq("approved"),
             stored.capture());
     verify(imageStorageService).setShowAvatar(USER_ID, true);
     return stored.getValue().readAllBytes();
@@ -225,14 +226,14 @@ class AvatarControllerTests {
                 .session(loggedIn()))
         .andExpect(status().isBadRequest());
 
-    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any());
+    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any(), any());
   }
 
   @Test
   void upload_storageFails_avatarNotTurnedOn() throws Exception {
     doThrow(new ServiceException("down"))
         .when(imageStorageService)
-        .uploadAvatar(anyInt(), any(), any(), any(), any());
+        .uploadAvatar(anyInt(), any(), any(), any(), any(), any());
 
     mockMvc
         .perform(
@@ -266,7 +267,7 @@ class AvatarControllerTests {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value(AvatarController.REJECTED_MESSAGE));
 
-    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any());
+    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any(), any());
     verify(imageStorageService, never()).setShowAvatar(anyInt(), anyBoolean());
   }
 
@@ -294,6 +295,7 @@ class AvatarControllerTests {
             eq(MediaType.IMAGE_PNG_VALUE),
             eq(AvatarSource.UPLOAD),
             eq(ModerationStatus.REVIEW),
+            eq("review"),
             any());
     verify(imageStorageService).setShowAvatar(USER_ID, true);
   }
@@ -413,7 +415,7 @@ class AvatarControllerTests {
                 .session(loggedIn()))
         .andExpect(status().isBadRequest());
 
-    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any());
+    verify(imageStorageService, never()).uploadAvatar(anyInt(), any(), any(), any(), any(), any());
     verify(imageStorageService, never()).setShowAvatar(anyInt(), anyBoolean());
   }
 

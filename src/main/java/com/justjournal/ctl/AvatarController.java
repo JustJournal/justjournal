@@ -171,7 +171,12 @@ public class AvatarController {
       status = verdict.status();
 
       imageStorageService.uploadAvatar(
-          userID, avatar.mimeType(), AvatarSource.UPLOAD, status, new ByteArrayInputStream(avatar.data()));
+          userID,
+          avatar.mimeType(),
+          AvatarSource.UPLOAD,
+          status,
+          verdict.category(),
+          new ByteArrayInputStream(avatar.data()));
       imageStorageService.setShowAvatar(userID, true);
 
     } catch (final IllegalStateException | IllegalArgumentException e) {

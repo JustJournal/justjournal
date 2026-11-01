@@ -179,6 +179,7 @@ class AlbumImageServiceTests {
     final UserImage saved = service.upload(5, "Beach", jpeg(100, 100));
 
     assertEquals(ModerationStatus.REVIEW, saved.getModerationStatus());
+    assertEquals("review", saved.getModerationCategory());
     verify(storage).uploadFile(eq("pics"), eq(saved.getFilename()), anyString(), any());
   }
 

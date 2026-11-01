@@ -26,10 +26,12 @@
 package com.justjournal.repository;
 
 
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import java.util.List;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -47,4 +49,8 @@ public interface UserImageRepository extends JpaRepository<UserImage, Integer> {
       "select ul from UserImage ul, User u where ul.user = u and LOWER(u.username) ="
           + " LOWER(:username) order by ul.title, ul.id")
   List<UserImage> findByUsernameOrderByTitleTitleAsc(@Param("username") String username);
+
+  /** Pictures with a given verdict and reason, oldest first; see {@code ModerationRetry}. */
+  List<UserImage> findByModerationStatusAndModerationCategoryOrderByIdAsc(
+      ModerationStatus moderationStatus, String moderationCategory, Pageable page);
 }

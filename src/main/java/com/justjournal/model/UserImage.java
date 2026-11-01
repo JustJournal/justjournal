@@ -98,6 +98,14 @@ public class UserImage implements Serializable {
   @Enumerated(EnumType.STRING)
   private ModerationStatus moderationStatus = ModerationStatus.APPROVED;
 
+  /**
+   * Why the filter decided as it did: the model's category, "animated", or "error" when it could
+   * not be asked. Null for pictures that predate the filter.
+   */
+  @JsonIgnore
+  @Column(name = "moderation_category", length = 16)
+  private String moderationCategory;
+
   @JsonCreator
   public UserImage() {
     super();
@@ -203,5 +211,13 @@ public class UserImage implements Serializable {
 
   public void setModerationStatus(ModerationStatus moderationStatus) {
     this.moderationStatus = moderationStatus;
+  }
+
+  public String getModerationCategory() {
+    return moderationCategory;
+  }
+
+  public void setModerationCategory(String moderationCategory) {
+    this.moderationCategory = moderationCategory;
   }
 }
