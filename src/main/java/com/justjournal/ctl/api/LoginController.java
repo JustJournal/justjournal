@@ -28,6 +28,7 @@ package com.justjournal.ctl.api;
 import static com.justjournal.core.Constants.*;
 
 import com.justjournal.Login;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.model.LoginResponse;
 import com.justjournal.model.TwoFactorMethod;
 import com.justjournal.model.UserTwoFactor;
@@ -122,7 +123,14 @@ public class LoginController {
         Login.setPendingSecondFactor(
             session, userID, login.getUsername(), twoFactor.get().getMethod());
         if (twoFactor.get().getMethod() == TwoFactorMethod.EMAIL) {
-          userRepository.findById(userID).ifPresent(twoFactorService::sendLoginCode);
+          try {
+            userRepository.findById(userID).ifPresent(twoFactorService::sendLoginCode);
+          } catch (final BadRequestException e) {
+            // without the code the login can't be finished, so don't leave it half done
+            Login.clearPendingSecondFactor(session);
+            loginResponse.setStatus(JJ_LOGIN_FAIL);
+            return new ResponseEntity<>(loginResponse, HttpStatus.SERVICE_UNAVAILABLE);
+          }
         }
 
         loginResponse.setStatus(JJ_LOGIN_2FA);

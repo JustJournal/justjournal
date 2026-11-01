@@ -104,7 +104,11 @@
                 }
 
                 showMessage('#login-error', 'Your login information was invalid. Please try again');
-            }).fail(function () {
+            }).fail(function (xhr) {
+                if (xhr && xhr.status === 503) {
+                    showMessage('#login-error', 'Your login code could not be e-mailed. Please try again later.');
+                    return;
+                }
                 showMessage('#login-error', 'Your login information was invalid. Please try again');
             });
         });

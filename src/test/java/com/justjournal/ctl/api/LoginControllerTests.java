@@ -44,6 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.justjournal.Login;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.model.LoginResponse;
 import com.justjournal.model.TwoFactorMethod;
 import com.justjournal.model.User;
@@ -158,6 +159,21 @@ class LoginControllerTests {
 
     verify(twoFactorService).sendLoginCode(user);
     verify(webLogin, never()).completeLogin(any(), anyInt(), anyString());
+  }
+
+  @Test
+  void loginFailsWhenTheCodeCannotBeMailed() {
+    twoFactor(TwoFactorMethod.EMAIL);
+    when(twoFactorService.isTrustedDevice(anyInt(), any())).thenReturn(false);
+    when(twoFactorService.sendLoginCode(user)).thenThrow(new BadRequestException("not sent"));
+
+    final ResponseEntity<LoginResponse> response =
+        loginController.post(credentials("jjsite", "secret1"), request);
+
+    assertEquals(503, response.getStatusCode().value());
+    assertEquals(JJ_LOGIN_FAIL, response.getBody().getStatus());
+    assertFalse(Login.isPendingSecondFactor(session));
+    assertFalse(Login.isAuthenticated(session));
   }
 
   @Test
