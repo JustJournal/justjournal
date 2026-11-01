@@ -77,6 +77,11 @@ public class TwoFactorRepository {
     return valOperations.setIfAbsent(TWO_FACTOR_EMAIL_THROTTLE_KEY + userId, "1", window);
   }
 
+  /** Allow another code to be mailed right away, after one that could not be sent. */
+  public Mono<Boolean> releaseEmail(final int userId) {
+    return valOperations.delete(TWO_FACTOR_EMAIL_THROTTLE_KEY + userId);
+  }
+
   /** @return number of failed second factor attempts in the window, including this one */
   public Mono<Long> incrementAttempts(final int userId, final Duration window) {
     final String key = TWO_FACTOR_ATTEMPTS_KEY + userId;

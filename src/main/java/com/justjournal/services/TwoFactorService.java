@@ -68,7 +68,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Optional second login factor: a code mailed to the account's address or a time based code from
@@ -108,6 +111,11 @@ public class TwoFactorService {
 
   static final int RECOVERY_CODE_COUNT = 10;
 
+  static final String CODE_NOT_MAILED = "Your code could not be e-mailed. Please try again later.";
+
+  static final String NOTICE_NOT_MAILED =
+      "Nothing was changed because the e-mail notice could not be sent. Please try again later.";
+
   private static final Duration REDIS_TIMEOUT = Duration.ofSeconds(10);
 
   private static final int EMAIL_CODE_DIGITS = 6;
@@ -138,6 +146,9 @@ public class TwoFactorService {
 
   private final Settings settings;
 
+  /** Runs authenticator notices on their own so a failed insert can't roll back the change. */
+  private final TransactionTemplate noticeTransaction;
+
   public TwoFactorService(
       UserContactRepository userContactRepository,
       UserTwoFactorRepository userTwoFactorRepository,
@@ -146,7 +157,8 @@ public class TwoFactorService {
       TwoFactorRepository twoFactorRepository,
       QueueMailRepository queueMailRepository,
       ObjectProvider<MailSender> mailSender,
-      Settings settings) {
+      Settings settings,
+      PlatformTransactionManager transactionManager) {
     this.userContactRepository = userContactRepository;
     this.userTwoFactorRepository = userTwoFactorRepository;
     this.recoveryCodeRepository = recoveryCodeRepository;
@@ -155,6 +167,8 @@ public class TwoFactorService {
     this.queueMailRepository = queueMailRepository;
     this.mailSender = mailSender;
     this.settings = settings;
+    this.noticeTransaction = new TransactionTemplate(transactionManager);
+    this.noticeTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
   }
 
   public Optional<UserTwoFactor> find(final int userId) {
@@ -207,7 +221,7 @@ public class TwoFactorService {
     userTwoFactorRepository.saveAndFlush(twoFactor);
     twoFactorRepository.clearAttempts(user.getId()).block(REDIS_TIMEOUT);
 
-    notify(user, "JustJournal: Two-Factor Authentication Turned On", enabledMailBody(user, "e-mail"), "two_factor_enabled");
+    notify(user, "JustJournal: Two-Factor Authentication Turned On", enabledMailBody(user, "e-mail"), "two_factor_enabled", true);
     return true;
   }
 
@@ -275,7 +289,7 @@ public class TwoFactorService {
     twoFactorRepository.clearAttempts(user.getId()).block(REDIS_TIMEOUT);
 
     final List<String> codes = replaceRecoveryCodes(user.getId());
-    notify(user, "JustJournal: Two-Factor Authentication Turned On", enabledMailBody(user, "an authenticator app"), "two_factor_enabled");
+    notify(user, "JustJournal: Two-Factor Authentication Turned On", enabledMailBody(user, "an authenticator app"), "two_factor_enabled", false);
     return codes;
   }
 
@@ -292,11 +306,13 @@ public class TwoFactorService {
   @Transactional
   public void disable(final User user) {
     requireEnabled(user.getId());
+    final boolean byEmail =
+        find(user.getId()).map(UserTwoFactor::getMethod).orElse(null) == TwoFactorMethod.EMAIL;
     userTwoFactorRepository.deleteByUserId(user.getId());
     recoveryCodeRepository.deleteByUserId(user.getId());
     trustedDeviceRepository.deleteByUserId(user.getId());
     twoFactorRepository.deleteEmailCode(user.getId()).block(REDIS_TIMEOUT);
-    notify(user, "JustJournal: Two-Factor Authentication Turned Off", disabledMailBody(user), "two_factor_disabled");
+    notify(user, "JustJournal: Two-Factor Authentication Turned Off", disabledMailBody(user), "two_factor_disabled", byEmail);
   }
 
   @Transactional
@@ -310,6 +326,7 @@ public class TwoFactorService {
    * Mail a login code to a user whose method is e-mail.
    *
    * @return false if nothing was sent: wrong method, no address, or sent too recently
+   * @throws BadRequestException when the mail could not be queued or sent
    */
   public boolean sendLoginCode(final User user) {
     final Optional<UserTwoFactor> twoFactor = find(user.getId());
@@ -415,7 +432,15 @@ public class TwoFactorService {
     twoFactorRepository
         .saveEmailCode(user.getId(), PasswordResetService.hash(code), EMAIL_CODE_TTL)
         .block(REDIS_TIMEOUT);
-    queueMail(email, "JustJournal: Your Login Code", codeMailBody(user, code), "two_factor_code", true);
+    try {
+      queueMail(email, "JustJournal: Your Login Code", codeMailBody(user, code), "two_factor_code", true);
+    } catch (final RuntimeException e) {
+      log.error("Could not mail a two factor code to {}", user.getUsername(), e);
+      // nothing went out, so don't leave a code waiting or make the user wait to ask again
+      twoFactorRepository.deleteEmailCode(user.getId()).block(REDIS_TIMEOUT);
+      twoFactorRepository.releaseEmail(user.getId()).block(REDIS_TIMEOUT);
+      throw new BadRequestException(CODE_NOT_MAILED);
+    }
     return true;
   }
 
@@ -554,12 +579,36 @@ public class TwoFactorService {
         + "password/forgot and contact the site administrator.\n";
   }
 
-  private void notify(final User user, final String subject, final String body, final String purpose) {
+  /**
+   * Queue a notice about a change to the account's second factor.
+   *
+   * @param required true when the account relies on e-mail, so a notice that can't be queued
+   *     fails the change; otherwise the notice is queued in its own transaction and a failure is
+   *     only logged
+   */
+  private void notify(
+      final User user,
+      final String subject,
+      final String body,
+      final String purpose,
+      final boolean required) {
+    final String email = emailFor(user);
+    if (email == null) return;
+
+    if (required) {
+      try {
+        queueMail(email, subject, body, purpose, false);
+      } catch (final RuntimeException e) {
+        log.error("Could not queue two factor notice for {}", user.getUsername(), e);
+        throw new BadRequestException(NOTICE_NOT_MAILED);
+      }
+      return;
+    }
+
     try {
-      final String email = emailFor(user);
-      if (email != null) queueMail(email, subject, body, purpose, false);
-    } catch (final Exception e) {
-      log.error("Could not queue two factor notice", e);
+      noticeTransaction.executeWithoutResult(status -> queueMail(email, subject, body, purpose, false));
+    } catch (final RuntimeException e) {
+      log.error("Could not queue two factor notice for {}", user.getUsername(), e);
     }
   }
 
@@ -581,7 +630,11 @@ public class TwoFactorService {
     if (immediately) {
       // the scheduled sender runs every two minutes, too slow for a login code
       final MailSender sender = mailSender.getIfAvailable();
-      if (sender != null) sender.sendNow(saved);
+      if (sender != null && !sender.sendNow(saved)) {
+        // the caller reports the failure, so the scheduler mustn't deliver it later
+        queueMailRepository.deleteById(saved.getId());
+        throw new IllegalStateException("Immediate send failed for " + purpose);
+      }
     }
   }
 }

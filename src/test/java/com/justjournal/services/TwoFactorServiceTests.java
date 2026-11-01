@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -76,6 +77,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import reactor.core.publisher.Mono;
 
 /** @author Lucas Holt */
@@ -103,6 +107,8 @@ class TwoFactorServiceTests {
 
   @Mock private Settings settings;
 
+  @Mock private PlatformTransactionManager transactionManager;
+
   @InjectMocks private TwoFactorService twoFactorService;
 
   private User user;
@@ -119,6 +125,7 @@ class TwoFactorServiceTests {
     when(settings.getMailFrom()).thenReturn("noreply@justjournal.com");
     when(settings.getSiteName()).thenReturn("Just Journal");
     when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
+    when(mailSender.sendNow(any(QueueMail.class))).thenReturn(true);
     when(queueMailRepository.saveAndFlush(any(QueueMail.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(userTwoFactorRepository.saveAndFlush(any(UserTwoFactor.class)))
@@ -128,6 +135,7 @@ class TwoFactorServiceTests {
     when(twoFactorRepository.saveEmailCode(eq(7), anyString(), any(Duration.class)))
         .thenReturn(Mono.just(true));
     when(twoFactorRepository.deleteEmailCode(7)).thenReturn(Mono.just(true));
+    when(twoFactorRepository.releaseEmail(7)).thenReturn(Mono.just(true));
     when(twoFactorRepository.clearAttempts(7)).thenReturn(Mono.just(true));
     when(twoFactorRepository.incrementAttempts(eq(7), any(Duration.class))).thenReturn(Mono.just(1L));
     when(twoFactorRepository.savePendingTotpSecret(eq(7), anyString(), any(Duration.class)))
@@ -145,6 +153,11 @@ class TwoFactorServiceTests {
     final Matcher m = Pattern.compile("\\b([0-9]{6})\\b").matcher(mail.getValue().getBody());
     assertTrue(m.find(), "mail should carry a six digit code");
     return m.group(1);
+  }
+
+  private void queueMailFails() {
+    when(queueMailRepository.saveAndFlush(any(QueueMail.class)))
+        .thenThrow(new InvalidDataAccessResourceUsageException("insert into queue_mail failed"));
   }
 
   private UserTwoFactor enabled(final TwoFactorMethod method) {
@@ -179,6 +192,32 @@ class TwoFactorServiceTests {
   }
 
   @Test
+  void emailCodeThatCannotBeSentFailsAndCanBeAskedForAgain() {
+    when(mailSender.sendNow(any(QueueMail.class))).thenReturn(false);
+
+    final BadRequestException e =
+        assertThrows(BadRequestException.class, () -> twoFactorService.startEmailEnrollment(user));
+
+    assertEquals(TwoFactorService.CODE_NOT_MAILED, e.getMessage());
+    // the scheduler must not deliver a code the user was told never went out
+    verify(queueMailRepository).deleteById(anyInt());
+    verify(twoFactorRepository).deleteEmailCode(7);
+    verify(twoFactorRepository).releaseEmail(7);
+  }
+
+  @Test
+  void emailCodeThatCannotBeQueuedFails() {
+    queueMailFails();
+
+    final BadRequestException e =
+        assertThrows(BadRequestException.class, () -> twoFactorService.startEmailEnrollment(user));
+
+    assertEquals(TwoFactorService.CODE_NOT_MAILED, e.getMessage());
+    verify(mailSender, never()).sendNow(any());
+    verify(twoFactorRepository).releaseEmail(7);
+  }
+
+  @Test
   void emailEnrollmentNeedsAnAddress() {
     when(userContactRepository.findByUser(user)).thenReturn(null);
 
@@ -208,6 +247,19 @@ class TwoFactorServiceTests {
     final ArgumentCaptor<QueueMail> mail = ArgumentCaptor.forClass(QueueMail.class);
     verify(queueMailRepository).saveAndFlush(mail.capture());
     assertEquals("two_factor_enabled", mail.getValue().getPurpose());
+  }
+
+  @Test
+  void emailEnrollmentFailsWhenTheNoticeCannotBeQueued() {
+    when(twoFactorRepository.getEmailCode(7))
+        .thenReturn(Mono.just(PasswordResetService.hash("123456")));
+    queueMailFails();
+
+    final BadRequestException e =
+        assertThrows(
+            BadRequestException.class, () -> twoFactorService.confirmEmailEnrollment(user, "123456"));
+
+    assertEquals(TwoFactorService.NOTICE_NOT_MAILED, e.getMessage());
   }
 
   @Test
@@ -281,6 +333,25 @@ class TwoFactorServiceTests {
   }
 
   @Test
+  void appEnrollmentSurvivesAFailedNotice() {
+    when(twoFactorRepository.getPendingTotpSecret(7)).thenReturn(Mono.just(SECRET));
+    final String code = Totp.codeAt(SECRET, twoFactorService.nowSeconds() / Totp.STEP_SECONDS);
+    queueMailFails();
+
+    final List<String> codes = twoFactorService.confirmTotpEnrollment(user, code);
+
+    assertEquals(TwoFactorService.RECOVERY_CODE_COUNT, codes.size());
+    verify(userTwoFactorRepository).saveAndFlush(any(UserTwoFactor.class));
+    // the notice has its own transaction, so its failure can't roll back the enrollment
+    verify(transactionManager)
+        .getTransaction(
+            argThat(
+                definition ->
+                    definition.getPropagationBehavior()
+                        == TransactionDefinition.PROPAGATION_REQUIRES_NEW));
+  }
+
+  @Test
   void wrongAppCodeLeavesItOff() {
     when(twoFactorRepository.getPendingTotpSecret(7)).thenReturn(Mono.just(SECRET));
 
@@ -311,6 +382,15 @@ class TwoFactorServiceTests {
 
     assertTrue(twoFactorService.sendLoginCode(user));
     mailedCode();
+  }
+
+  @Test
+  void loginCodeThatCannotBeSentFails() {
+    enabled(TwoFactorMethod.EMAIL);
+    when(mailSender.sendNow(any(QueueMail.class))).thenReturn(false);
+
+    assertThrows(BadRequestException.class, () -> twoFactorService.sendLoginCode(user));
+    verify(twoFactorRepository).releaseEmail(7);
   }
 
   @Test
@@ -408,6 +488,27 @@ class TwoFactorServiceTests {
     final ArgumentCaptor<QueueMail> mail = ArgumentCaptor.forClass(QueueMail.class);
     verify(queueMailRepository).saveAndFlush(mail.capture());
     assertEquals("two_factor_disabled", mail.getValue().getPurpose());
+  }
+
+  @Test
+  void disableForAppUsersSurvivesAFailedNotice() {
+    enabled(TwoFactorMethod.TOTP);
+    queueMailFails();
+
+    twoFactorService.disable(user);
+
+    verify(userTwoFactorRepository).deleteByUserId(7);
+  }
+
+  @Test
+  void disableForEmailUsersFailsWhenTheNoticeCannotBeQueued() {
+    enabled(TwoFactorMethod.EMAIL);
+    queueMailFails();
+
+    final BadRequestException e =
+        assertThrows(BadRequestException.class, () -> twoFactorService.disable(user));
+
+    assertEquals(TwoFactorService.NOTICE_NOT_MAILED, e.getMessage());
   }
 
   @Test

@@ -167,6 +167,9 @@
                                                                       class=""></i>
                                         Change Password</a></li>
 
+                                    <li th:if="${authenticatedUsername != null}"><a href="/prefs/twofactor">
+                                        <i class="fa fa-shield"></i> Two-Factor Authentication</a></li>
+
                                     <li th:if="${authenticatedUsername != null}"><a href="/prefs/journaldelete"><i
                                             class="fa fa-sliders"></i> Delete Journal</a></li>
 
