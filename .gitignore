@@ -58,17 +58,13 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 
-
 target/
 
-
 .DS_Store
-*.iws
 target
 jjcode.log
 jjcode.log.*
 context.xml
-.idea/workspace.xml
 dataSources.local.xml
 JustJournal_war_exploded.xml
 misc.xml
