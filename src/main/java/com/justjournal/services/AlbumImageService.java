@@ -10,7 +10,6 @@ import com.justjournal.repository.UserImageRepository;
 import com.justjournal.repository.UserRepository;
 import io.minio.MinioClient;
 import io.minio.StatObjectArgs;
-import io.minio.errors.ErrorResponseException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,15 +18,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Pictures in users' photo albums. Pictures and their thumbnails are stored in MinIO. Pictures
@@ -41,14 +36,7 @@ public class AlbumImageService {
   /** Thumbnails fit in a square this many pixels wide. */
   public static final int THUMBNAIL_SIZE = 400;
 
-  /** MinIO's error code for an object that doesn't exist. */
-  private static final String NO_SUCH_KEY = "NoSuchKey";
-
-  @Setter
-  @Value("${bucket.image:jjimages}")
-  private String imageBucket;
-
-  private final ImageStorageService storage;
+  private final StoredImageFiles files;
   private final MinioClient minioClient;
   private final ImageService imageService;
   private final ImageModerationService moderation;
@@ -61,14 +49,14 @@ public class AlbumImageService {
       "This picture can't be posted. Nudity and sexual content aren't allowed.";
 
   public AlbumImageService(
-      final ImageStorageService storage,
+      final StoredImageFiles files,
       final MinioClient minioClient,
       final ImageService imageService,
       final ImageModerationService moderation,
       final UserImageRepository userImageRepository,
       final UserRepository userRepository,
       final JdbcTemplate jdbcTemplate) {
-    this.storage = storage;
+    this.files = files;
     this.minioClient = minioClient;
     this.imageService = imageService;
     this.moderation = moderation;
@@ -190,7 +178,7 @@ public class AlbumImageService {
     jdbcTemplate.update("DELETE FROM user_images_album_map WHERE image_id = ?", id);
     userImageRepository.delete(image);
     userImageRepository.flush();
-    afterCommit(() -> removeFiles(image));
+    StoredImageFiles.afterCommit(() -> removeFiles(image));
   }
 
   /** Delete all of a user's pictures, for when their account is deleted. */
@@ -210,22 +198,7 @@ public class AlbumImageService {
 
     jdbcTemplate.update("DELETE FROM user_images_album_map WHERE owner = ?", ownerId);
     jdbcTemplate.update("DELETE FROM user_images WHERE owner = ?", ownerId);
-    afterCommit(() -> images.forEach(this::removeFiles));
-  }
-
-  /** Files are removed once the rows are gone for good, not before a rollback could undo it. */
-  private static void afterCommit(final Runnable action) {
-    if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-      action.run();
-      return;
-    }
-    TransactionSynchronizationManager.registerSynchronization(
-        new TransactionSynchronization() {
-          @Override
-          public void afterCommit() {
-            action.run();
-          }
-        });
+    StoredImageFiles.afterCommit(() -> images.forEach(this::removeFiles));
   }
 
   /**
@@ -284,7 +257,7 @@ public class AlbumImageService {
     put(filename, mimeType, data);
     final long stored =
         minioClient
-            .statObject(StatObjectArgs.builder().bucket(imageBucket).object(filename).build())
+            .statObject(StatObjectArgs.builder().bucket(files.getBucket()).object(filename).build())
             .size();
     if (stored != data.length) {
       throw new IllegalStateException("stored " + stored + " bytes of " + data.length);
@@ -337,27 +310,11 @@ public class AlbumImageService {
 
   private void put(final String name, final String mimeType, final byte[] data)
       throws ServiceException {
-    try {
-      storage.uploadFile(imageBucket, name, mimeType, new ByteArrayInputStream(data));
-    } catch (final Exception e) {
-      log.error("Could not store picture {}", name, e);
-      throw new ServiceException("Unable to store picture");
-    }
+    files.put(name, mimeType, data);
   }
 
   private InputStream get(final String name) throws ServiceException {
-    try {
-      return storage.downloadFile(imageBucket, name);
-    } catch (final ErrorResponseException e) {
-      if (NO_SUCH_KEY.equals(e.errorResponse().code())) {
-        throw new NotFoundException("Picture file missing");
-      }
-      log.error("Could not fetch picture {}", name, e);
-      throw new ServiceException("Unable to fetch picture");
-    } catch (final Exception e) {
-      log.error("Could not fetch picture {}", name, e);
-      throw new ServiceException("Unable to fetch picture");
-    }
+    return files.get(name);
   }
 
   private void removeFiles(final UserImage image) {
@@ -367,10 +324,6 @@ public class AlbumImageService {
 
   /** Best effort; a leftover file only takes space. */
   private void remove(final String name) {
-    try {
-      storage.deleteFile(imageBucket, name);
-    } catch (final Exception e) {
-      log.warn("Could not delete picture file {}", name, e);
-    }
+    files.remove(name);
   }
 }
