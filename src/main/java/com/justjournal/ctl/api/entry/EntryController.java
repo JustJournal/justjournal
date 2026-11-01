@@ -368,6 +368,11 @@ public class EntryController {
       return ErrorHandler.modelError("Entry does not contain a body.");
     }
 
+    if (entryTo.getSecurity() == null) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError("Entry does not specify a security level.");
+    }
+
     final Entry entry = new Entry(entryTo);
     entry.setUser(user);
     entry.setLocation(getLocation(entryTo.getLocation()));
@@ -470,6 +475,11 @@ public class EntryController {
     if (StringUtils.isBlank(entryTo.getBody())) {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError("Entry does not contain a body.");
+    }
+
+    if (entryTo.getSecurity() == null) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError("Entry does not specify a security level.");
     }
 
     Entry entry = new Entry(entryTo);
