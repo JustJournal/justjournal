@@ -46,10 +46,11 @@ public class QueueMail implements Serializable {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private int id;
 
-  @Column(length = 100)
+  // to and from are reserved words in MySQL
+  @Column(name = "\"to\"", length = 100)
   private String to;
 
-  @Column(length = 100)
+  @Column(name = "\"from\"", length = 100)
   private String from;
 
   @Column(length = 100)
