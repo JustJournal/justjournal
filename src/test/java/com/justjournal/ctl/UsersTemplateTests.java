@@ -1,5 +1,6 @@
 package com.justjournal.ctl;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.justjournal.model.Journal;
@@ -75,6 +76,12 @@ class UsersTemplateTests {
   @Test
   void rendersPageWithNoOptionalAttributes() {
     assertTrue(render(Map.of()).contains("<title>Tech News</title>"));
+  }
+
+  @Test
+  void settingsMenuLinksTwoFactorWhenLoggedIn() {
+    assertTrue(render(Map.of("authenticatedUsername", "technews")).contains("href=\"/prefs/twofactor\""));
+    assertFalse(render(Map.of()).contains("href=\"/prefs/twofactor\""));
   }
 
   @Test
