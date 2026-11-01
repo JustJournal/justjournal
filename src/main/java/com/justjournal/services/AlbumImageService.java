@@ -127,6 +127,7 @@ public class AlbumImageService {
     image.setThumbnail(thumbnailName);
     image.setSize((long) data.length);
     image.setModerationStatus(verdict.status());
+    image.setModerationCategory(verdict.category());
     try {
       return userImageRepository.saveAndFlush(image);
     } catch (final RuntimeException e) {

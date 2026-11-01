@@ -76,4 +76,9 @@ public class UserPic implements Serializable {
   @Column(name = "moderation_status", nullable = false, length = 8)
   @Enumerated(EnumType.STRING)
   private ModerationStatus moderationStatus = ModerationStatus.APPROVED;
+
+  /** Why the filter decided as it did; see {@link UserImage#getModerationCategory()}. */
+  @JsonProperty("moderationCategory")
+  @Column(name = "moderation_category", length = 16)
+  private String moderationCategory;
 }

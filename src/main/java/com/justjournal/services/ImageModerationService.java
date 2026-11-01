@@ -40,6 +40,8 @@ public class ImageModerationService {
   static final String CATEGORY_SEXUAL = "sexual";
   /** Not a model answer: the stored image has more frames than the model was shown. */
   static final String CATEGORY_ANIMATED = "animated";
+  /** Not a model answer: no server could be asked, so the picture was never judged. */
+  public static final String CATEGORY_ERROR = "error";
 
   static final String PROMPT =
       "You are the content filter for a general audience blogging site. Classify the image into"
@@ -112,7 +114,7 @@ public class ImageModerationService {
       answer = ollama.chat(model, PROMPT, imageService.thumbnail(image, IMAGE_SIZE), FORMAT);
     } catch (final IOException | RuntimeException e) {
       log.error("Could not moderate image: {}", e.getMessage());
-      return new Result(onError, "error", e.getMessage());
+      return new Result(onError, CATEGORY_ERROR, e.getMessage());
     }
 
     final String category = answer.path("category").asText("").trim().toLowerCase(Locale.ROOT);

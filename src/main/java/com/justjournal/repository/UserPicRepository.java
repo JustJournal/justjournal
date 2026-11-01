@@ -26,10 +26,17 @@
 package com.justjournal.repository;
 
 
+import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserPic;
+import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /** @author Lucas Holt */
 @Repository
-public interface UserPicRepository extends JpaRepository<UserPic, Integer> {}
+public interface UserPicRepository extends JpaRepository<UserPic, Integer> {
+  /** Avatars with a given verdict and reason, oldest first; see {@code ModerationRetry}. */
+  List<UserPic> findByModerationStatusAndModerationCategoryOrderByModifiedAsc(
+      ModerationStatus moderationStatus, String moderationCategory, Pageable page);
+}

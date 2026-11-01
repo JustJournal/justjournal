@@ -122,16 +122,34 @@ public class ImageStorageService {
   }
 
   /**
-   * Store an avatar image. The image is uploaded before the record is saved, so a failed upload
-   * leaves any previous avatar as it was.
+   * Store an avatar image with a verdict but no recorded reason.
    *
-   * @param status the content filter's verdict; a REVIEW avatar is shown only to its owner
+   * @see #uploadAvatar(int, String, AvatarSource, ModerationStatus, String, InputStream)
    */
   public void uploadAvatar(
       final int userId,
       @NonNull final String mimeType,
       @NonNull final AvatarSource source,
       @NonNull final ModerationStatus status,
+      @NonNull final InputStream is)
+      throws ServiceException {
+    uploadAvatar(userId, mimeType, source, status, null, is);
+  }
+
+  /**
+   * Store an avatar image. The image is uploaded before the record is saved, so a failed upload
+   * leaves any previous avatar as it was.
+   *
+   * @param status the content filter's verdict; a REVIEW avatar is shown only to its owner
+   * @param category why the filter decided so, or null; "error" marks an avatar that was never
+   *     judged and will be tried again
+   */
+  public void uploadAvatar(
+      final int userId,
+      @NonNull final String mimeType,
+      @NonNull final AvatarSource source,
+      @NonNull final ModerationStatus status,
+      final String category,
       @NonNull final InputStream is)
       throws ServiceException {
 
@@ -154,6 +172,7 @@ public class ImageStorageService {
     entity.setSource(source);
     entity.setFilename(filename);
     entity.setModerationStatus(status);
+    entity.setModerationCategory(category);
     userPicRepository.save(entity);
 
     // a new format has a new name; the old file is no longer used
