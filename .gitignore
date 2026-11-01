@@ -86,3 +86,4 @@ compiler.xml
 /.idea/jpa-buddy.xml
 /.idea/runConfigurations.xml
 /.sonarlint/connectedMode.json
+/.claude/worktrees/
