@@ -87,3 +87,6 @@ compiler.xml
 /.idea/runConfigurations.xml
 /.sonarlint/connectedMode.json
 /.claude/worktrees/
+.codex
+*.jar
+*.patch
