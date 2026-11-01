@@ -158,4 +158,16 @@ class ImageServiceTests {
     assertThrows(IllegalArgumentException.class, () -> imageService.describe(bmp.toByteArray()));
     assertThrows(IllegalArgumentException.class, () -> imageService.describe(new byte[] {1, 2, 3}));
   }
+
+  @Test
+  void frameCount_jpegWithAppendedImage_isOne() throws Exception {
+    final ByteArrayOutputStream jpeg = new ByteArrayOutputStream();
+    ImageIO.write(new BufferedImage(30, 20, BufferedImage.TYPE_INT_RGB), "jpg", jpeg);
+    // phone cameras store a second picture, such as an HDR gain map, after the first one
+    final ByteArrayOutputStream withGainMap = new ByteArrayOutputStream();
+    withGainMap.write(jpeg.toByteArray());
+    withGainMap.write(jpeg.toByteArray());
+
+    assertEquals(1, imageService.frameCount(withGainMap.toByteArray()));
+  }
 }

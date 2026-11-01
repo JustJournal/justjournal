@@ -207,7 +207,9 @@ public class ImageService {
 
   /**
    * How many frames the image has: more than one for an animated GIF or PNG. ImageIO's PNG reader
-   * only knows the first frame of an animated PNG, so those are counted from the file itself.
+   * only knows the first frame of an animated PNG, so those are counted from the file itself. A JPEG
+   * is always one frame: phone cameras append a second picture, such as an HDR gain map, which
+   * ImageIO would count as another image although it is never shown.
    *
    * @throws IllegalArgumentException if the data isn't an image format ImageIO can read
    */
@@ -217,6 +219,7 @@ public class ImageService {
       if (!readers.hasNext()) throw new IllegalArgumentException("Unsupported image format");
       final ImageReader reader = readers.next();
       try {
+        if ("jpeg".equalsIgnoreCase(reader.getFormatName())) return 1;
         // counting frames searches the stream, which a forward-only input doesn't allow
         reader.setInput(in, false, true);
         final int frames = reader.getNumImages(true);
