@@ -666,4 +666,29 @@ class EntryControllerTests {
     assertEquals(400, response.getStatus());
     assertEquals("Could not delete the comment.", result.get("error"));
   }
+
+  @Test
+  void post_withoutASecurityLevel_isRejectedBeforeSaving() {
+    final EntryTo noSecurity = entryTo("TEXT");
+    noSecurity.setSecurity(null);
+
+    final Map<String, String> result =
+        entryController.post(noSecurity, session, response, new ExtendedModelMap());
+
+    assertEquals(400, response.getStatus());
+    assertEquals("Entry does not specify a security level.", result.get("error"));
+    verify(entryRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void put_withoutASecurityLevel_isRejectedBeforeSaving() {
+    final EntryTo noSecurity = entryTo("TEXT");
+    noSecurity.setSecurity(null);
+
+    final Map<String, String> result = entryController.put(noSecurity, session, response);
+
+    assertEquals(400, response.getStatus());
+    assertEquals("Entry does not specify a security level.", result.get("error"));
+    verify(entryRepository, never()).save(any());
+  }
 }
