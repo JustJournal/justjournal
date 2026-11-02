@@ -30,9 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -125,16 +123,6 @@ class InstanceActorControllerTests {
     mockMvc
         .perform(get("/actor").header(HttpHeaders.ACCEPT, MediaType.TEXT_HTML_VALUE))
         .andExpect(status().isNotAcceptable());
-  }
-
-  @Test
-  void inbox_takesNothing() throws Exception {
-    mockMvc
-        .perform(
-            post("/actor/inbox").contentType("application/activity+json").content("{}"))
-        .andExpect(status().isMethodNotAllowed())
-        .andExpect(header().string(HttpHeaders.ALLOW, ""));
-    mockMvc.perform(get("/actor/inbox")).andExpect(status().isMethodNotAllowed());
   }
 
   @Test

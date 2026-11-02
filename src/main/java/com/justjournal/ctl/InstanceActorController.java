@@ -37,17 +37,15 @@ import com.justjournal.core.Settings;
 import com.justjournal.services.activitypub.ActorKeyService;
 import java.net.URI;
 import java.util.Locale;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * The instance actor: an Application standing for the site itself. Requests made on behalf of the
  * site rather than a user, such as fetching another server's key, are signed with its key, and
- * servers that check signatures fetch this document to find that key.
+ * servers that check signatures fetch this document to find that key. Its inbox is in {@link
+ * InboxController}.
  *
  * @author Lucas Holt
  */
@@ -82,14 +80,6 @@ public class InstanceActorController {
     ActivityStreamController.putPublicKey(
         actor, id, actorKeyService.forInstance().getPublicKeyPem());
     return ok(actor);
-  }
-
-  /** Takes nothing, like a user's inbox; see {@link ActivityStreamController#inbox}. */
-  @RequestMapping(PATH + "/inbox")
-  public ResponseEntity<Void> inbox() {
-    return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-        .header(HttpHeaders.ALLOW, "")
-        .build();
   }
 
   /** The instance actor posts nothing. */

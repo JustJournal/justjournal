@@ -175,4 +175,16 @@ class FollowerServiceTests {
     assertFalse(service.remove(bob, null));
     assertEquals(4, service.count(bob));
   }
+
+  @Test
+  void removeEverywhere_andFollowsAny() {
+    when(repository.deleteByActorId("https://mastodon.social/users/a")).thenReturn(3L);
+    when(repository.existsByActorId("https://mastodon.social/users/a")).thenReturn(true);
+
+    assertTrue(service.followsAny(URI.create("https://mastodon.social/users/a")));
+    assertFalse(service.followsAny(URI.create("https://mastodon.social/users/z")));
+    assertFalse(service.followsAny(null));
+    assertEquals(3, service.removeEverywhere(URI.create("https://mastodon.social/users/a")));
+    assertEquals(0, service.removeEverywhere(null));
+  }
 }

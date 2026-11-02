@@ -93,6 +93,23 @@ public class FollowerService {
     return repository.deleteByUserIdAndActorId(user.getId(), actorId.toASCIIString()) > 0;
   }
 
+  /**
+   * Remove an actor from the followers of every journal, when its account is gone.
+   *
+   * @return how many journals it was following
+   */
+  @Transactional
+  public long removeEverywhere(final URI actorId) {
+    if (actorId == null) return 0;
+    return repository.deleteByActorId(actorId.toASCIIString());
+  }
+
+  /** Whether the actor follows any journal here. */
+  @Transactional(readOnly = true)
+  public boolean followsAny(final URI actorId) {
+    return actorId != null && repository.existsByActorId(actorId.toASCIIString());
+  }
+
   /** Everyone following the user's journal, oldest first. Never show this publicly. */
   @Transactional(readOnly = true)
   public List<RemoteFollower> list(final User user) {
