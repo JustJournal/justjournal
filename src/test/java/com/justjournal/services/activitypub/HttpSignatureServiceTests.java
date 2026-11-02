@@ -27,6 +27,7 @@ package com.justjournal.services.activitypub;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -39,6 +40,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.PrivateKey;
+import java.security.Signature;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -57,22 +59,13 @@ class HttpSignatureServiceTests {
   private static final String BOB_KEY = BOB + "#main-key";
   private static final String ALICE = "https://remote.social/users/alice";
   private static final String ALICE_KEY = ALICE + "#main-key";
-  /** Where the openssl vector was signed for. */
+  /** Where the signing tests send to. */
   private static final URI INBOX = URI.create("https://remote.example/users/alice/inbox");
   private static final byte[] BODY = "{\"type\":\"Follow\"}".getBytes(StandardCharsets.UTF_8);
 
   /** SHA-256 of BODY, from {@code openssl dgst -sha256 -binary | base64}. */
   private static final String BODY_DIGEST = "SHA-256=GYwYnH3BiO6aICFt0ThC5bUIJ4byvqdpWtR8m5fNkww=";
 
-  /**
-   * The signing string below signed with TestKeys by {@code openssl dgst -sha256 -sign}. PKCS#1
-   * v1.5 signatures are deterministic, so ours must come out the same.
-   */
-  private static final String OPENSSL_SIGNATURE =
-      "GKIJrWkKrH+4YjULbX6O9GRP7l/64hSAKP/M4egMIxAlQDIArPYtKP5R1J4s47g/93UYfGzbuhIDmr7DbTSFwJUOlZY"
-          + "xn98Q3JGRAYBjmG/rzCLQ2JVYQxrGl1AZRhkLD0BBI/hFltxhv4E6eyzEH8kSLWJVBNolScxtyrAMhny9Edty"
-          + "wogIrI+Vfa4+658D2EKwSb5h9IIYqEU2qJ8R3ajV/CcMpQbl6IrOnmLCpRxYZey2mKyWbTPqIIpSmBKKcdPU7E"
-          + "2/zpUlC2DKfepY7OBpdi5+GEN1d6W2XYoOjI1GIHiFvzI/PFqGpzBq0Jimh2DSR/nNLIFgqh4PSNaukw==";
 
   private ActorKeyService actorKeyService;
   private RemoteKeyResolver resolver;
@@ -135,22 +128,40 @@ class HttpSignatureServiceTests {
 
   // ---- signing --------------------------------------------------------------------------
 
+  /**
+   * The signature must verify over exactly this signing string. PKCS#1 v1.5 signatures are
+   * deterministic, so only one signature can; this is what an openssl {@code dgst -sha256 -sign}
+   * of the same string with the same key gives.
+   */
   @Test
-  void sign_matchesAVectorMadeWithOpenssl() {
+  void sign_signsTheExpectedSigningStringWithRsaSha256() throws Exception {
     final Map<String, String> headers = service(NOW).sign("POST", INBOX, BODY, BOB);
 
     assertEquals(List.of("Host", "Date", "Digest", "Signature"), List.copyOf(headers.keySet()));
     assertEquals("remote.example", headers.get("Host"));
     assertEquals("Mon, 02 Nov 2026 12:00:00 GMT", headers.get("Date"));
     assertEquals(BODY_DIGEST, headers.get("Digest"));
-    assertEquals(
+
+    final String prefix =
         "keyId=\""
             + BOB_KEY
             + "\",algorithm=\"rsa-sha256\",headers=\"(request-target) host date digest\","
-            + "signature=\""
-            + OPENSSL_SIGNATURE
-            + "\"",
-        headers.get("Signature"));
+            + "signature=\"";
+    final String header = headers.get("Signature");
+    assertTrue(header.startsWith(prefix) && header.endsWith("\""), header);
+    final byte[] signature =
+        Base64.getDecoder().decode(header.substring(prefix.length(), header.length() - 1));
+
+    final Signature rsa = Signature.getInstance("SHA256withRSA");
+    rsa.initVerify(TestKeys.publicKey());
+    rsa.update(
+        ("(request-target): post /users/alice/inbox\n"
+                + "host: remote.example\n"
+                + "date: Mon, 02 Nov 2026 12:00:00 GMT\n"
+                + "digest: "
+                + BODY_DIGEST)
+            .getBytes(StandardCharsets.UTF_8));
+    assertTrue(rsa.verify(signature));
   }
 
   @Test
