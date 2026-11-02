@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -65,6 +66,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -309,6 +311,25 @@ class AccountControllerTests {
     verify(jdbcTemplate).execute("DELETE FROM journal WHERE user_id=7;");
     verify(jdbcTemplate).execute("DELETE FROM user_two_factor WHERE user_id=7;");
     verify(userRepository).deleteById(7);
+  }
+
+  @Test
+  void accountDelete_removesFediverseFollowersAndQueuedDeliveries() {
+    login();
+    when(userRepository.findById(7)).thenReturn(Optional.of(user));
+    when(commentRepository.findByUser(user)).thenReturn(List.of());
+    when(entryRepository.findByUser(user)).thenReturn(List.of());
+    when(favoriteRepository.findByUser(user)).thenReturn(List.of());
+    when(rssSubscriptionsRepository.findByUser(user)).thenReturn(List.of());
+
+    controller.delete(response, session);
+
+    assertEquals(200, response.getStatus());
+    // before the user row: both tables refer to it
+    final InOrder order = inOrder(jdbcTemplate, userRepository);
+    order.verify(jdbcTemplate).execute("DELETE FROM activitypub_delivery WHERE user_id=7;");
+    order.verify(jdbcTemplate).execute("DELETE FROM activitypub_follower WHERE user_id=7;");
+    order.verify(userRepository).deleteById(7);
   }
 
   @Test

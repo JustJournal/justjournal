@@ -33,6 +33,16 @@
             </form>
             <div class="alert alert-danger" id="journal-error" style="display:none;"></div>
             <div class="alert alert-success" id="journal-success" style="display:none;"></div>
+            <form id="frmFederation" role="form" style="display:none;">
+                <fieldset>
+                    <legend><strong>Fediverse</strong><br/></legend>
+                    <div class="checkbox"><label><input type="checkbox" name="federate" id="federate"> Let people on Mastodon and other fediverse servers follow my journal</label></div>
+                    <p class="help-block">When this is on, people on Mastodon and other fediverse servers can follow your journal, and your public entries are sent to the servers they use. Copies sent to other servers may stay there after you edit or delete an entry. Nothing is sent while only you can view your journal.</p>
+                    <p><button type="submit" class="btn btn-primary">Save</button></p>
+                </fieldset>
+            </form>
+            <div class="alert alert-danger" id="federation-error" style="display:none;"></div>
+            <div class="alert alert-success" id="federation-success" style="display:none;"></div>
         </div>
     </div>
 </div>

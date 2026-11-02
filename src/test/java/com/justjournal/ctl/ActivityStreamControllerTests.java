@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -78,6 +79,7 @@ import com.justjournal.services.MarkdownService;
 import com.justjournal.services.PdfFormatService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.services.UserImageService;
+import com.justjournal.services.activitypub.FollowerService;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -124,6 +126,7 @@ class ActivityStreamControllerTests {
   private EntryAttachmentService entryAttachmentService;
   private AvatarService avatarService;
   private UserPicRepository userPicRepository;
+  private FollowerService followerService;
   private MockMvc mockMvc;
   private User bob;
   private Journal journal;
@@ -139,6 +142,7 @@ class ActivityStreamControllerTests {
     entryAttachmentService = mock(EntryAttachmentService.class);
     avatarService = mock(AvatarService.class);
     userPicRepository = mock(UserPicRepository.class);
+    followerService = mock(FollowerService.class);
 
     when(entryService.convertBodyToHtml(any(), anyString()))
         .thenAnswer(inv -> "<p>" + inv.getArgument(1) + "</p>");
@@ -163,7 +167,8 @@ class ActivityStreamControllerTests {
             new EntryAccessService(),
             entryAttachmentService,
             avatarService,
-            userPicRepository);
+            userPicRepository,
+            followerService);
 
     final UserContextService userContextService = mock(UserContextService.class);
     final UsersController usersController =
@@ -422,6 +427,29 @@ class ActivityStreamControllerTests {
       assertEquals("OrderedCollection", collection.get("type").asText());
       assertEquals(0, collection.get("totalItems").asInt());
     }
+  }
+
+  @Test
+  void followers_countsThemButDoesNotListThem() throws Exception {
+    when(followerService.count(bob)).thenReturn(3L);
+
+    final JsonNode collection = json("/users/bob/followers");
+
+    assertEquals(ACTOR + "/followers", collection.get("id").asText());
+    assertEquals("OrderedCollection", collection.get("type").asText());
+    assertEquals(3, collection.get("totalItems").asInt());
+    assertFalse(collection.has("orderedItems"));
+    assertFalse(collection.has("items"));
+    assertFalse(collection.has("first"));
+  }
+
+  @Test
+  void followers_ofAnOwnerOnlyJournal_areNotFound() throws Exception {
+    journal.setOwnerViewOnly(true);
+
+    as("/users/bob/followers", ActivityStreamController.ACTIVITY_JSON_VALUE)
+        .andExpect(status().isNotFound());
+    verify(followerService, never()).count(any());
   }
 
   // ---- outbox ---------------------------------------------------------------------------

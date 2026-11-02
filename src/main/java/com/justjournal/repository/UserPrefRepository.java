@@ -27,9 +27,14 @@ package com.justjournal.repository;
 
 
 import com.justjournal.model.UserPref;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 /** @author Lucas Holt */
 @Repository
-public interface UserPrefRepository extends JpaRepository<UserPref, Integer> {}
+public interface UserPrefRepository extends JpaRepository<UserPref, Integer> {
+
+  /** The preferences of a user, found by user id rather than by the row's own id. */
+  Optional<UserPref> findByUserId(int userId);
+}

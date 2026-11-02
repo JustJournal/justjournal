@@ -46,6 +46,7 @@ import com.justjournal.services.AvatarService;
 import com.justjournal.services.EntryAccessService;
 import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.EntryService;
+import com.justjournal.services.activitypub.FollowerService;
 import com.justjournal.utility.DateConvert;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -111,6 +112,7 @@ public class ActivityStreamController {
   private final EntryAttachmentService entryAttachmentService;
   private final AvatarService avatarService;
   private final UserPicRepository userPicRepository;
+  private final FollowerService followerService;
 
   public ActivityStreamController(
       final Settings settings,
@@ -120,7 +122,8 @@ public class ActivityStreamController {
       final EntryAccessService entryAccessService,
       final EntryAttachmentService entryAttachmentService,
       final AvatarService avatarService,
-      final UserPicRepository userPicRepository) {
+      final UserPicRepository userPicRepository,
+      final FollowerService followerService) {
     this.settings = settings;
     this.userRepository = userRepository;
     this.entryRepository = entryRepository;
@@ -129,6 +132,7 @@ public class ActivityStreamController {
     this.entryAttachmentService = entryAttachmentService;
     this.avatarService = avatarService;
     this.userPicRepository = userPicRepository;
+    this.followerService = followerService;
   }
 
   /**
@@ -196,7 +200,15 @@ public class ActivityStreamController {
       value = "/users/{username}/followers",
       produces = {ACTIVITY_JSON_VALUE, LD_JSON_VALUE})
   public ResponseEntity<JsonNode> followers(@PathVariable(PATH_USERNAME) final String username) {
-    return emptyCollection(username, "/followers");
+    final User user = publicUser(username);
+    if (user == null) return notFound();
+
+    // how many, but not who: the list of followers stays private
+    final ObjectNode collection = withContext();
+    collection.put("id", actorId(user) + "/followers");
+    collection.put("type", "OrderedCollection");
+    collection.put("totalItems", followerService.count(user));
+    return ok(collection);
   }
 
   @GetMapping(
