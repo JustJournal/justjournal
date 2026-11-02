@@ -155,22 +155,12 @@ public class RemoteReplyService {
    */
   public Outcome create(final User user, final JsonNode create, final String sender) {
     final JsonNode object = create.get("object");
-    if (object == null || !object.isObject() || !TYPES.contains(text(object, "type")))
-      return Outcome.IGNORED;
-    final Entry entry = repliedTo(user, InboxService.id(object.get("inReplyTo")));
+    final Entry entry = acceptedReplyTo(user, object, sender);
     if (entry == null) return Outcome.IGNORED;
-    if (!federationPolicy.isEnabled() || !federationPolicy.federates(entry.getUser()))
-      return Outcome.IGNORED;
-    if (!entryAccessService.isPubliclyVisible(entry) || entry.getAllowComments() != PrefBool.Y)
-      return Outcome.IGNORED;
-    if (!sender.equals(InboxService.id(object.get("attributedTo"))) || !isPublic(object))
-      return Outcome.IGNORED;
 
     final String actorId = asciiUrl(sender);
-    final String objectId = asciiUrl(text(object, "id"));
-    // a server names only its own objects, so nobody can take the id of someone else's reply
-    if (actorId == null || objectId == null || !sameHost(URI.create(objectId), host(actorId)))
-      return Outcome.IGNORED;
+    final String objectId = ownObjectId(object, actorId);
+    if (objectId == null) return Outcome.IGNORED;
     if (repository.findByObjectId(objectId).isPresent()) return Outcome.HANDLED;
 
     final String content = clean(text(object, "content"));
@@ -186,7 +176,44 @@ public class RemoteReplyService {
       log.debug("Not taking a reply to {} from {}: {}", entry.getId(), sender, e.getMessage());
       return Outcome.IGNORED;
     }
+    return store(entry, object, objectId, actorId, author, content);
+  }
 
+  /**
+   * The entry a Create's object replies to, when it is a public reply by its sender to an entry
+   * that takes comments from the fediverse; otherwise null.
+   */
+  private Entry acceptedReplyTo(final User user, final JsonNode object, final String sender) {
+    if (object == null || !object.isObject() || !TYPES.contains(text(object, "type"))) return null;
+    final Entry entry = repliedTo(user, InboxService.id(object.get("inReplyTo")));
+    if (entry == null) return null;
+    if (!federationPolicy.isEnabled() || !federationPolicy.federates(entry.getUser())) return null;
+    if (!entryAccessService.isPubliclyVisible(entry) || entry.getAllowComments() != PrefBool.Y)
+      return null;
+    if (!sender.equals(InboxService.id(object.get("attributedTo"))) || !isPublic(object))
+      return null;
+    return entry;
+  }
+
+  /**
+   * The object's id, when it is on its sender's server: a server names only its own objects, so
+   * nobody can take the id of someone else's reply. Otherwise null.
+   */
+  private static String ownObjectId(final JsonNode object, final String actorId) {
+    final String objectId = asciiUrl(text(object, "id"));
+    if (actorId == null || objectId == null || !sameHost(URI.create(objectId), host(actorId)))
+      return null;
+    return objectId;
+  }
+
+  /** Save a new reply and tell the entry's owner, if they asked for comment mail. */
+  private Outcome store(
+      final Entry entry,
+      final JsonNode object,
+      final String objectId,
+      final String actorId,
+      final Author author,
+      final String content) {
     final Date now = new Date();
     final RemoteReply reply = new RemoteReply();
     reply.setEntryId(entry.getId());
@@ -204,7 +231,7 @@ public class RemoteReplyService {
       // the same reply, delivered twice at once
       return Outcome.HANDLED;
     }
-    log.info("Stored reply {} to entry {} from {}", objectId, entry.getId(), sender);
+    log.info("Stored reply {} to entry {} from {}", objectId, entry.getId(), actorId);
 
     final String from =
         author.handle() == null ? author.name() : author.name() + " (" + author.handle() + ")";

@@ -1330,22 +1330,7 @@ public class UsersController {
           sb.append("\" title=\"Link to this entry\">link</a> ");
           sb.append('(');
 
-          final int commentCount = commentCount(o);
-          switch (commentCount) {
-            case 0:
-              break;
-            case 1:
-              sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-              sb.append(o.getId());
-              sb.append("\" title=\"View Comment\">1 comment</a> | ");
-              break;
-            default:
-              sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-              sb.append(o.getId());
-              sb.append("\" title=\"View Comments\">");
-              sb.append(commentCount);
-              sb.append(" comments</a> | ");
-          }
+          appendCommentsLink(sb, o);
 
           sb.append("<a href=\"/comment/");
           sb.append(o.getId());
@@ -1567,22 +1552,7 @@ public class UsersController {
         sb.append("\" title=\"Link to this entry\">link</a> ");
         sb.append('(');
 
-        final int commentCount = commentCount(o);
-        switch (commentCount) {
-          case 0:
-            break;
-          case 1:
-            sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-            sb.append(o.getId());
-            sb.append("\" title=\"View Comment\">1 comment</a> | ");
-            break;
-          default:
-            sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-            sb.append(o.getId());
-            sb.append("\" title=\"View Comments\">");
-            sb.append(commentCount);
-            sb.append(" comments</a> | ");
-        }
+        appendCommentsLink(sb, o);
 
         sb.append("<a href=\"/comment/");
         sb.append(o.getId());
@@ -2015,6 +1985,8 @@ public class UsersController {
    *
    * @param attachments the entry's picture and link, or null for none
    */
+  // long and branchy since long before fediverse replies; splitting it up is a change of its own
+  // skipcq: JAVA-R1000
   protected String formatEntry(
       final UserContext uc,
       final Entry o,
@@ -2231,22 +2203,7 @@ public class UsersController {
 
       sb.append('(');
 
-      final int commentCount = commentCount(o);
-      switch (commentCount) {
-        case 0:
-          break;
-        case 1:
-          sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-          sb.append(o.getId());
-          sb.append("\" title=\"View Comment\">1 comment</a> | ");
-          break;
-        default:
-          sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-          sb.append(o.getId());
-          sb.append("\" title=\"View Comments\">");
-          sb.append(commentCount);
-          sb.append(" comments</a> | ");
-      }
+      appendCommentsLink(sb, o);
 
       sb.append("<a href=\"/comment/");
       sb.append(o.getId());
@@ -2391,9 +2348,21 @@ public class UsersController {
         + "<i class=\"fa " + icon + "\" aria-hidden=\"true\"></i></button>";
   }
 
-  /** Comments on an entry, counting replies from other fediverse servers. */
-  private int commentCount(final Entry o) {
-    return o.getComments().size() + (int) remoteReplyRepository.countByEntryId(o.getId());
+  /**
+   * A link to an entry's comments, counting replies from other fediverse servers, followed by a
+   * separator; nothing when there are none.
+   */
+  private void appendCommentsLink(final StringBuilder sb, final Entry o) {
+    final int count =
+        o.getComments().size() + (int) remoteReplyRepository.countByEntryId(o.getId());
+    if (count == 0) return;
+    sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
+    sb.append(o.getId());
+    if (count == 1) {
+      sb.append("\" title=\"View Comment\">1 comment</a> | ");
+    } else {
+      sb.append("\" title=\"View Comments\">").append(count).append(" comments</a> | ");
+    }
   }
 
   /**
