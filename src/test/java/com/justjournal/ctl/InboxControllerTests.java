@@ -57,10 +57,12 @@ import com.justjournal.services.activitypub.ActorKeyService;
 import com.justjournal.services.activitypub.DeliveryService;
 import com.justjournal.services.activitypub.FederationPolicy;
 import com.justjournal.services.activitypub.FollowerService;
+import com.justjournal.services.activitypub.FollowingService;
 import com.justjournal.services.activitypub.HttpSignatureException;
 import com.justjournal.services.activitypub.HttpSignatureException.Reason;
 import com.justjournal.services.activitypub.HttpSignatureService;
 import com.justjournal.services.activitypub.InboxService;
+import com.justjournal.services.activitypub.RemotePostService;
 import com.justjournal.services.activitypub.SeenActivities;
 import com.justjournal.services.activitypub.VerifiedSignature;
 import com.justjournal.services.link.FetchException;
@@ -96,6 +98,8 @@ class InboxControllerTests {
   private FederationPolicy federationPolicy;
   private HttpSignatureService httpSignatureService;
   private FollowerService followerService;
+  private FollowingService followingService;
+  private RemotePostService remotePostService;
   private DeliveryService deliveryService;
   private ActivityPubFetcher fetcher;
   private InboxController controller;
@@ -109,6 +113,10 @@ class InboxControllerTests {
     federationPolicy = mock(FederationPolicy.class);
     httpSignatureService = mock(HttpSignatureService.class);
     followerService = mock(FollowerService.class);
+    followingService = mock(FollowingService.class);
+    remotePostService = mock(RemotePostService.class);
+    when(followingService.response(any(), any(), any())).thenReturn(InboxService.Outcome.IGNORED);
+    when(remotePostService.receive(any(), any())).thenReturn(InboxService.Outcome.IGNORED);
     deliveryService = mock(DeliveryService.class);
     fetcher = mock(ActivityPubFetcher.class);
     final ActorKeyService actorKeyService = mock(ActorKeyService.class);
@@ -116,7 +124,13 @@ class InboxControllerTests {
 
     final InboxService inboxService =
         new InboxService(
-            followerService, deliveryService, federationPolicy, actorKeyService, fetcher);
+            followerService,
+            deliveryService,
+            federationPolicy,
+            actorKeyService,
+            fetcher,
+            followingService,
+            remotePostService);
     controller =
         new InboxController(
             userRepository,
@@ -525,18 +539,64 @@ class InboxControllerTests {
             activity("Delete", ALICE + "#delete", mapper.getNodeFactory().textNode(ALICE)))
         .andExpect(status().isAccepted());
     verify(followerService).removeEverywhere(URI.create(ALICE));
+    // and from the accounts writers here follow, with its posts
+    verify(followingService).remoteActorGone(URI.create(ALICE));
+    verify(remotePostService, never()).receive(any(), any());
   }
 
   @Test
-  void deleteOfSomethingElse_isIgnored() throws Exception {
+  void deleteOfSomethingElse_isLeftToTheStoredPosts() throws Exception {
+    final ObjectNode delete =
+        activity(
+            "Delete",
+            ALICE + "/statuses/1#delete",
+            mapper.getNodeFactory().textNode(ALICE + "/statuses/1"));
+    send("/users/bob/inbox", delete).andExpect(status().isAccepted());
+    nothingDone();
+    verify(remotePostService).receive(delete, ALICE);
+    verify(followingService, never()).remoteActorGone(any());
+  }
+
+  // ---- following and posts by followed accounts ------------------------------------------
+
+  @Test
+  void acceptAndReject_goToTheFollowing() throws Exception {
+    for (final String type : List.of("Accept", "Reject")) {
+      final ObjectNode response =
+          activity(type, ALICE + "#" + type, mapper.getNodeFactory().textNode(BOB + "#follows/1"));
+      send("/users/bob/inbox", response).andExpect(status().isAccepted());
+      verify(followingService).response(bob, response, ALICE);
+    }
+    nothingDone();
+  }
+
+  @Test
+  void createAndUpdate_goToTheStoredPosts() throws Exception {
+    for (final String type : List.of("Create", "Update")) {
+      final ObjectNode note = mapper.createObjectNode();
+      note.put("id", ALICE + "/statuses/9");
+      note.put("type", "Note");
+      final ObjectNode activity = activity(type, ALICE + "/statuses/9#" + type, note);
+      send("/users/bob/inbox", activity).andExpect(status().isAccepted());
+      verify(remotePostService).receive(activity, ALICE);
+    }
+    nothingDone();
+  }
+
+  @Test
+  void deleteOfAGoneActorOnlyFollowedFromHere_withoutAVerifiableSignature_removesIt()
+      throws Exception {
+    refuseSignature(Reason.KEY_UNAVAILABLE);
+    when(followingService.followedByAny(URI.create(ALICE))).thenReturn(true);
+    when(fetcher.unsignedGet(any(), anyInt()))
+        .thenThrow(new FetchException(404, true, "HTTP status 404"));
+
     send(
             "/users/bob/inbox",
-            activity(
-                "Delete",
-                ALICE + "/statuses/1#delete",
-                mapper.getNodeFactory().textNode(ALICE + "/statuses/1")))
+            activity("Delete", ALICE + "#delete", mapper.getNodeFactory().textNode(ALICE)))
         .andExpect(status().isAccepted());
-    nothingDone();
+
+    verify(followingService).remoteActorGone(URI.create(ALICE));
   }
 
   @Test

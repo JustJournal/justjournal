@@ -301,6 +301,25 @@
                 <div th:utext="${entry_format}" th:if="${entry != null}"></div>
 
 
+                <div id="fediverse" th:if="${fediverse == true}">
+                    <div id="fediverse-off" style="display:none;">
+                        <p class="help-block"><i class="fa fa-globe" aria-hidden="true"></i> To follow people on Mastodon and other fediverse servers, turn on the fediverse setting in your <a href="/prefs/journal">journal preferences</a>.</p>
+                    </div>
+                    <div id="fediverse-following" style="display:none;">
+                        <h2><i class="fa fa-globe" aria-hidden="true"></i> Fediverse</h2>
+                        <p class="help-block">Follow people on Mastodon and other fediverse servers. Their public posts appear among your friends' entries below, and only you see them here.</p>
+                        <form id="frmFediverseFollow" class="form-inline" role="form">
+                            <div class="form-group">
+                                <label class="sr-only" for="fediverse-account">Account</label>
+                                <input type="text" class="form-control" id="fediverse-account" name="account" maxlength="1024" placeholder="@name@server" required="required"/>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Follow</button>
+                        </form>
+                        <div class="alert alert-danger" id="fediverse-error" style="display:none;"></div>
+                        <ul class="list-group" id="fediverse-list"></ul>
+                    </div>
+                </div>
+
                 <div th:utext="${friends}"></div>
 
                 <div th:utext="${favorites}"></div>
@@ -439,6 +458,10 @@
                 }
         );
 
+        if ($('#fediverse').length) {
+            initFediverse();
+        }
+
         if (authenticatedUser !== null) {
             $.get('/api/friend/' + authenticatedUser + '/friendswith/' + username,
                     function (data) {
@@ -450,6 +473,83 @@
             );
         }
     });
+
+    // the fediverse accounts the writer follows, on their own friends page
+    function initFediverse() {
+        var states = {PENDING: 'waiting for approval', ACCEPTED: '', REJECTED: 'declined'};
+
+        function showError(message) {
+            $('#fediverse-error').text(message || '').toggle(!!message);
+        }
+
+        function errorOf(xhr, fallback) {
+            return xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : fallback;
+        }
+
+        function load() {
+            $.getJSON('/api/federation/following').done(function (data) {
+                var $list = $('#fediverse-list').empty();
+                $.each(data, function (_, account) {
+                    var label = account.displayName || account.handle || account.actorId;
+                    // addresses come from other servers; only ever link http(s)
+                    var $name = /^https?:\/\//i.test(account.profileUrl || '')
+                            ? $('<a rel="nofollow ugc noopener"></a>').attr('href', account.profileUrl).text(label)
+                            : $('<span></span>').text(label);
+                    var $item = $('<li class="list-group-item"></li>').append($name);
+                    if (account.handle && account.handle !== label) {
+                        $item.append(' ').append($('<span class="text-muted"></span>').text(account.handle));
+                    }
+                    if (states[account.state]) {
+                        $item.append(' ').append($('<span class="label label-default"></span>').text(states[account.state]));
+                    }
+                    $('<button type="button" class="btn btn-xs btn-default pull-right">Unfollow</button>')
+                            .on('click', function () {
+                                unfollow(account.actorId);
+                            })
+                            .appendTo($item);
+                    $list.append($item);
+                });
+            });
+        }
+
+        function unfollow(actorId) {
+            showError('');
+            $.ajax({
+                url: '/api/federation/following?actor=' + encodeURIComponent(actorId),
+                method: 'DELETE'
+            }).done(load).fail(function (xhr) {
+                showError(errorOf(xhr, 'Could not unfollow that account.'));
+            });
+        }
+
+        $('#frmFediverseFollow').on('submit', function (event) {
+            event.preventDefault();
+            showError('');
+            $.ajax({
+                url: '/api/federation/following',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({account: $('#fediverse-account').val().trim()})
+            }).done(function () {
+                $('#fediverse-account').val('');
+                load();
+            }).fail(function (xhr) {
+                showError(errorOf(xhr, 'Could not follow that account.'));
+            });
+        });
+
+        $.getJSON('/api/federation').done(function (pref) {
+            if (pref.available !== true) {
+                return;
+            }
+            if (pref.federate !== true) {
+                $('#fediverse-off').show();
+                return;
+            }
+            $('#fediverse-following').show();
+            load();
+        });
+    }
 
     function deleteImage(id) {
         if (!confirm('Delete this picture?')) {

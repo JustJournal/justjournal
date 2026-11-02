@@ -176,6 +176,14 @@ activitypub:
     # key that signs it goes with the account; this is how long the request waits for all of them
     account-delete-seconds: 30
     user-agent: "JustJournal (+https://www.justjournal.com/)"
+  # writers whose journal federates can follow fediverse accounts (found with WebFinger over https,
+  # public addresses only); declined follows count towards the cap until removed
+  following:
+    max-per-user: 500
+  # public posts by followed accounts, shown on the follower's own friends page; removed after
+  # this many days, or once nobody here follows the author
+  remote-posts:
+    keep-days: 30
 
 bing:
   indexNowKey:

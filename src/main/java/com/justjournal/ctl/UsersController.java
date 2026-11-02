@@ -46,6 +46,8 @@ import com.justjournal.rss.CachedHeadlineBean;
 import com.justjournal.rss.Rss;
 import com.justjournal.services.*;
 import com.justjournal.services.EntryAttachmentService.EntryAttachments;
+import com.justjournal.services.activitypub.RemotePostService;
+import com.justjournal.services.activitypub.RemotePostService.FriendsPagePost;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
@@ -101,6 +103,8 @@ public class UsersController {
   private static final String MODEL_PICTURE = "picture";
   private static final String MODEL_FAVORITES = "favorites";
   private static final String MODEL_FRIENDS = "friends";
+  /** Set on the owner's own friends page, where the fediverse accounts they follow are managed. */
+  private static final String MODEL_FEDIVERSE = "fediverse";
   private static final String VIEW_USERS = "users";
   private static final String VIEW_NOT_FOUND = "notfound";
   private static final String PATH_USERNAME = "username";
@@ -109,6 +113,9 @@ public class UsersController {
 
   private static final String ENTRY_DATE_FORMAT = "EEE, d MMM yyyy";
   private static final String ENTRY_DATE_TIME_FORMAT = "yyyy-MM-dd hh:mm";
+
+  /** Most fediverse posts shown on a friends page, as many as friends' entries. */
+  private static final int FEDIVERSE_POSTS = 20;
 
   private final CommentRepository commentDao;
 
@@ -150,6 +157,8 @@ public class UsersController {
 
   private final EntryAttachmentRenderer attachmentRenderer;
 
+  private final RemotePostService remotePostService;
+
   @Autowired
   public UsersController(
           final EntryService entryService,
@@ -167,7 +176,7 @@ public class UsersController {
           final AtomFeed atom, TrackbackService trackbackService, CachedHeadlineBean cachedHeadlineBean,
           UserContextService userContextService, PdfFormatService pdfFormatService,
           com.justjournal.core.Settings settings, EntryAttachmentService entryAttachmentService,
-          EntryAttachmentRenderer attachmentRenderer) {
+          EntryAttachmentRenderer attachmentRenderer, RemotePostService remotePostService) {
     this.entryService = entryService;
     this.commentDao = commentDao;
     this.entryDao = entryDao;
@@ -188,6 +197,7 @@ public class UsersController {
     this.settings = settings;
     this.entryAttachmentService = entryAttachmentService;
     this.attachmentRenderer = attachmentRenderer;
+    this.remotePostService = remotePostService;
   }
 
 
@@ -354,6 +364,7 @@ public class UsersController {
     } catch (final ServiceException se) {
       log.error(se.getMessage(), se);
     }
+    model.addAttribute(MODEL_FEDIVERSE, userc.isAuthBlog());
     return VIEW_USERS;
   }
 
@@ -1385,6 +1396,17 @@ public class UsersController {
     entries = entryService.getFriendsEntries(uc.getBlogUser().getUsername());
     sb.append("<h2>Friends</h2>\n");
 
+    // posts by fediverse accounts the writer follows, for the writer alone
+    List<FriendsPagePost> fediverse = List.of();
+    if (uc.isAuthBlog()) {
+      try {
+        fediverse = remotePostService.forFriendsPage(uc.getBlogUser(), FEDIVERSE_POSTS);
+      } catch (final RuntimeException e) {
+        // the friends' entries still show
+        log.error("Could not read fediverse posts for {}", uc.getBlogUser().getUsername(), e);
+      }
+    }
+
     try {
       if (log.isDebugEnabled()) log.debug("getFriends: Init Date Parsers.");
 
@@ -1400,10 +1422,19 @@ public class UsersController {
       final Iterator<Entry> itr = entries.iterator();
       log.trace("getFriends: Number of entries {}", entries.size());
 
-      if (entries.isEmpty()) sb.append("<p>No friends entries found</p>.");
+      if (entries.isEmpty() && fediverse.isEmpty())
+        sb.append("<p>No friends entries found</p>.");
 
+      int nextPost = 0; // the next fediverse post, newest first like the entries
       for (int i = 0, n = entries.size(); i < n; i++) {
         Entry o = itr.next();
+
+        while (nextPost < fediverse.size()
+            && fediverse.get(nextPost).post().getPublished().after(o.getDate())) {
+          lastDate =
+              appendFediversePost(
+                  sb, fediverse.get(nextPost++), lastDate, formatmydate, formatmytime);
+        }
 
         // Parse the previous string back into a Date.
         final ParsePosition pos = new ParsePosition(0);
@@ -1596,11 +1627,83 @@ public class UsersController {
         sb.append(ENDL);
       }
 
+      while (nextPost < fediverse.size()) {
+        lastDate =
+            appendFediversePost(sb, fediverse.get(nextPost++), lastDate, formatmydate, formatmytime);
+      }
+
     } catch (final Exception e1) {
       log.error(e1.getMessage(), e1);
       ErrorPage.display(" Error", "Error retrieving the friends entries", sb);
     }
     return sb.toString();
+  }
+
+  /**
+   * A post by a followed fediverse account on the friends page, marked as such, with a link to it
+   * on its own server. The content was cleaned when it was stored; everything else is escaped.
+   *
+   * @return the day heading now in effect
+   */
+  private static String appendFediversePost(
+      final StringBuilder sb,
+      final FriendsPagePost item,
+      final String lastDate,
+      final SimpleDateFormat dayFormat,
+      final SimpleDateFormat timeFormat) {
+    final RemotePost post = item.post();
+    final RemoteFollowing account = item.account();
+    final String day = dayFormat.format(post.getPublished());
+    if (!day.equals(lastDate)) {
+      sb.append("<h2>").append(day).append("</h2>").append(ENDL);
+    }
+    final String handle = Objects.toString(account.getHandle(), account.getActorId());
+    final String name =
+        StringUtils.isBlank(account.getDisplayName()) ? handle : account.getDisplayName();
+    final String profile = Objects.toString(account.getProfileUrl(), account.getActorId());
+    final String link = Objects.toString(post.getUrl(), post.getObjectId());
+
+    sb.append("<div class=\"ebody fediverse\">").append(ENDL);
+    sb.append("<h3><a href=\"").append(HtmlUtils.htmlEscape(profile))
+        .append("\" rel=\"nofollow ugc noopener\" title=\"").append(HtmlUtils.htmlEscape(handle))
+        .append("\">").append(HtmlUtils.htmlEscape(name)).append("</a> ");
+    sb.append("<span class=\"time\">").append(timeFormat.format(post.getPublished()));
+    sb.append("</span>");
+    if (!StringUtils.isBlank(post.getName())) {
+      sb.append(" - <span class=\"subject\">").append(HtmlUtils.htmlEscape(post.getName()))
+          .append("</span>");
+    }
+    sb.append("</h3>").append(ENDL);
+    sb.append("<p class=\"text-muted\"><i class=\"fa fa-globe\" aria-hidden=\"true\"></i> ")
+        .append("from the fediverse: ").append(HtmlUtils.htmlEscape(handle)).append("</p>")
+        .append(ENDL);
+
+    final boolean warned = !StringUtils.isBlank(post.getSummary());
+    if (warned) {
+      sb.append("<details><summary>").append(HtmlUtils.htmlEscape(post.getSummary()))
+          .append("</summary>").append(ENDL);
+    }
+    sb.append("<div class=\"ebody\">").append(post.getContent()).append("</div>").append(ENDL);
+    if (!item.attachments().isEmpty()) {
+      sb.append("<p>attachments:");
+      int n = 0;
+      for (final RemotePostService.Link attachment : item.attachments()) {
+        n++;
+        final String text =
+            StringUtils.isBlank(attachment.name()) ? "attachment " + n : attachment.name();
+        sb.append(" <a href=\"").append(HtmlUtils.htmlEscape(attachment.url()))
+            .append("\" rel=\"nofollow ugc noopener\">").append(HtmlUtils.htmlEscape(text))
+            .append("</a>");
+      }
+      sb.append("</p>").append(ENDL);
+    }
+    if (warned) sb.append("</details>").append(ENDL);
+
+    sb.append("<p><a href=\"").append(HtmlUtils.htmlEscape(link))
+        .append("\" rel=\"nofollow ugc noopener\" title=\"Read it on its own server\">")
+        .append("view original</a></p>").append(ENDL);
+    sb.append("</div>").append(ENDL);
+    return day;
   }
 
   /**

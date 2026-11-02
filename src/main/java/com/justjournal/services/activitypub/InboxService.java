@@ -48,7 +48,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Acts on activities a journal's inbox took from other servers, once their signature checked out.
- * Only following is understood:
+ * Following is understood both ways, and posts by followed accounts are taken:
  *
  * <ul>
  *   <li>{@code Follow} of the journal's actor: the follower's actor is fetched for its inbox; if
@@ -56,7 +56,10 @@ import org.springframework.stereotype.Service;
  *       {@code Reject} and nothing is stored.
  *   <li>{@code Undo} of such a Follow, embedded as Mastodon sends it: the follower is removed.
  *   <li>{@code Delete} of the sending actor itself: the account is gone, so it is removed from the
- *       followers of every journal.
+ *       followers of every journal, and from the accounts writers follow with its posts.
+ *   <li>{@code Accept} or {@code Reject} of a Follow a writer sent: see {@link FollowingService}.
+ *   <li>{@code Create}, {@code Update} or {@code Delete} of a post by an account a writer follows:
+ *       see {@link RemotePostService}.
  * </ul>
  *
  * Everything else is ignored.
@@ -84,6 +87,8 @@ public class InboxService {
   private final FederationPolicy federationPolicy;
   private final ActorKeyService actorKeyService;
   private final ActivityPubFetcher fetcher;
+  private final FollowingService followingService;
+  private final RemotePostService remotePostService;
 
   /** The same cap as for key documents: what is fetched here is the same actor document. */
   @Setter
@@ -95,12 +100,16 @@ public class InboxService {
       final DeliveryService deliveryService,
       final FederationPolicy federationPolicy,
       final ActorKeyService actorKeyService,
-      final ActivityPubFetcher fetcher) {
+      final ActivityPubFetcher fetcher,
+      final FollowingService followingService,
+      final RemotePostService remotePostService) {
     this.followerService = followerService;
     this.deliveryService = deliveryService;
     this.federationPolicy = federationPolicy;
     this.actorKeyService = actorKeyService;
     this.fetcher = fetcher;
+    this.followingService = followingService;
+    this.remotePostService = remotePostService;
   }
 
   /**
@@ -117,6 +126,8 @@ public class InboxService {
       case "Follow" -> follow(user, activity, sender);
       case "Undo" -> undo(user, activity, sender);
       case "Delete" -> delete(activity, sender);
+      case "Accept", "Reject" -> followingService.response(user, activity, sender);
+      case "Create", "Update" -> remotePostService.receive(activity, sender);
       default -> Outcome.IGNORED;
     };
   }
@@ -135,8 +146,11 @@ public class InboxService {
     final String actor = id(activity.get("actor"));
     final URI actorUri = uri(actor);
     if (actorUri == null || !actor.equals(id(activity.get("object")))) return Outcome.IGNORED;
-    if (!followerService.followsAny(actorUri) || !isGone(actor)) return Outcome.IGNORED;
+    if (!followerService.followsAny(actorUri) && !followingService.followedByAny(actorUri))
+      return Outcome.IGNORED;
+    if (!isGone(actor)) return Outcome.IGNORED;
     final long removed = followerService.removeEverywhere(actorUri);
+    followingService.remoteActorGone(actorUri);
     log.info("Actor {} is gone; removed it from {} journals' followers", actor, removed);
     return Outcome.HANDLED;
   }
@@ -182,8 +196,10 @@ public class InboxService {
 
   private Outcome delete(final JsonNode delete, final String sender) {
     final URI actor = uri(sender);
-    if (actor == null || !sender.equals(id(delete.get("object")))) return Outcome.IGNORED;
+    if (actor == null) return Outcome.IGNORED;
+    if (!sender.equals(id(delete.get("object")))) return remotePostService.receive(delete, sender);
     final long removed = followerService.removeEverywhere(actor);
+    followingService.remoteActorGone(actor);
     log.info("Actor {} was deleted; removed it from {} journals' followers", sender, removed);
     return Outcome.HANDLED;
   }

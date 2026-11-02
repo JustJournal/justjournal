@@ -82,6 +82,8 @@ import com.justjournal.services.UserImageService;
 import com.justjournal.services.activitypub.ActivityStreamsObjects;
 import com.justjournal.services.activitypub.ActorKeyService;
 import com.justjournal.services.activitypub.FollowerService;
+import com.justjournal.services.activitypub.FollowingService;
+import com.justjournal.services.activitypub.RemotePostService;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -131,6 +133,7 @@ class ActivityStreamControllerTests {
   private AvatarService avatarService;
   private UserPicRepository userPicRepository;
   private FollowerService followerService;
+  private FollowingService followingService;
   private ActorKeyService actorKeyService;
   private MockMvc mockMvc;
   private User bob;
@@ -148,6 +151,7 @@ class ActivityStreamControllerTests {
     avatarService = mock(AvatarService.class);
     userPicRepository = mock(UserPicRepository.class);
     followerService = mock(FollowerService.class);
+    followingService = mock(FollowingService.class);
     actorKeyService = mock(ActorKeyService.class);
 
     when(entryService.convertBodyToHtml(any(), anyString()))
@@ -171,6 +175,7 @@ class ActivityStreamControllerTests {
             new EntryAccessService(),
             entryAttachmentService,
             followerService,
+            followingService,
             new ActivityStreamsObjects(
                 settings, entryService, avatarService, userPicRepository, actorKeyService));
 
@@ -196,7 +201,8 @@ class ActivityStreamControllerTests {
             mock(PdfFormatService.class),
             settings,
             entryAttachmentService,
-            new EntryAttachmentRenderer(new EntryAccessService(), mock(EntryImageService.class)));
+            new EntryAttachmentRenderer(new EntryAccessService(), mock(EntryImageService.class)),
+            mock(RemotePostService.class));
 
     final View noView = (m, request, response) -> {};
     mockMvc =
@@ -442,6 +448,29 @@ class ActivityStreamControllerTests {
     assertFalse(collection.has("orderedItems"));
     assertFalse(collection.has("items"));
     assertFalse(collection.has("first"));
+  }
+
+  @Test
+  void following_countsAcceptedFollowsButDoesNotListThem() throws Exception {
+    when(followingService.countAccepted(bob)).thenReturn(2L);
+
+    final JsonNode collection = json("/users/bob/following");
+
+    assertEquals(ACTOR + "/following", collection.get("id").asText());
+    assertEquals("OrderedCollection", collection.get("type").asText());
+    assertEquals(2, collection.get("totalItems").asInt());
+    assertFalse(collection.has("orderedItems"));
+    assertFalse(collection.has("items"));
+    assertFalse(collection.has("first"));
+  }
+
+  @Test
+  void following_ofAnOwnerOnlyJournal_isNotFound() throws Exception {
+    journal.setOwnerViewOnly(true);
+
+    as("/users/bob/following", ActivityStreamController.ACTIVITY_JSON_VALUE)
+        .andExpect(status().isNotFound());
+    verify(followingService, never()).countAccepted(any());
   }
 
   @Test

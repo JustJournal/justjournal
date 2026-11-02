@@ -85,6 +85,16 @@ class UsersTemplateTests {
   }
 
   @Test
+  void fediverseFollowing_isManagedOnlyOnTheOwnersFriendsPage() {
+    final String own = render(Map.of("friends", "<h2>Friends</h2>", "fediverse", true));
+    assertTrue(own.contains("id=\"frmFediverseFollow\""), own);
+
+    assertFalse(render(Map.of("friends", "<h2>Friends</h2>", "fediverse", false))
+        .contains("id=\"frmFediverseFollow\""));
+    assertFalse(render(Map.of()).contains("id=\"frmFediverseFollow\""));
+  }
+
+  @Test
   void rendersPicturePage() {
     final UserImage a = image(1, "Beach"), b = image(2, "Sunset");
     final String html =

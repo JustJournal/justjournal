@@ -31,6 +31,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -47,8 +48,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Tells the servers following a journal that its actor is gone, so they remove the account with
- * its posts and follows:
+ * Tells the servers following a journal, and the servers of the accounts its writer follows, that
+ * its actor is gone, so they remove the account with its posts and follows:
  *
  * <ul>
  *   <li>when the journal stops federating (the writer turned it off, or made the journal owner
@@ -69,6 +70,7 @@ public class ActorDeletion {
 
   private final FederationPolicy federationPolicy;
   private final FollowerService followerService;
+  private final FollowingService followingService;
   private final DeliveryService deliveryService;
   private final ActivityStreamsObjects objects;
   private final InboxClient inboxClient;
@@ -82,12 +84,14 @@ public class ActorDeletion {
   public ActorDeletion(
       final FederationPolicy federationPolicy,
       final FollowerService followerService,
+      final FollowingService followingService,
       final DeliveryService deliveryService,
       final ActivityStreamsObjects objects,
       final InboxClient inboxClient,
       final DeliverySigner signer) {
     this.federationPolicy = federationPolicy;
     this.followerService = followerService;
+    this.followingService = followingService;
     this.deliveryService = deliveryService;
     this.objects = objects;
     this.inboxClient = inboxClient;
@@ -95,18 +99,21 @@ public class ActorDeletion {
   }
 
   /**
-   * The journal stopped federating. Queue a Delete of the actor for its followers, drop anything
-   * still queued for them so no Create or Update arrives after it, and forget the followers. A
-   * writer who turns federation on again starts with nobody following.
+   * The journal stopped federating. Queue a Delete of the actor for its followers and for the
+   * accounts its writer follows, drop anything still queued so no Create or Update arrives after
+   * it, and forget both lists; the Delete makes those servers drop the follows, so no Undo is
+   * sent. A writer who turns federation on again starts with nobody following and following
+   * nobody.
    *
    * @return how many inboxes the Delete was queued for
    */
   @Transactional
   public int federationStopped(final User user) {
     if (user == null || !federationPolicy.isEnabled()) return 0;
-    final Set<URI> inboxes = followerService.deliveryInboxes(user);
+    final Set<URI> inboxes = inboxes(user);
     deliveryService.cancelPending(user);
     followerService.removeAll(user);
+    followingService.removeAll(user);
     if (inboxes.isEmpty()) return 0;
 
     final String delete = objects.deleteActorActivity(user, new Date()).toString();
@@ -124,7 +131,7 @@ public class ActorDeletion {
   public int accountDeleting(final User user) {
     if (user == null || !federationPolicy.isEnabled()) return 0;
     try {
-      final Set<URI> inboxes = followerService.deliveryInboxes(user);
+      final Set<URI> inboxes = inboxes(user);
       if (inboxes.isEmpty()) return 0;
 
       final String actorId = objects.actorId(user);
@@ -144,6 +151,13 @@ public class ActorDeletion {
       log.warn("Could not send the actor Delete for account {}", user.getUsername(), e);
       return 0;
     }
+  }
+
+  /** Where the actor Delete goes: followers' servers, and those of the accounts followed. */
+  private Set<URI> inboxes(final User user) {
+    final Set<URI> inboxes = new LinkedHashSet<>(followerService.deliveryInboxes(user));
+    inboxes.addAll(followingService.deliveryInboxes(user));
+    return inboxes;
   }
 
   private int postAll(final List<Callable<Boolean>> posts) {
