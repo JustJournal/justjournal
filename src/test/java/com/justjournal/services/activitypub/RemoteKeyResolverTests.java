@@ -52,9 +52,11 @@ import com.justjournal.services.link.UrlPolicy;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +124,21 @@ class RemoteKeyResolverTests {
                 finalUri, "application/activity+json", StandardCharsets.UTF_8, body));
   }
 
+  /** Answers successive fetches with these documents, in order. */
+  private void serveInOrder(final URI[] finalUris, final Object... documents) throws Exception {
+    final SafeHttpFetcher.Result[] results = new SafeHttpFetcher.Result[documents.length];
+    for (int i = 0; i < documents.length; i++) {
+      results[i] =
+          new SafeHttpFetcher.Result(
+              finalUris[i],
+              "application/activity+json",
+              StandardCharsets.UTF_8,
+              mapper.writeValueAsBytes(documents[i]));
+    }
+    when(fetcher.fetch(any(), any(), anyInt(), any()))
+        .thenReturn(results[0], Arrays.copyOfRange(results, 1, results.length));
+  }
+
   private Reason failure(final String keyId) {
     return assertThrows(HttpSignatureException.class, () -> resolver.resolve(keyId)).reason();
   }
@@ -186,13 +203,48 @@ class RemoteKeyResolverTests {
   }
 
   @Test
-  void resolve_readsABareKeyOwnedOnTheSameHost() throws Exception {
+  void resolve_readsABareKeyThatItsOwnerLists() throws Exception {
     final String keyId = "https://remote.social/users/alice/main-key";
-    serve(URI.create(keyId), key(keyId, ALICE));
+    final ObjectNode owner = actor(ALICE);
+    owner.set("publicKey", key(keyId, ALICE));
+    serveInOrder(new URI[] {URI.create(keyId), ALICE_URI}, key(keyId, ALICE), owner);
 
     final RemoteKey key = resolver.resolve(keyId);
     assertEquals(ALICE, key.owner());
     assertEquals(keyId, key.keyId());
+  }
+
+  @Test
+  void resolve_confirmsAStubActorServedAtTheKeyAddress() throws Exception {
+    final String keyId = "https://remote.social/users/alice/main-key";
+    final ObjectNode stub = actor(ALICE);
+    stub.set("publicKey", key(keyId, ALICE));
+    serveInOrder(new URI[] {URI.create(keyId), ALICE_URI}, stub, stub);
+
+    assertEquals(ALICE, resolver.resolve(keyId).owner());
+  }
+
+  @Test
+  void resolve_refusesABareKeyItsNamedOwnerDoesNotList() throws Exception {
+    // someone else on the same host publishes a key naming Alice as its owner
+    final String keyId = "https://remote.social/users/mallory/key-for-alice";
+    serveInOrder(new URI[] {URI.create(keyId), ALICE_URI}, key(keyId, ALICE), actor(ALICE));
+
+    assertEquals(Reason.KEY_MISMATCH, failure(keyId));
+  }
+
+  @Test
+  void resolve_refusesABareKeyWhoseOwnerListsADifferentKeyUnderThatId() throws Exception {
+    final String keyId = "https://remote.social/users/alice/main-key";
+    final KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+    generator.initialize(2048);
+    final ObjectNode listed = key(keyId, ALICE);
+    listed.put("publicKeyPem", Pem.encode(generator.generateKeyPair().getPublic()));
+    final ObjectNode owner = actor(ALICE);
+    owner.set("publicKey", listed);
+    serveInOrder(new URI[] {URI.create(keyId), ALICE_URI}, key(keyId, ALICE), owner);
+
+    assertEquals(Reason.KEY_MISMATCH, failure(keyId));
   }
 
   @Test

@@ -84,6 +84,7 @@ class HttpSignatureServiceTests {
     actorKeyService = mock(ActorKeyService.class);
     when(actorKeyService.privateKeyFor(BOB)).thenReturn(privateKey);
     when(actorKeyService.privateKeyFor(ALICE)).thenReturn(privateKey);
+    when(actorKeyService.instanceActorId()).thenReturn("https://www.justjournal.com/actor");
     resolver = mock(RemoteKeyResolver.class);
     // a key fetched ten minutes ago, so a failure may fetch it again
     when(resolver.resolve(ALICE_KEY))
@@ -283,6 +284,21 @@ class HttpSignatureServiceTests {
   @Test
   void verify_refusesAnotherPath() {
     assertReason(Reason.BAD_SIGNATURE, "/users/carol/inbox", signedByAlice(BODY), BODY);
+  }
+
+  @Test
+  void verify_refusesARequestSignedForAnotherHost_evenWithThatHostHeader() {
+    final URI elsewhere = URI.create("https://elsewhere.social/users/bob/inbox");
+    assertReason(
+        Reason.BAD_SIGNATURE, request(service(NOW).sign("POST", elsewhere, BODY, ALICE)), BODY);
+  }
+
+  @Test
+  void verify_usesTheSiteHost_whenAProxyRewritesTheHostHeader() throws Exception {
+    final Map<String, List<String>> headers = new LinkedHashMap<>(signedByAlice(BODY));
+    headers.put("Host", List.of("localhost:8080"));
+    assertEquals(
+        ALICE, service(NOW).verify("POST", "/users/bob/inbox", headers, BODY).actorId());
   }
 
   @Test

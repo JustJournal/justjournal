@@ -35,7 +35,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.Clock;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -158,12 +160,63 @@ public class RemoteKeyResolver {
       throw mismatch("Key " + keyId + " is owned by " + owner + " on another host");
 
     final String pem = text(key, "publicKeyPem");
+    final PublicKey publicKey = parse(pem, keyId);
+    // Unless the document we fetched is the owner's own actor, anyone on that host could have
+    // published it naming someone else as owner; the owner's actor must list this key itself.
+    if (!owner.equals(withoutFragment(result.finalUri())) || !owner.equals(text(doc, "id"))) {
+      confirmOwner(owner, keyId, publicKey, host);
+    }
+    return new RemoteKey(keyId, owner, pem, clock.millis());
+  }
+
+  /** Fetch the owner's actor and require that it is the owner and lists the same key. */
+  private void confirmOwner(
+      final String owner, final String keyId, final PublicKey publicKey, final String host)
+      throws HttpSignatureException {
+    final NormalizedUrl url;
     try {
-      Pem.publicKey(pem);
+      url = urlPolicy.normalize(owner);
+    } catch (final LinkRejectedException e) {
+      throw mismatch("Refused owner address " + owner);
+    }
+    final SafeHttpFetcher.Result result;
+    try {
+      result = fetcher.fetch(url, ACCEPT_TYPES, maxBytes, signedGet());
+    } catch (final IOException | LinkRejectedException e) {
+      throw unavailable("Could not fetch owner " + owner + ": " + e.getMessage(), e);
+    }
+    if (!sameHost(result.finalUri(), host))
+      throw mismatch("Owner " + owner + " was redirected to " + result.finalUri().getHost());
+    final JsonNode actor;
+    try {
+      actor = MAPPER.readTree(result.body());
+    } catch (final IOException e) {
+      throw unavailable("Owner " + owner + " is not JSON", e);
+    }
+    if (actor == null || !actor.isObject() || !owner.equals(text(actor, "id")))
+      throw mismatch("The document at " + owner + " is not that actor");
+    final JsonNode listed = actor.has("publicKey") ? pick(actor.get("publicKey"), keyId) : null;
+    if (listed == null || !owner.equals(text(listed, "owner")))
+      throw mismatch("Actor " + owner + " does not list key " + keyId);
+    if (!Arrays.equals(
+        publicKey.getEncoded(), parse(text(listed, "publicKeyPem"), keyId).getEncoded()))
+      throw mismatch("Actor " + owner + " lists a different key as " + keyId);
+  }
+
+  private static PublicKey parse(final String pem, final String keyId)
+      throws HttpSignatureException {
+    if (pem == null) throw unavailable("Key " + keyId + " has no publicKeyPem", null);
+    try {
+      return Pem.publicKey(pem);
     } catch (final GeneralSecurityException e) {
       throw unavailable("Key " + keyId + " is not an RSA public key", e);
     }
-    return new RemoteKey(keyId, owner, pem, clock.millis());
+  }
+
+  private static String withoutFragment(final URI uri) {
+    final String value = uri.toString();
+    final int hash = value.indexOf('#');
+    return hash < 0 ? value : value.substring(0, hash);
   }
 
   /** Forget a cached key, so the next {@link #resolve} fetches it again. */

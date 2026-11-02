@@ -28,10 +28,16 @@ package com.justjournal.repository;
 import com.justjournal.model.ActorKey;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 import org.springframework.stereotype.Repository;
 
-/** @author Lucas Holt */
+/**
+ * Not exported by Spring Data REST: it holds the private keys that sign as each user.
+ *
+ * @author Lucas Holt
+ */
 @Repository
+@RepositoryRestResource(exported = false)
 public interface ActorKeyRepository extends JpaRepository<ActorKey, Integer> {
   Optional<ActorKey> findByUserId(Integer userId);
 

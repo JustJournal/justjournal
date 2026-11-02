@@ -105,6 +105,11 @@ public class HttpSignatureService {
     this.clock = clock;
   }
 
+  /** The host requests to this site are addressed to, from the base URI. */
+  private String siteHost() {
+    return URI.create(actorKeyService.instanceActorId()).getHost().toLowerCase(Locale.ROOT);
+  }
+
   /**
    * The headers that sign a request from a local actor: {@code Host}, {@code Date}, {@code Digest}
    * when there is a body, and {@code Signature} with keyId {@code actorId#main-key}.
@@ -180,6 +185,9 @@ public class HttpSignatureService {
           switch (name) {
             case REQUEST_TARGET -> HttpSignatures.requestTarget(method, pathAndQuery);
             case CREATED, EXPIRES -> params.get(name.substring(1, name.length() - 1));
+            // our own host, not the Host header: a request signed for another server must not
+            // verify here, and a proxy that rewrites Host must not break verification
+            case HOST -> request.containsKey(HOST) ? siteHost() : null;
             default -> request.get(name);
           };
       if (value == null)
