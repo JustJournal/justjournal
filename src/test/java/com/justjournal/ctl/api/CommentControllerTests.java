@@ -45,14 +45,15 @@ import com.justjournal.model.FormatType;
 import com.justjournal.model.Friend;
 import com.justjournal.model.Journal;
 import com.justjournal.model.PrefBool;
+import com.justjournal.model.RemoteReply;
 import com.justjournal.model.Security;
 import com.justjournal.model.User;
 import com.justjournal.model.api.CommentTo;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
-import com.justjournal.repository.QueueMailRepository;
-import com.justjournal.repository.SettingsRepository;
+import com.justjournal.repository.RemoteReplyRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.CommentMailService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
@@ -81,8 +82,8 @@ class CommentControllerTests {
   @Mock private CommentRepository commentRepository;
   @Mock private EntryRepository entryRepository;
   @Mock private UserRepository userRepository;
-  @Mock private SettingsRepository settingsRepository;
-  @Mock private QueueMailRepository queueMailRepository;
+  @Mock private CommentMailService commentMailService;
+  @Mock private RemoteReplyRepository remoteReplyRepository;
 
   @InjectMocks private CommentController commentController;
 
@@ -269,6 +270,98 @@ class CommentControllerTests {
 
     assertEquals(404, commentController.getById(99, session).getStatusCode().value());
   }
+  // ---- replies from other fediverse servers ---------------------------------------------------
+
+  private static RemoteReply remoteReply() {
+    final RemoteReply reply = new RemoteReply();
+    reply.setId(5);
+    reply.setEntryId(ENTRY_ID);
+    reply.setObjectId("https://remote.social/users/alice/statuses/1");
+    reply.setActorId("https://remote.social/users/alice");
+    reply.setAuthorName("Alice");
+    reply.setAuthorHandle("@alice@remote.social");
+    reply.setAuthorUrl("https://remote.social/@alice");
+    reply.setContent("<p>Nice post</p>");
+    return reply;
+  }
+
+  @Test
+  void remoteRepliesAreListedAfterTheComments() {
+    when(remoteReplyRepository.findByEntryIdOrderByPublishedAscIdAsc(ENTRY_ID))
+        .thenReturn(List.of(remoteReply()));
+
+    final List<CommentTo> result = commentController.getComments(ENTRY_ID, session, response);
+
+    assertEquals(200, response.getStatus());
+    assertEquals(2, result.size());
+    assertEquals("secret body", result.get(0).getBody());
+    final CommentTo remote = result.get(1);
+    assertTrue(remote.isRemote());
+    assertEquals(5, remote.getId());
+    assertEquals(ENTRY_ID, remote.getEid());
+    assertEquals("<p>Nice post</p>", remote.getBody());
+    assertEquals("HTML", remote.getFormat());
+    assertEquals("@alice@remote.social", remote.getUsername());
+    assertEquals("Alice", remote.getAuthorName());
+    assertEquals("https://remote.social/@alice", remote.getAuthorUrl());
+  }
+
+  @Test
+  void remoteRepliesAreHiddenWithTheComments() {
+    entry.setSecurity(Security.PRIVATE);
+
+    final List<CommentTo> result = commentController.getComments(ENTRY_ID, session, response);
+
+    assertEquals(403, response.getStatus());
+    assertTrue(result.isEmpty());
+    verify(remoteReplyRepository, never()).findByEntryIdOrderByPublishedAscIdAsc(anyInt());
+  }
+
+  @Test
+  void entryOwnerCanDeleteARemoteReply() {
+    login(OWNER_ID, "owner");
+    final RemoteReply reply = remoteReply();
+    when(remoteReplyRepository.findById(5)).thenReturn(Optional.of(reply));
+
+    final Map<String, String> result = commentController.deleteRemote(5, session, response);
+
+    assertEquals(200, response.getStatus());
+    assertEquals(Map.of("id", "5"), result);
+    verify(remoteReplyRepository).delete(reply);
+  }
+
+  @Test
+  void nobodyElseCanDeleteARemoteReply() {
+    login(3, "commenter");
+    when(remoteReplyRepository.findById(5)).thenReturn(Optional.of(remoteReply()));
+
+    final Map<String, String> result = commentController.deleteRemote(5, session, response);
+
+    assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+    assertTrue(result.containsKey("error"), result.toString());
+    verify(remoteReplyRepository, never()).delete(any());
+  }
+
+  @Test
+  void deletingARemoteReplyRequiresALogin() {
+    final Map<String, String> result = commentController.deleteRemote(5, session, response);
+
+    assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+    assertTrue(result.containsKey("error"), result.toString());
+    verify(remoteReplyRepository, never()).delete(any());
+  }
+
+  @Test
+  void deletingAMissingRemoteReplyIsABadRequest() {
+    login(OWNER_ID, "owner");
+    when(remoteReplyRepository.findById(99)).thenReturn(Optional.empty());
+
+    final Map<String, String> result = commentController.deleteRemote(99, session, response);
+
+    assertEquals(HttpServletResponse.SC_BAD_REQUEST, response.getStatus());
+    assertEquals("Could not delete the comment.", result.get("error"));
+  }
+
   // ---- deleting -----------------------------------------------------------------------------
 
   @Test
@@ -354,7 +447,7 @@ class CommentControllerTests {
     assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
     assertEquals("Comments blocked by owner of this blog entry.", result.get("error"));
     verify(commentRepository, never()).save(any());
-    verify(queueMailRepository, never()).save(any());
+    verify(commentMailService, never()).commentAdded(any(), any(), any(), any());
   }
 
   @Test
@@ -385,6 +478,7 @@ class CommentControllerTests {
     assertEquals("a comment body", saved.getBody());
     assertEquals(FormatType.TEXT, saved.getFormat());
     assertNotNull(saved.getDate());
+    verify(commentMailService).commentAdded(entry, "commenter", "hello", "a comment body");
   }
 
   @Test

@@ -26,8 +26,6 @@
 package com.justjournal.ctl.api;
 
 import static com.justjournal.core.Constants.PARAM_ID;
-import static com.justjournal.core.Constants.PATH_ENTRY;
-import static com.justjournal.core.Constants.PATH_USERS;
 
 import com.justjournal.Login;
 import com.justjournal.core.Constants;
@@ -36,9 +34,10 @@ import com.justjournal.model.*;
 import com.justjournal.model.api.CommentTo;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
-import com.justjournal.repository.QueueMailRepository;
-import com.justjournal.repository.SettingsRepository;
+import com.justjournal.repository.RemoteReplyRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.CommentMailService;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -70,21 +69,21 @@ public class CommentController {
   private final CommentRepository commentDao;
   private final EntryRepository entryDao;
   private final UserRepository userRepository;
-  private final SettingsRepository settingsRepository;
-  private final QueueMailRepository queueMailRepository;
+  private final CommentMailService commentMailService;
+  private final RemoteReplyRepository remoteReplyRepository;
 
   @Autowired
   public CommentController(
       final CommentRepository commentRepository,
       final EntryRepository entryRepository,
-      final SettingsRepository settingsRepository,
       final UserRepository userRepository,
-      final QueueMailRepository queueMailRepository) {
+      final CommentMailService commentMailService,
+      final RemoteReplyRepository remoteReplyRepository) {
     this.userRepository = userRepository;
     this.commentDao = commentRepository;
     this.entryDao = entryRepository;
-    this.settingsRepository = settingsRepository;
-    this.queueMailRepository = queueMailRepository;
+    this.commentMailService = commentMailService;
+    this.remoteReplyRepository = remoteReplyRepository;
   }
 
   @GetMapping("{id}")
@@ -134,9 +133,16 @@ public class CommentController {
       return Collections.emptyList();
     }
 
-    return commentDao.findByEntryId(entryId).stream()
-        .map(Comment::toCommentTo)
-            .toList();
+    final List<CommentTo> comments = new ArrayList<>();
+    for (final Comment comment : commentDao.findByEntryId(entryId)) {
+      comments.add(comment.toCommentTo());
+    }
+    // replies from other fediverse servers follow; remote marks them, their ids are their own
+    for (final RemoteReply reply :
+        remoteReplyRepository.findByEntryIdOrderByPublishedAscIdAsc(entryId)) {
+      comments.add(CommentTo.of(reply));
+    }
+    return comments;
   }
 
   /**
@@ -187,6 +193,40 @@ public class CommentController {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError("Could not delete the comment.");
     }
+  }
+
+  /**
+   * Delete a reply from another fediverse server. Only the owner of the entry it replies to may.
+   *
+   * @param id the reply's id, as the comment list gives it for a remote comment
+   */
+  @DeleteMapping(value = "remote/{id}")
+  public Map<String, String> deleteRemote(
+      @PathVariable(PARAM_ID) final int id,
+      final HttpSession session,
+      final HttpServletResponse response) {
+
+    if (!Login.isAuthenticated(session)) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return ErrorHandler.modelError(Constants.ERR_INVALID_LOGIN);
+    }
+
+    final RemoteReply reply = remoteReplyRepository.findById(id).orElse(null);
+    if (reply == null) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError("Could not delete the comment.");
+    }
+
+    final Entry entry = entryDao.findById(reply.getEntryId()).orElse(null);
+    if (entry == null
+        || entry.getUser() == null
+        || entry.getUser().getId() != Login.currentLoginId(session)) {
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return ErrorHandler.modelError("Could not delete the comment.");
+    }
+
+    remoteReplyRepository.delete(reply);
+    return java.util.Collections.singletonMap(PARAM_ID, Integer.toString(reply.getId()));
   }
 
   @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -271,7 +311,10 @@ public class CommentController {
         }
       }
 
-      queueMail(user, et, comment);
+      if (user != null) {
+        commentMailService.commentAdded(
+            et, user.getUsername(), comment.getSubject(), comment.getBody());
+      }
 
       return java.util.Collections.singletonMap("id", Integer.toString(comment.getId()));
     } catch (final Exception e) {
@@ -279,53 +322,5 @@ public class CommentController {
       response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
       return ErrorHandler.modelError("Error adding comment");
     }
-  }
-
-  private void queueMail(final User user, final Entry et, final Comment comment) {
-    try {
-      final User pf = et.getUser();
-      final Settings mailfrom = settingsRepository.findByName("mailFrom");
-      final Settings baseuri = settingsRepository.findByName("baseuri");
-
-      final String entryUrl =
-          baseuri + PATH_USERS + et.getUser().getUsername() + PATH_ENTRY + et.getId();
-
-      // TODO: should we allow the user making the comment to disable email notifications?
-      if (user != null && et.getEmailComments().equals(PrefBool.Y)) {
-        final QueueMail mail = new QueueMail();
-        if (mailfrom != null) mail.setFrom(mailfrom.getValue());
-        else mail.setFrom("root@localhost");
-        mail.setTo(pf.getUserContact().getEmail());
-        mail.setBody(generateMailBody(user, comment, entryUrl));
-
-        mail.setSubject("JustJournal: Comment Notification");
-        mail.setPurpose("comment_notify");
-        queueMailRepository.save(mail);
-      }
-    } catch (final Exception e) {
-      log.error("Could not send mail: " + e.getMessage());
-    }
-  }
-
-  private String generateMailBody(final User user, final Comment comment, final String entryUrl) {
-    // TODO: site name should be stored in settings not hard coded
-    return user.getUsername()
-        + " said: \n"
-        + "Subject: "
-        + comment.getSubject()
-        + "\n"
-        + comment.getBody()
-        + "\n\nIn response to:\n"
-        + entryUrl
-        + "\n\n"
-        + "From here, you can:\n\n"
-        + "View all comments to this entry: "
-        + entryUrl
-        + "\n\n"
-        + "Reply at the webpage: http://www.justjournal.com/comment/"
-        + comment.getEid()
-        + "\n\n-- JustJournal.com\n\n"
-        + "(If you would prefer not to get these updates,"
-        + " edit the entry to disable comment notifications.)\n";
   }
 }

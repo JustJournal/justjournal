@@ -56,7 +56,9 @@ import org.springframework.stereotype.Service;
  *       {@code Reject} and nothing is stored.
  *   <li>{@code Undo} of such a Follow, embedded as Mastodon sends it: the follower is removed.
  *   <li>{@code Delete} of the sending actor itself: the account is gone, so it is removed from the
- *       followers of every journal.
+ *       followers of every journal, and its replies go.
+ *   <li>{@code Create}, {@code Update} and {@code Delete} of replies to the journal's entries,
+ *       which {@link RemoteReplyService} acts on.
  * </ul>
  *
  * Everything else is ignored.
@@ -84,6 +86,7 @@ public class InboxService {
   private final FederationPolicy federationPolicy;
   private final ActorKeyService actorKeyService;
   private final ActivityPubFetcher fetcher;
+  private final RemoteReplyService remoteReplies;
 
   /** The same cap as for key documents: what is fetched here is the same actor document. */
   @Setter
@@ -95,12 +98,14 @@ public class InboxService {
       final DeliveryService deliveryService,
       final FederationPolicy federationPolicy,
       final ActorKeyService actorKeyService,
-      final ActivityPubFetcher fetcher) {
+      final ActivityPubFetcher fetcher,
+      final RemoteReplyService remoteReplies) {
     this.followerService = followerService;
     this.deliveryService = deliveryService;
     this.federationPolicy = federationPolicy;
     this.actorKeyService = actorKeyService;
     this.fetcher = fetcher;
+    this.remoteReplies = remoteReplies;
   }
 
   /**
@@ -117,6 +122,8 @@ public class InboxService {
       case "Follow" -> follow(user, activity, sender);
       case "Undo" -> undo(user, activity, sender);
       case "Delete" -> delete(activity, sender);
+      case "Create" -> remoteReplies.create(user, activity, sender);
+      case "Update" -> remoteReplies.update(activity, sender);
       default -> Outcome.IGNORED;
     };
   }
@@ -125,8 +132,8 @@ public class InboxService {
    * A Delete whose signature can't be checked. When a Mastodon account is deleted it signs the
    * Delete with the account's key, but its actor (and so the key) is already gone, so the
    * signature can't be verified. Such a Delete of the sending actor itself is taken only when the
-   * actor follows a journal here and a fresh, unsigned fetch of the actor's own address answers
-   * 404 or 410; anyone could send the Delete, but only the actor's server can make it vanish.
+   * actor follows a journal here or replied to an entry, and a fresh, unsigned fetch of the
+   * actor's own address answers 404 or 410; anyone could send the Delete, but only the actor's server can make it vanish.
    *
    * @return HANDLED when the actor was removed, IGNORED when the Delete is not taken
    */
@@ -135,9 +142,16 @@ public class InboxService {
     final String actor = id(activity.get("actor"));
     final URI actorUri = uri(actor);
     if (actorUri == null || !actor.equals(id(activity.get("object")))) return Outcome.IGNORED;
-    if (!followerService.followsAny(actorUri) || !isGone(actor)) return Outcome.IGNORED;
+    if (!followerService.followsAny(actorUri) && !remoteReplies.hasReplies(actor))
+      return Outcome.IGNORED;
+    if (!isGone(actor)) return Outcome.IGNORED;
     final long removed = followerService.removeEverywhere(actorUri);
-    log.info("Actor {} is gone; removed it from {} journals' followers", actor, removed);
+    final long replies = remoteReplies.removeActor(actor);
+    log.info(
+        "Actor {} is gone; removed it from {} journals' followers and {} replies",
+        actor,
+        removed,
+        replies);
     return Outcome.HANDLED;
   }
 
@@ -182,9 +196,16 @@ public class InboxService {
 
   private Outcome delete(final JsonNode delete, final String sender) {
     final URI actor = uri(sender);
-    if (actor == null || !sender.equals(id(delete.get("object")))) return Outcome.IGNORED;
+    final String object = id(delete.get("object"));
+    if (actor == null || object == null) return Outcome.IGNORED;
+    if (!sender.equals(object)) return remoteReplies.delete(object, sender);
     final long removed = followerService.removeEverywhere(actor);
-    log.info("Actor {} was deleted; removed it from {} journals' followers", sender, removed);
+    final long replies = remoteReplies.removeActor(sender);
+    log.info(
+        "Actor {} was deleted; removed it from {} journals' followers and {} replies",
+        sender,
+        removed,
+        replies);
     return Outcome.HANDLED;
   }
 

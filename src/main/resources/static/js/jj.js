@@ -116,6 +116,26 @@ function deleteComment(commentId) {
     }
 }
 
+// a reply from another fediverse server, which the journal's owner may remove
+function deleteRemoteComment(commentId) {
+    'use strict';
+    if (confirmDelete()) {
+        var request = jQuery.ajax({
+            url: "/api/comment/remote/" + commentId,
+            type: "DELETE",
+            data: {}
+        });
+
+        request.done(function() {
+          window.alert('Removed Comment');
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          window.alert("Request failed: " + textStatus);
+        });
+    }
+}
+
 function confirmDelete() {
     'use strict';
     return window.confirm("Are you sure you want to delete this?");

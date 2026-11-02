@@ -54,6 +54,8 @@ package com.justjournal.model.api;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.justjournal.model.FormatType;
+import com.justjournal.model.RemoteReply;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -89,9 +91,33 @@ public final class CommentTo implements Serializable {
 
   @Getter @Setter private String format = "TEXT";
 
+  /** True for a reply from another fediverse server; its id is not a local comment's. */
+  @Getter @Setter private boolean remote;
+
+  /** A remote reply's author's display name; the username is their {@code @user@host}. */
+  @Getter @Setter private String authorName;
+
+  /** A remote reply's author's profile page. */
+  @Getter @Setter private String authorUrl;
+
   @JsonCreator
   public CommentTo() {
     super();
+  }
+
+  /** A reply from another fediverse server, as a comment whose body is cleaned HTML. */
+  public static CommentTo of(final RemoteReply reply) {
+    final CommentTo comment = new CommentTo();
+    comment.setId(reply.getId());
+    comment.setEid(reply.getEntryId());
+    comment.setDate(reply.getPublished());
+    comment.body = reply.getContent();
+    comment.setFormat(FormatType.HTML.name());
+    comment.setUsername(reply.getAuthorHandle());
+    comment.setRemote(true);
+    comment.setAuthorName(reply.getAuthorName());
+    comment.setAuthorUrl(reply.getAuthorUrl());
+    return comment;
   }
 
   public int getId() {

@@ -61,6 +61,7 @@ import com.justjournal.services.activitypub.HttpSignatureException;
 import com.justjournal.services.activitypub.HttpSignatureException.Reason;
 import com.justjournal.services.activitypub.HttpSignatureService;
 import com.justjournal.services.activitypub.InboxService;
+import com.justjournal.services.activitypub.RemoteReplyService;
 import com.justjournal.services.activitypub.SeenActivities;
 import com.justjournal.services.activitypub.VerifiedSignature;
 import com.justjournal.services.link.FetchException;
@@ -116,7 +117,12 @@ class InboxControllerTests {
 
     final InboxService inboxService =
         new InboxService(
-            followerService, deliveryService, federationPolicy, actorKeyService, fetcher);
+            followerService,
+            deliveryService,
+            federationPolicy,
+            actorKeyService,
+            fetcher,
+            mock(RemoteReplyService.class));
     controller =
         new InboxController(
             userRepository,
