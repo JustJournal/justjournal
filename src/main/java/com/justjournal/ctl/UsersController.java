@@ -1126,6 +1126,8 @@ public class UsersController {
     return isMyFriend(me, you) && isMyFriend(you, me);
   }
 
+  // long and branchy since long before fediverse replies; splitting it up is a change of its own
+  // skipcq: JAVA-R1000
   private String getFavorites(final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
     final Collection<Entry> entries = new ArrayList<>();
@@ -1362,6 +1364,8 @@ public class UsersController {
    * @param uc The UserContext we are working on including blog owner, authenticated user, and sb to
    *     write
    */
+  // long and branchy since long before fediverse replies; splitting it up is a change of its own
+  // skipcq: JAVA-R1000
   private String getFriends(final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
     final Collection<Entry> entries;
