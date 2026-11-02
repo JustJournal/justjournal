@@ -30,14 +30,16 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.justjournal.utility.StringUtil;
 import jakarta.persistence.*;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.text.Normalizer;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * A tag is a form of metadata about a blog entry. It is similar to a category.
@@ -60,6 +62,10 @@ public class Tag implements Serializable {
   private int id;
 
   /** common string representation for public consumption */
+  public static final int MAX_NAME_LENGTH = 30;
+
+  private static final Pattern VALID_NAME = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
+
   @JsonProperty("name")
   @Column(name = "name", nullable = false, length = 30)
   private String name;
@@ -133,17 +139,39 @@ public class Tag implements Serializable {
   /**
    * Set the common name to display to the user
    *
-   * @param name 30 character or less string with letters only.
+   * @param name 30 character or less string of letters, digits and single hyphens between them.
    */
   public void setName(final String name) {
     if (name == null || name.isEmpty()) throw new IllegalArgumentException("Name must be set");
-    if (name.length() > 30)
+    if (name.length() > MAX_NAME_LENGTH)
       throw new IllegalArgumentException("Name cannot be longer than 30 characters.");
 
-    if (!StringUtil.isAlpha(name))
-      throw new IllegalArgumentException("Name contains invalid characters.  Must be A-Za-z");
+    final String lower = name.toLowerCase(Locale.ROOT);
+    if (!VALID_NAME.matcher(lower).matches())
+      throw new IllegalArgumentException(
+          "Name contains invalid characters.  Must be a-z, 0-9 and hyphens between them");
 
-    this.name = name.toLowerCase();
+    this.name = lower;
+  }
+
+  /**
+   * Turn a requested tag into the stored form: lowercase, a leading # dropped, accents removed, +
+   * and # spelled out (c++ is cplusplus, c# is csharp) and every other run of characters
+   * outside a-z and 0-9 replaced by one hyphen. Length is not checked.
+   *
+   * @param raw tag as the client sent it
+   * @return cleaned name, empty when nothing usable is left
+   */
+  public static String normalizeName(final String raw) {
+    if (raw == null) return "";
+
+    String s = raw.strip();
+    while (s.startsWith("#")) s = s.substring(1);
+
+    s = Normalizer.normalize(s, Normalizer.Form.NFKD).replaceAll("\\p{M}+", "");
+    s = s.toLowerCase(Locale.ROOT).replace("+", "plus").replace("#", "sharp");
+    s = s.replaceAll("[^a-z0-9]+", "-");
+    return s.replaceAll("^-+|-+$", "");
   }
 
   public String getType() {

@@ -430,8 +430,11 @@
         $.get('/api/tagcloud/' + username,
                 function (data) {
                     for (var i = 0; i < data.length; i++) {
-                        var tag = '<a href="/users/' + username + '/tag/' + data[i].name + '" class="' + data[i].type + '">' + data[i].name + '</a> ';
-                        $('p#tagsmini').append(tag);
+                        var tag = $('<a>')
+                                .attr('href', '/users/' + username + '/tag/' + encodeURIComponent(data[i].name))
+                                .attr('class', data[i].type)
+                                .text(data[i].name);
+                        $('p#tagsmini').append(tag).append(' ');
                     }
                 }
         );

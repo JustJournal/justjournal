@@ -312,7 +312,7 @@ class MetaWeblogTests {
     when(tagDao.findByName("java")).thenReturn(java);
     when(tagDao.findByName("unknown")).thenReturn(null);
     final Map<String, Object> content = content();
-    content.put("categories", new String[] {"java", "the", "unknown"});
+    content.put("categories", new String[] {"Java", "the", "unknown"});
 
     assertEquals(true, metaWeblog.editPost("5", "laffer1", "secret", content, false));
 
