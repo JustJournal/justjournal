@@ -718,6 +718,14 @@
                 <configuration>
                     <mainClass>com.justjournal.Application</mainClass>
                 </configuration>
+                <executions>
+                    <!-- META-INF/build-info.properties, for the version NodeInfo reports -->
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>
