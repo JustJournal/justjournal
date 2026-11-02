@@ -29,10 +29,17 @@ package com.justjournal.repository;
 import com.justjournal.model.UserPref;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 import org.springframework.stereotype.Repository;
 
-/** @author Lucas Holt */
+/**
+ * Not exported by Spring Data REST: preferences, including the fediverse opt-in, are changed only
+ * through the API controllers, which check who is logged in.
+ *
+ * @author Lucas Holt
+ */
 @Repository
+@RepositoryRestResource(exported = false)
 public interface UserPrefRepository extends JpaRepository<UserPref, Integer> {
 
   /** The preferences of a user, found by user id rather than by the row's own id. */
