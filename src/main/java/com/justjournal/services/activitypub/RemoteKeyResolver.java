@@ -25,6 +25,9 @@
  */
 package com.justjournal.services.activitypub;
 
+import static com.justjournal.services.activitypub.ActivityPubFetcher.sameHost;
+import static com.justjournal.services.activitypub.ActivityPubFetcher.text;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.justjournal.services.link.LinkRejectedException;
@@ -34,13 +37,9 @@ import com.justjournal.services.link.UrlPolicy;
 import java.io.IOException;
 import java.net.URI;
 import java.security.GeneralSecurityException;
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -53,12 +52,11 @@ import org.springframework.stereotype.Service;
 /**
  * Fetches the public key another server signs with, from the keyId in its signature.
  *
- * <p>The fetch goes through {@link SafeHttpFetcher}, so it reaches only public addresses and is
- * capped in size and time, and is signed by the instance actor, since servers in Mastodon's
- * "authorized fetch" mode answer only signed requests. The document may be an actor carrying the
- * key in {@code publicKey}, or the key on its own. Either way the key's {@code id} must be the
- * keyId asked for, the key must be owned by the actor that served it (or, for a bare key, by an
- * actor on the same host), and no redirect may leave the keyId's host.
+ * <p>The fetch goes through {@link ActivityPubFetcher}, so it reaches only public addresses, is
+ * capped in size and time, and is signed by the instance actor. The document may be an actor
+ * carrying the key in {@code publicKey}, or the key on its own. Either way the key's {@code id}
+ * must be the keyId asked for, the key must be owned by the actor that served it (or, for a bare
+ * key, by an actor on the same host), and no redirect may leave the keyId's host.
  *
  * <p>Keys are cached for {@code activitypub.key-cache-minutes} (see {@code CacheConfig}); {@link
  * #evict} drops one so a key that no longer verifies can be fetched again after a rotation.
@@ -68,17 +66,12 @@ import org.springframework.stereotype.Service;
 public class RemoteKeyResolver {
   public static final String CACHE = "activitypubKeys";
 
-  static final Set<String> ACCEPT_TYPES =
-      Set.of("application/activity+json", "application/ld+json");
-  static final String ACCEPT =
-      "application/activity+json, "
-          + "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\"";
+  static final Set<String> ACCEPT_TYPES = ActivityPubFetcher.ACCEPT_TYPES;
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final SafeHttpFetcher fetcher;
+  private final ActivityPubFetcher fetcher;
   private final UrlPolicy urlPolicy;
-  private final ActorKeyService actorKeyService;
   private final Clock clock;
 
   @Setter
@@ -98,9 +91,8 @@ public class RemoteKeyResolver {
       final UrlPolicy urlPolicy,
       final ActorKeyService actorKeyService,
       final Clock clock) {
-    this.fetcher = fetcher;
+    this.fetcher = new ActivityPubFetcher(fetcher, urlPolicy, actorKeyService, clock);
     this.urlPolicy = urlPolicy;
-    this.actorKeyService = actorKeyService;
     this.clock = clock;
   }
 
@@ -122,7 +114,7 @@ public class RemoteKeyResolver {
 
     final SafeHttpFetcher.Result result;
     try {
-      result = fetcher.fetch(url, ACCEPT_TYPES, maxBytes, signedGet());
+      result = fetcher.signedGet(url, maxBytes);
     } catch (final IOException | LinkRejectedException e) {
       throw unavailable("Could not fetch key " + keyId + ": " + e.getMessage(), e);
     }
@@ -181,7 +173,7 @@ public class RemoteKeyResolver {
     }
     final SafeHttpFetcher.Result result;
     try {
-      result = fetcher.fetch(url, ACCEPT_TYPES, maxBytes, signedGet());
+      result = fetcher.signedGet(url, maxBytes);
     } catch (final IOException | LinkRejectedException e) {
       throw unavailable("Could not fetch owner " + owner + ": " + e.getMessage(), e);
     }
@@ -225,25 +217,6 @@ public class RemoteKeyResolver {
     log.debug("Dropped cached key {}", keyId);
   }
 
-  /** Headers for a GET signed by the instance actor, worked out again for each redirect. */
-  private SafeHttpFetcher.RequestHeaders signedGet() {
-    final String actorId = actorKeyService.instanceActorId();
-    final PrivateKey privateKey = actorKeyService.privateKeyFor(actorId);
-    return target -> {
-      final Map<String, String> headers =
-          new LinkedHashMap<>(
-              HttpSignatures.sign(
-                  "GET",
-                  target,
-                  null,
-                  ActorKeyService.keyId(actorId),
-                  privateKey,
-                  clock.instant()));
-      headers.put("Accept", ACCEPT);
-      return headers;
-    };
-  }
-
   /** The key in an actor's publicKey whose id is the keyId; servers send one key or a list. */
   private static JsonNode pick(final JsonNode publicKey, final String keyId) {
     if (publicKey.isObject()) return keyId.equals(text(publicKey, "id")) ? publicKey : null;
@@ -255,12 +228,6 @@ public class RemoteKeyResolver {
     return null;
   }
 
-  private static boolean sameHost(final URI uri, final String host) {
-    return uri != null
-        && uri.getHost() != null
-        && uri.getHost().toLowerCase(Locale.ROOT).equals(host);
-  }
-
   private static URI uri(final String value) {
     if (value == null) return null;
     try {
@@ -268,11 +235,6 @@ public class RemoteKeyResolver {
     } catch (final IllegalArgumentException e) {
       return null;
     }
-  }
-
-  private static String text(final JsonNode node, final String field) {
-    final JsonNode value = node.get(field);
-    return value != null && value.isTextual() ? value.asText() : null;
   }
 
   private static HttpSignatureException unavailable(final String message, final Throwable cause) {

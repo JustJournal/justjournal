@@ -65,7 +65,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.HtmlUtils;
@@ -188,19 +187,6 @@ public class ActivityStreamController {
     actor.put("manuallyApprovesFollowers", false);
     putPublicKey(actor, id, actorKeyService.forUser(user).getPublicKeyPem());
     return ok(actor);
-  }
-
-  /**
-   * Nothing is accepted here yet. 405 with an empty Allow header says the resource exists but
-   * takes no methods; other servers treat a 4xx as final, so they don't keep retrying a Follow as
-   * they would after a 5xx, and nothing claims the activity was taken.
-   */
-  @RequestMapping("/users/{username}/inbox")
-  public ResponseEntity<Void> inbox(@PathVariable(PATH_USERNAME) final String username) {
-    if (publicUser(username) == null) return ResponseEntity.notFound().build();
-    return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-        .header(HttpHeaders.ALLOW, "")
-        .build();
   }
 
   @GetMapping(

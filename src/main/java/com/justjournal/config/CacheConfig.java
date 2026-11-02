@@ -39,6 +39,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.justjournal.model.Tag;
 import com.justjournal.services.activitypub.RemoteKeyResolver;
+import com.justjournal.services.activitypub.SeenActivities;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -115,6 +116,23 @@ public class CacheConfig {
             RemoteKeyResolver.CACHE,
             RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofMinutes(minutes))
+                .disableCachingNullValues());
+  }
+
+  /**
+   * Activities the inboxes took, which {@link SeenActivities} remembers for as long as {@code
+   * HttpSignatureService} accepts a signature's Date: up to the allowed age past a Date that may
+   * itself be ahead of our clock.
+   */
+  @Bean
+  public RedisCacheManagerBuilderCustomizer activityPubSeenCache(
+      @Value("${activitypub.signature.max-age-seconds:3600}") final long maxAgeSeconds,
+      @Value("${activitypub.signature.max-future-seconds:3600}") final long maxFutureSeconds) {
+    return builder ->
+        builder.withCacheConfiguration(
+            SeenActivities.CACHE,
+            RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(maxAgeSeconds + maxFutureSeconds))
                 .disableCachingNullValues());
   }
 

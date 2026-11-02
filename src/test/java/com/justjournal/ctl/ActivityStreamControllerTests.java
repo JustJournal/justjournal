@@ -36,7 +36,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.handler;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -421,22 +420,6 @@ class ActivityStreamControllerTests {
         .andExpect(status().isNotFound());
     // no key is made for a journal nobody may see
     verify(actorKeyService, never()).forUser(any());
-  }
-
-  @Test
-  void inbox_takesNothing() throws Exception {
-    mockMvc
-        .perform(get("/users/bob/inbox"))
-        .andExpect(status().isMethodNotAllowed())
-        .andExpect(header().string(HttpHeaders.ALLOW, ""));
-    mockMvc
-        .perform(
-            post("/users/bob/inbox")
-                .contentType(ActivityStreamController.ACTIVITY_JSON_VALUE)
-                .content("{\"type\":\"Follow\"}"))
-        .andExpect(status().isMethodNotAllowed())
-        .andExpect(header().string(HttpHeaders.ALLOW, ""));
-    mockMvc.perform(post("/users/nobody/inbox")).andExpect(status().isNotFound());
   }
 
   @Test
