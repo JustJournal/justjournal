@@ -46,6 +46,7 @@ import com.justjournal.services.AvatarService;
 import com.justjournal.services.EntryAccessService;
 import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.EntryService;
+import com.justjournal.services.activitypub.ActorKeyService;
 import com.justjournal.utility.DateConvert;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -88,6 +89,8 @@ public class ActivityStreamController {
   static final MediaType ACTIVITY_JSON = MediaType.parseMediaType(ACTIVITY_JSON_VALUE);
 
   static final String AS_CONTEXT = "https://www.w3.org/ns/activitystreams";
+  /** Defines publicKey and publicKeyPem; documents that carry a key name it too. */
+  static final String SECURITY_CONTEXT = "https://w3id.org/security/v1";
   static final String PUBLIC = AS_CONTEXT + "#Public";
 
   /** Titled entries are articles. */
@@ -111,6 +114,7 @@ public class ActivityStreamController {
   private final EntryAttachmentService entryAttachmentService;
   private final AvatarService avatarService;
   private final UserPicRepository userPicRepository;
+  private final ActorKeyService actorKeyService;
 
   public ActivityStreamController(
       final Settings settings,
@@ -120,7 +124,8 @@ public class ActivityStreamController {
       final EntryAccessService entryAccessService,
       final EntryAttachmentService entryAttachmentService,
       final AvatarService avatarService,
-      final UserPicRepository userPicRepository) {
+      final UserPicRepository userPicRepository,
+      final ActorKeyService actorKeyService) {
     this.settings = settings;
     this.userRepository = userRepository;
     this.entryRepository = entryRepository;
@@ -129,6 +134,7 @@ public class ActivityStreamController {
     this.entryAttachmentService = entryAttachmentService;
     this.avatarService = avatarService;
     this.userPicRepository = userPicRepository;
+    this.actorKeyService = actorKeyService;
   }
 
   /**
@@ -152,7 +158,7 @@ public class ActivityStreamController {
 
     final Journal journal = user.getJournals().iterator().next();
     final String id = actorId(user);
-    final ObjectNode actor = withContext();
+    final ObjectNode actor = withKeyContext();
     actor.put("id", id);
     actor.put("type", "Person");
     actor.put("preferredUsername", user.getUsername());
@@ -176,6 +182,7 @@ public class ActivityStreamController {
       actor.put("published", DateConvert.encode3339(journal.getSince()));
     }
     actor.put("manuallyApprovesFollowers", false);
+    putPublicKey(actor, id, actorKeyService.forUser(user).getPublicKeyPem());
     return ok(actor);
   }
 
@@ -420,6 +427,21 @@ public class ActivityStreamController {
     final ObjectNode node = JSON.objectNode();
     node.put("@context", AS_CONTEXT);
     return node;
+  }
+
+  /** The context of a document that carries a public key. */
+  static ObjectNode withKeyContext() {
+    final ObjectNode node = JSON.objectNode();
+    node.putArray("@context").add(AS_CONTEXT).add(SECURITY_CONTEXT);
+    return node;
+  }
+
+  /** The actor's key, which other servers check our signatures with. */
+  static void putPublicKey(final ObjectNode actor, final String actorId, final String pem) {
+    final ObjectNode publicKey = actor.putObject("publicKey");
+    publicKey.put("id", ActorKeyService.keyId(actorId));
+    publicKey.put("owner", actorId);
+    publicKey.put("publicKeyPem", pem);
   }
 
   private static void putText(final ObjectNode node, final String name, final String value) {

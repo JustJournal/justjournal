@@ -33,6 +33,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -75,6 +76,19 @@ public class SafeHttpFetcher {
 
   /** What a successful fetch got. {@code charset} is null when the response didn't name one. */
   public record Result(URI finalUri, String contentType, Charset charset, byte[] body) {}
+
+  /**
+   * Headers to add to one request of a fetch. It is asked again for every redirect, with that
+   * hop's address, since a signature covers the address it is sent to. A header it returns
+   * replaces the fetcher's own of the same name, Accept included; the accepted response types are
+   * still the ones passed to {@link #fetch(NormalizedUrl, Set, int, RequestHeaders)}.
+   */
+  @FunctionalInterface
+  public interface RequestHeaders {
+    Map<String, String> forRequest(URI target);
+  }
+
+  private static final RequestHeaders NO_HEADERS = target -> Map.of();
 
   private static final Set<Integer> REDIRECTS = Set.of(301, 302, 303, 307, 308);
 
@@ -148,6 +162,20 @@ public class SafeHttpFetcher {
    */
   public Result fetch(final NormalizedUrl start, final Set<String> acceptTypes, final int maxBytes)
       throws IOException, LinkRejectedException {
+    return fetch(start, acceptTypes, maxBytes, NO_HEADERS);
+  }
+
+  /**
+   * Fetch a link as {@link #fetch(NormalizedUrl, Set, int)} does, adding headers to each request.
+   *
+   * @param headers the extra headers for each request, redirects included
+   */
+  public Result fetch(
+      final NormalizedUrl start,
+      final Set<String> acceptTypes,
+      final int maxBytes,
+      final RequestHeaders headers)
+      throws IOException, LinkRejectedException {
     final Set<String> accepted =
         acceptTypes.stream().map(t -> t.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
     final long deadline = System.currentTimeMillis() + maxDownloadMs;
@@ -159,6 +187,7 @@ public class SafeHttpFetcher {
       if (remaining <= 0) throw tooSlow();
       final HttpGet get = new HttpGet(current);
       get.setHeader(HttpHeaders.ACCEPT, String.join(", ", accepted));
+      headers.forRequest(current).forEach(get::setHeader);
       final ScheduledFuture<?> timer = deadlines.schedule(get::abort, remaining, TimeUnit.MILLISECONDS);
       try (CloseableHttpResponse response = execute(get)) {
         final int status = response.getStatusLine().getStatusCode();
