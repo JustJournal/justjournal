@@ -90,6 +90,7 @@ class MetaWeblogTests {
   @Mock private Settings settings;
   @Mock private EntryTagsRepository entryTagsRepository;
   @Mock private EntryService entryService;
+  @Mock private EntryAttachmentService entryAttachmentService;
 
   @InjectMocks private MetaWeblog metaWeblog;
 

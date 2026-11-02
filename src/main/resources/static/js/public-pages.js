@@ -591,6 +591,11 @@
                     $('#mood').val(String((entry.mood && entry.mood.id) || entry.mood || defaults.mood));
                     $('#location').val(String((entry.location && entry.location.id) || entry.location || defaults.location));
                     $('#security').val(String((entry.security && entry.security.id) || entry.security || defaults.security));
+                    $('#entry-link').val(entry.link || '');
+                    $('#entry-image-alt').val(entry.imageAlt || '');
+                    if (entry.imageId) {
+                        showEntryImage(entry.imageId, entry.imageUrl, entry.imageNotice);
+                    }
                 })
                 .fail(function (xhr) {
                     showMessage('#entry-error', parseError(xhr, 'Unable to load entry'));
@@ -601,6 +606,39 @@
 
         $('#entry-cancel').on('click', function () {
             window.location.href = username ? '/users/' + username : '/';
+        });
+
+        // the picture is uploaded on its own as soon as it's chosen; the entry refers to it by id
+        $('#entry-image-file').on('change', function () {
+            var file = this.files && this.files[0];
+            if (!file) {
+                return;
+            }
+            showMessage('#entry-image-message', '');
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('alt', $('#entry-image-alt').val().trim());
+
+            var $save = $('#frmUpdateJournal button[type="submit"]').prop('disabled', true);
+            postUpload('/EntryImage', formData, '#entry-image-progress-container', '#entry-image-progress')
+                .done(function (data) { // skipcq: JS-0241 this file is ES5; every callback is a function expression
+                    showEntryImage(data.id, data.url, data.message);
+                })
+                .fail(function (xhr) {
+                    showMessage('#entry-image-message', parseError(xhr, 'Upload failed'));
+                })
+                .always(function () {
+                    $save.prop('disabled', false);
+                    $('#entry-image-file').val('');
+                    $('#entry-image-progress-container').hide();
+                });
+        });
+
+        $('#entry-image-remove').on('click', function () {
+            // 0 tells the server to take the picture off the entry
+            $('#entry-image-id').val('0');
+            $('#entry-image-preview').hide().find('img').attr('src', '');
+            showMessage('#entry-image-message', '');
         });
 
         $('#frmUpdateJournal').on('submit', function (event) {
@@ -622,7 +660,11 @@
                 security: parseInt($('#security').val(), 10),
                 mood: parseInt($('#mood').val(), 10),
                 location: parseInt($('#location').val(), 10),
-                tags: splitTags($('#tags').val())
+                tags: splitTags($('#tags').val()),
+                // the editor always sends both: 0 and '' remove the picture and the link
+                imageId: parseInt($('#entry-image-id').val(), 10) || 0,
+                imageAlt: $('#entry-image-alt').val().trim(),
+                link: $('#entry-link').val().trim()
             };
 
             if (!payload.body) {
@@ -701,6 +743,38 @@
         });
     }
 
+    function showEntryImage(id, url, notice) {
+        $('#entry-image-id').val(String(id));
+        $('#entry-image-preview').show().find('img').attr('src', url || '/EntryImage/' + id + '/display');
+        // a picture held for review is kept, but only its owner sees it until someone approves it
+        showMessage('#entry-image-message', notice || '', 'success');
+    }
+
+    /** Posts a multipart form with a progress bar; returns the jqXHR. */
+    function postUpload(url, formData, progressContainerSelector, progressSelector) {
+        $(progressContainerSelector).show();
+        setProgress(progressSelector, 0);
+
+        return $.ajax({
+            url: url,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            xhr: function () {
+                var xhr = $.ajaxSettings.xhr();
+                if (xhr.upload) {
+                    xhr.upload.addEventListener('progress', function (evt) {
+                        if (evt.lengthComputable) {
+                            setProgress(progressSelector, Math.round((evt.loaded / evt.total) * 100));
+                        }
+                    }, false);
+                }
+                return xhr;
+            }
+        });
+    }
+
     function uploadForm(formSelector, url, successSelector, errorSelector, progressContainerSelector, progressSelector, extraData, onDone) {
         $(formSelector).on('submit', function (event) {
             event.preventDefault();
@@ -714,27 +788,7 @@
                 });
             }
 
-            $(progressContainerSelector).show();
-            setProgress(progressSelector, 0);
-
-            $.ajax({
-                url: url,
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                xhr: function () {
-                    var xhr = $.ajaxSettings.xhr();
-                    if (xhr.upload) {
-                        xhr.upload.addEventListener('progress', function (evt) {
-                            if (evt.lengthComputable) {
-                                setProgress(progressSelector, Math.round((evt.loaded / evt.total) * 100));
-                            }
-                        }, false);
-                    }
-                    return xhr;
-                }
-            }).done(function (data) { // skipcq: JS-0241 this file is ES5; every callback is a function expression
+            postUpload(url, formData, progressContainerSelector, progressSelector).done(function (data) { // skipcq: JS-0241 this file is ES5; every callback is a function expression
                 setProgress(progressSelector, 100);
                 // the server explains an upload that is kept but not shown yet
                 showMessage(successSelector, (data || {}).message || 'Upload successful.', 'success');

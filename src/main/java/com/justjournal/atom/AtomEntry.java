@@ -25,6 +25,8 @@
  */
 package com.justjournal.atom;
 
+import com.justjournal.model.FeedAttachments;
+
 /**
  * An Atom entry is a single record in an Atom feed.
  *
@@ -50,6 +52,7 @@ public final class AtomEntry {
   private String published;
   private String content;
   private String summary;
+  private FeedAttachments attachments;
 
   public boolean equals(final Object o) {
     if (this == o) return true;
@@ -82,6 +85,15 @@ public final class AtomEntry {
 
   public void setSummary(final String summary) {
     this.summary = summary;
+  }
+
+  /** The picture and link attached to the entry, or null. */
+  public FeedAttachments getAttachments() {
+    return attachments;
+  }
+
+  public void setAttachments(final FeedAttachments attachments) {
+    this.attachments = attachments;
   }
 
   public String getPublished() {

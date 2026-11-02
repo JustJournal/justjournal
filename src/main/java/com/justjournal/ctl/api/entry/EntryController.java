@@ -30,6 +30,7 @@ import static com.justjournal.core.Constants.*;
 import com.justjournal.Login;
 import com.justjournal.core.Settings;
 import com.justjournal.ctl.error.ErrorHandler;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Comment;
@@ -47,6 +48,7 @@ import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
+import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.utility.HTMLUtil;
@@ -113,10 +115,14 @@ public class EntryController {
 
   private final RecentBlogsRepository recentBlogsRepository;
 
+  private final EntryAttachmentService entryAttachmentService;
+
   public EntryController(@Qualifier("commentRepository") CommentRepository commentDao, @Qualifier("entryRepository") EntryRepository entryRepository,
                          @Qualifier("locationRepository") LocationRepository locationDao, @Qualifier("moodRepository") MoodRepository moodDao,
                          @Qualifier("userRepository") UserRepository userRepository, EntryService entryService,
-                         TrackbackService trackbackService, Settings settings, RecentBlogsRepository recentBlogsRepository) {
+                         TrackbackService trackbackService, Settings settings, RecentBlogsRepository recentBlogsRepository,
+                         EntryAttachmentService entryAttachmentService) {
+    this.entryAttachmentService = entryAttachmentService;
     this.commentDao = commentDao;
     this.entryRepository = entryRepository;
     this.locationDao = locationDao;
@@ -253,12 +259,12 @@ public class EntryController {
 
       if (entry.getUser().getUsername().equalsIgnoreCase(username)) {
         if (entry.getSecurity() == Security.PUBLIC) { // public
-          return entry.toEntryTo();
+          return withAttachments(entry, session);
         } else {
           if (!Login.isAuthenticated(session)) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
           } else if (username.equalsIgnoreCase(Login.currentLoginName(session))) {
-            return entry.toEntryTo();
+            return withAttachments(entry, session);
           }
           response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         }
@@ -373,6 +379,17 @@ public class EntryController {
       return ErrorHandler.modelError("Entry does not specify a security level.");
     }
 
+    // a link that can't be used refuses the whole save, before anything is written
+    final EntryAttachmentService.Prepared attachments;
+    try {
+      attachments =
+          entryAttachmentService.prepare(
+              user.getId(), 0, entryTo.getImageId(), entryTo.getImageAlt(), entryTo.getLink());
+    } catch (final BadRequestException e) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError(e.getMessage());
+    }
+
     final Entry entry = new Entry(entryTo);
     entry.setUser(user);
     entry.setLocation(getLocation(entryTo.getLocation()));
@@ -388,6 +405,7 @@ public class EntryController {
     }
 
     entryService.applyTags(saved, entryTo.getTags());
+    entryAttachmentService.apply(saved, attachments);
 
     // only ping if it's public
     if (entry.getSecurity() == Security.PUBLIC) {
@@ -490,6 +508,21 @@ public class EntryController {
     entry.setMood(getMood(entryTo.getMood()));
 
     final Entry entry2 = entryRepository.findById(entryTo.getEntryId()).orElse(null);
+    final boolean editing = entry2 != null && entry2.getId() > 0 && entry2.getUser().getId() == user.getId();
+
+    final EntryAttachmentService.Prepared attachments;
+    try {
+      attachments =
+          entryAttachmentService.prepare(
+              user.getId(),
+              editing ? entry2.getId() : 0,
+              entryTo.getImageId(),
+              entryTo.getImageAlt(),
+              entryTo.getLink());
+    } catch (final BadRequestException e) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError(e.getMessage());
+    }
 
     if (entry2 != null) {
       if (entry2.getId() > 0 && entry2.getUser().getId() == user.getId()) {
@@ -505,6 +538,7 @@ public class EntryController {
 
     entry = entryRepository.save(entry);
     entryService.applyTags(entry, entryTo.getTags());
+    entryAttachmentService.apply(entry, attachments);
 
     // only ping if it's public
     if (entry.getSecurity() == Security.PUBLIC) {
@@ -514,6 +548,14 @@ public class EntryController {
     recentBlogsRepository.delete().subscribe();
 
     return Collections.singletonMap("id", Integer.toString(entry.getId()));
+  }
+
+  /** The entry with what the viewer may see of its picture and link. */
+  private EntryTo withAttachments(final Entry entry, final HttpSession session) {
+    final EntryTo to = entry.toEntryTo();
+    final int viewerId = Login.isAuthenticated(session) ? Login.currentLoginId(session) : 0;
+    entryAttachmentService.decorate(entry, to, viewerId);
+    return to;
   }
 
   private Location getLocation(int locationId) {
@@ -554,6 +596,7 @@ public class EntryController {
       if (user != null && entry != null && user.getId() == entry.getUser().getId()) {
         final Iterable<Comment> comments = entry.getComments();
         commentDao.deleteAll(comments);
+        entryAttachmentService.deleteForEntry(entryId);
         entryRepository.deleteById(entryId);
 
         recentBlogsRepository.delete().subscribe();

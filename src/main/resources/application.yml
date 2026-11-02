@@ -110,6 +110,51 @@ moderation:
   # an animated GIF the model found safe, having seen only its first frame: APPROVED, REVIEW or REJECTED
   on-animated: REVIEW
 
+# A post can have one picture and one link attached. Pictures go through the content filter above;
+# a picture uploaded but never saved with a post is removed after orphan-hours.
+entry-attachments:
+  image:
+    display-size: 1024
+    max-pending-per-user: 10
+    orphan-hours: 24
+
+# Links attached to posts are checked when the post is saved: http/https on the usual ports only,
+# no URL shorteners, nothing on blocked-domains (a domain blocks its subdomains too), every address
+# the name resolves to must be public, and the reputation lists below must not list it.
+link-safety:
+  blocked-domains: []
+  extra-shorteners: []
+  # whether a reputation list that can't be asked refuses the link
+  fail-closed: false
+  dns-timeout-ms: 3000
+  cache-minutes: 30
+  # Spamhaus refuses queries sent through public resolvers such as 8.8.8.8; they come back as
+  # "unknown". Use a local recursive resolver, or a DQS key zone such as <key>.dbl.dq.spamhaus.net
+  dbl:
+    enabled: true
+    zone: dbl.spamhaus.org
+    timeout-ms: 2000
+  # Google Safe Browsing v4 Lookup API; off without a key
+  safe-browsing:
+    api-key: ${SAFE_BROWSING_API_KEY:}
+    client-id: justjournal
+    timeout-ms: 3000
+
+# A background job fetches each new link's page for its title, description and picture.
+link-preview:
+  enabled: true
+  batch-size: 10
+  max-attempts: 3
+  max-redirects: 5
+  connect-timeout-ms: 5000
+  read-timeout-ms: 10000
+  max-download-ms: 20000
+  max-html-bytes: 1048576
+  max-image-bytes: 10485760
+  max-image-pixels: 40000000
+  image-size: 600
+  user-agent: "JustJournal link preview (+https://www.justjournal.com/)"
+
 bing:
   indexNowKey:
 
@@ -123,7 +168,7 @@ bucket4j:
       cache-name: buckets
       filter-method: servlet
       filter-order: 1
-      url: '^(?!/(static|components|js|ckeditor|images|styles|software|Avatar|AlbumImage|favicon\.ico|robots\.txt)).*'
+      url: '^(?!/(static|components|js|ckeditor|images|styles|software|Avatar|AlbumImage|EntryImage|EntryLinkImage|favicon\.ico|robots\.txt)).*'
       metrics:
         tags:
           - key: IP
@@ -142,6 +187,26 @@ bucket4j:
               capacity: 300
               time: 10
               unit: minutes
+    # saving a post can check a link against DNS and reputation lists, and uploading a post picture
+    # asks the content filter; both cost far more than a page view
+    - id: attachments
+      cache-name: buckets
+      filter-method: servlet
+      filter-order: 2
+      url: '^/(EntryImage|api/entry)/?$'
+      rate-limits:
+        - cache-key: "getRemoteAddr()"
+          execute-predicates:
+            - METHOD=POST,PUT
+          bandwidths:
+            - id: burst
+              capacity: 5
+              time: 1
+              unit: minutes
+            - id: sustained
+              capacity: 30
+              time: 1
+              unit: hours
 
 management:
   endpoints:
@@ -206,6 +271,15 @@ bucket:
 moderation:
   enabled: false
 
+link-safety:
+  dbl:
+    enabled: false
+  safe-browsing:
+    api-key: ''
+
+link-preview:
+  enabled: false
+
 bing:
   indexNowKey:
 
@@ -243,6 +317,15 @@ bucket:
   image: jjqaimages
 
 moderation:
+  enabled: false
+
+link-safety:
+  dbl:
+    enabled: false
+  safe-browsing:
+    api-key: ''
+
+link-preview:
   enabled: false
 
 bing:

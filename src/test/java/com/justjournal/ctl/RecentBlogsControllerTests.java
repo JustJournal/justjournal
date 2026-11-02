@@ -46,6 +46,7 @@ import com.justjournal.model.User;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.rss.Rss;
+import com.justjournal.services.EntryAttachmentService;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -76,7 +77,8 @@ class RecentBlogsControllerTests {
     settings = mock(Settings.class);
     rss = mock(Rss.class);
     recentBlogsRepository = mock(RecentBlogsRepository.class);
-    controller = new RecentBlogsController(entryRepository, settings, rss, recentBlogsRepository);
+    controller = new RecentBlogsController(
+            entryRepository, settings, rss, recentBlogsRepository, mock(EntryAttachmentService.class));
 
     when(settings.getBaseUri()).thenReturn("https://www.example.com/");
     when(settings.getSiteAdmin()).thenReturn("Ada");
@@ -142,7 +144,7 @@ class RecentBlogsControllerTests {
     verify(rss).setSelfLink("https://www.example.com/RecentBlogs");
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<Collection<Entry>> captor = ArgumentCaptor.forClass(Collection.class);
-    verify(rss).populate(captor.capture());
+    verify(rss).populate(captor.capture(), any());
     final List<Integer> ids = new ArrayList<>();
     captor.getValue().forEach(e -> ids.add(e.getId()));
     assertEquals(2, ids.size());
@@ -165,7 +167,7 @@ class RecentBlogsControllerTests {
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<Collection<Entry>> captor = ArgumentCaptor.forClass(Collection.class);
-    verify(rss).populate(captor.capture());
+    verify(rss).populate(captor.capture(), any());
     assertEquals(15, captor.getValue().size());
     assertNotNull(result.getHeaders().getFirst(HEADER_LAST_MODIFIED));
   }

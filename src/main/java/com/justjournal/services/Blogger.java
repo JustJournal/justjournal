@@ -74,6 +74,8 @@ public class Blogger extends BaseXmlRpcService {
 
   @Autowired private EntryService entryService;
 
+  @Autowired private EntryAttachmentService entryAttachmentService;
+
 
   /**
    * Fetch the users personal information including their username, userid, email address and name.
@@ -295,7 +297,10 @@ public class Blogger extends BaseXmlRpcService {
           throw new IllegalArgumentException("eid");
         }
 
-        if (entry.getUser().getId() == userId) entryRepository.deleteById(eid);
+        if (entry.getUser().getId() == userId) {
+          entryAttachmentService.deleteForEntry(eid);
+          entryRepository.deleteById(eid);
+        }
       } catch (final Exception e) {
         return error(ERROR_ENTRY_ID + postid);
       }

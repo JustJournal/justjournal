@@ -81,6 +81,7 @@ class BloggerTests {
   @Mock private LocationRepository locationDao;
   @Mock private Settings settings;
   @Mock private EntryService entryService;
+  @Mock private EntryAttachmentService entryAttachmentService;
 
   @InjectMocks private Blogger blogger;
 

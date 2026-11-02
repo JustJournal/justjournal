@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import com.justjournal.core.Settings;
 import com.justjournal.model.Entry;
+import com.justjournal.model.FeedAttachments;
 import com.justjournal.model.FormatType;
 import com.justjournal.model.User;
 import com.justjournal.services.MarkdownService;
@@ -42,6 +43,7 @@ import com.justjournal.utility.DateConvert;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -224,5 +226,60 @@ class AtomFeedTests {
     assertEquals(bare.hashCode(), bare2.hashCode());
     assertEquals("p1", a.getPublished());
     assertEquals("s1", a.getSummary());
+  }
+
+  @Test
+  void populate_addsTheAttachedPictureAndLink() {
+    final Entry text = entry(5, FormatType.TEXT, "plain body");
+    final FeedAttachments attached =
+        new FeedAttachments(
+            "https://www.justjournal.com/EntryImage/3",
+            "https://www.justjournal.com/EntryImage/3/display",
+            "image/jpeg",
+            2048,
+            1024,
+            768,
+            "sunset",
+            "https://example.com/a?b=1&c=2",
+            "Example",
+            "A page",
+            null,
+            0,
+            0);
+
+    feed.populate(List.of(text), Map.of(5, attached));
+    final String xml = feed.toXml();
+
+    assertTrue(xml.contains("xmlns:media=\"http://search.yahoo.com/mrss/\""), xml);
+    assertTrue(
+        xml.contains(
+            "<link rel=\"enclosure\" type=\"image/jpeg\" length=\"2048\" href=\"https://www.justjournal.com/EntryImage/3\"/>"),
+        xml);
+    assertTrue(
+        xml.contains(
+            "<link rel=\"related\" type=\"text/html\" href=\"https://example.com/a?b=1&amp;c=2\" title=\"Example\"/>"),
+        xml);
+    assertTrue(
+        xml.contains(
+            "<media:thumbnail url=\"https://www.justjournal.com/EntryImage/3/display\" width=\"1024\" height=\"768\"/>"),
+        xml);
+    // the html content shows the picture first and the link last, escaped twice: once as html and
+    // once as xml
+    assertTrue(
+        xml.contains(
+            "<content type=\"html\">&lt;p&gt;&lt;img src=&quot;https://www.justjournal.com/EntryImage/3/display&quot; alt=&quot;sunset&quot;/&gt;&lt;/p&gt;"),
+        xml);
+    assertTrue(xml.contains("plain body"), xml);
+    assertTrue(xml.contains("href=&quot;https://example.com/a?b=1&amp;amp;c=2&quot;"), xml);
+  }
+
+  @Test
+  void populate_withoutAttachmentsWritesNoExtraLinks() {
+    feed.populate(List.of(entry(6, FormatType.TEXT, "plain body")));
+    final String xml = feed.toXml();
+
+    assertFalse(xml.contains("rel=\"enclosure\""), xml);
+    assertFalse(xml.contains("rel=\"related\""), xml);
+    assertFalse(xml.contains("<media:thumbnail"), xml);
   }
 }

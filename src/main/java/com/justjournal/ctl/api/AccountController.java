@@ -37,6 +37,7 @@ import com.justjournal.model.Journal;
 import com.justjournal.model.User;
 import com.justjournal.model.api.PasswordChange;
 import com.justjournal.services.AlbumImageService;
+import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.ImageStorageService;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
@@ -100,7 +101,10 @@ public class AccountController {
 
   private final ImageStorageService imageStorageService;
 
-  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, AlbumImageService albumImageService, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService) {
+  private final EntryAttachmentService entryAttachmentService;
+
+  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, AlbumImageService albumImageService, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService, EntryAttachmentService entryAttachmentService) {
+    this.entryAttachmentService = entryAttachmentService;
     this.webLogin = webLogin;
     this.userDao = userDao;
     this.commentRepository = commentRepository;
@@ -180,6 +184,8 @@ public class AccountController {
       imageStorageService.deleteAvatar(userID);
 
       commentRepository.deleteAll(commentRepository.findByUser(user.get()));
+      // before the entries: a batch delete doesn't cascade, and the files must go too
+      entryAttachmentService.deleteAllForOwner(userID);
       entryRepository.deleteAllInBatch(entryRepository.findByUser(user.get()));
       entryRepository.flush();
 

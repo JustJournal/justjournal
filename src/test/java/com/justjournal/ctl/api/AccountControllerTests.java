@@ -57,6 +57,7 @@ import com.justjournal.repository.UserPrefRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.AlbumImageService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.EntryAttachmentService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +90,7 @@ class AccountControllerTests {
   @Mock private AlbumImageService albumImageService;
   @Mock private FavoriteRepository favoriteRepository;
   @Mock private ImageStorageService imageStorageService;
+  @Mock private EntryAttachmentService entryAttachmentService;
 
   @InjectMocks private AccountController controller;
 
@@ -136,7 +138,8 @@ class AccountControllerTests {
             mock(RssSubscriptionsRepository.class),
             mock(AlbumImageService.class),
             mock(FavoriteRepository.class),
-            mock(ImageStorageService.class));
+            mock(ImageStorageService.class),
+            mock(EntryAttachmentService.class));
     when(userRepository.findByUsername("nobody")).thenReturn(null);
     final MockHttpServletResponse response = new MockHttpServletResponse();
 

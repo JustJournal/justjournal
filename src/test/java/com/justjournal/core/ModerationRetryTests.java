@@ -10,15 +10,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.justjournal.exception.NotFoundException;
+import com.justjournal.model.EntryImage;
+import com.justjournal.model.EntryLink;
 import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.User;
 import com.justjournal.model.UserImage;
 import com.justjournal.model.UserPic;
+import com.justjournal.repository.EntryImageRepository;
+import com.justjournal.repository.EntryLinkRepository;
 import com.justjournal.repository.UserImageRepository;
 import com.justjournal.repository.UserPicRepository;
 import com.justjournal.services.AlbumImageService;
+import com.justjournal.services.EntryImageService;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.StoredImageFiles;
 import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +43,10 @@ class ModerationRetryTests {
   private AlbumImageService albumImageService;
   private ImageStorageService imageStorageService;
   private ImageModerationService moderation;
+  private EntryImageRepository entryImageRepository;
+  private EntryLinkRepository entryLinkRepository;
+  private EntryImageService entryImageService;
+  private StoredImageFiles files;
   private ModerationRetry retry;
 
   @BeforeEach
@@ -46,6 +56,10 @@ class ModerationRetryTests {
     albumImageService = mock(AlbumImageService.class);
     imageStorageService = mock(ImageStorageService.class);
     moderation = mock(ImageModerationService.class);
+    entryImageRepository = mock(EntryImageRepository.class);
+    entryLinkRepository = mock(EntryLinkRepository.class);
+    entryImageService = mock(EntryImageService.class);
+    files = mock(StoredImageFiles.class);
     final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
 
@@ -56,7 +70,11 @@ class ModerationRetryTests {
             albumImageService,
             imageStorageService,
             moderation,
-            new TransactionTemplate(transactionManager));
+            new TransactionTemplate(transactionManager),
+            entryImageRepository,
+            entryLinkRepository,
+            entryImageService,
+            files);
     retry.setEnabled(true);
   }
 
@@ -207,5 +225,90 @@ class ModerationRetryTests {
         .findByModerationStatusAndModerationCategoryOrderByModifiedAsc(
             eq(ModerationStatus.REVIEW), eq(ERROR), any());
     verify(albumImageService, never()).picture(anyInt(), anyInt());
+  }
+
+  private static EntryImage heldPostPicture(final int id) {
+    final EntryImage image = new EntryImage();
+    image.setId(id);
+    image.setOwnerId(5);
+    image.setEntryId(30);
+    image.setModerationStatus(ModerationStatus.REVIEW);
+    image.setModerationCategory(ERROR);
+    return image;
+  }
+
+  private static EntryLink heldLinkPreview(final int id) {
+    final EntryLink link = new EntryLink();
+    link.setId(id);
+    link.setOwnerId(5);
+    link.setEntryId(31);
+    link.setImageFilename("link/5/x.jpg");
+    link.setImageModerationStatus(ModerationStatus.REVIEW);
+    link.setImageModerationCategory(ERROR);
+    return link;
+  }
+
+  @Test
+  void postPicturesAndLinkPreviewsAreJudgedAgain() throws Exception {
+    final EntryImage picture = heldPostPicture(3);
+    final EntryLink link = heldLinkPreview(4);
+    when(entryImageRepository.findByModerationStatusAndModerationCategoryOrderByIdAsc(
+            eq(ModerationStatus.REVIEW), eq(ERROR), any()))
+        .thenReturn(List.of(picture));
+    when(entryLinkRepository.findByImageModerationStatusAndImageModerationCategoryOrderByIdAsc(
+            eq(ModerationStatus.REVIEW), eq(ERROR), any()))
+        .thenReturn(List.of(link));
+    when(entryImageService.readOriginalForModeration(picture)).thenReturn(new byte[] {1});
+    when(files.get("link/5/x.jpg")).thenReturn(new ByteArrayInputStream(new byte[] {2}));
+    when(moderation.moderate(any(byte[].class)))
+        .thenReturn(new ImageModerationService.Result(ModerationStatus.APPROVED, "safe", "ok"));
+    when(entryImageRepository.findById(3)).thenReturn(Optional.of(picture));
+    when(entryLinkRepository.findById(4)).thenReturn(Optional.of(link));
+
+    retry.run();
+
+    assertEquals(ModerationStatus.APPROVED, picture.getModerationStatus());
+    assertEquals("safe", picture.getModerationCategory());
+    verify(entryImageRepository).save(picture);
+    assertEquals(ModerationStatus.APPROVED, link.getImageModerationStatus());
+    verify(entryLinkRepository).save(link);
+  }
+
+  @Test
+  void stopsBeforeAvatarsWhenPostPicturesFindTheFilterDown() throws Exception {
+    final EntryImage picture = heldPostPicture(3);
+    when(entryImageRepository.findByModerationStatusAndModerationCategoryOrderByIdAsc(
+            eq(ModerationStatus.REVIEW), eq(ERROR), any()))
+        .thenReturn(List.of(picture));
+    when(entryImageService.readOriginalForModeration(picture)).thenReturn(new byte[] {1});
+    when(moderation.moderate(any(byte[].class)))
+        .thenReturn(new ImageModerationService.Result(ModerationStatus.REVIEW, ERROR, "down"));
+
+    retry.run();
+
+    verify(entryImageRepository, never()).save(any());
+    verify(entryLinkRepository, never())
+        .findByImageModerationStatusAndImageModerationCategoryOrderByIdAsc(any(), any(), any());
+    verify(userPicRepository, never())
+        .findByModerationStatusAndModerationCategoryOrderByModifiedAsc(any(), any(), any());
+  }
+
+  @Test
+  void aPostPictureSomeoneDecidedMeanwhileIsLeftAlone() throws Exception {
+    final EntryImage picture = heldPostPicture(3);
+    when(entryImageRepository.findByModerationStatusAndModerationCategoryOrderByIdAsc(
+            eq(ModerationStatus.REVIEW), eq(ERROR), any()))
+        .thenReturn(List.of(picture));
+    when(entryImageService.readOriginalForModeration(picture)).thenReturn(new byte[] {1});
+    when(moderation.moderate(any(byte[].class)))
+        .thenReturn(new ImageModerationService.Result(ModerationStatus.REJECTED, "nudity", "no"));
+    final EntryImage approvedByHand = heldPostPicture(3);
+    approvedByHand.setModerationStatus(ModerationStatus.APPROVED);
+    when(entryImageRepository.findById(3)).thenReturn(Optional.of(approvedByHand));
+
+    retry.run();
+
+    verify(entryImageRepository, never()).save(any());
+    assertEquals(ModerationStatus.APPROVED, approvedByHand.getModerationStatus());
   }
 }

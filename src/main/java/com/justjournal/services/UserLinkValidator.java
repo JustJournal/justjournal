@@ -25,13 +25,14 @@
  */
 package com.justjournal.services;
 
+import com.justjournal.services.link.LinkRejectedException;
+import com.justjournal.services.link.UrlPolicy;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
@@ -51,16 +52,6 @@ public class UserLinkValidator {
 
   /** Matches the user_link.uri column size. */
   public static final int MAX_URI_LENGTH = 255;
-
-  /** Popular URL shortening / open redirect services. Subdomains are blocked as well. */
-  static final Set<String> SHORTENER_DOMAINS =
-      Set.of(
-          "adf.ly", "bc.vc", "bit.do", "bit.ly", "bitly.com", "bl.ink", "buff.ly", "cli.gs",
-          "clck.ru", "cutt.ly", "db.tt", "dlvr.it", "fb.me", "goo.gl", "ift.tt", "is.gd", "j.mp",
-          "lnkd.in", "mcaf.ee", "ow.ly", "po.st", "qr.ae", "rb.gy", "rebrand.ly", "s.id",
-          "short.gy", "short.io", "shorte.st", "shorturl.at", "shorturl.com", "snip.ly", "soo.gd",
-          "su.pr", "t.co", "t.ly", "tiny.cc", "tiny.one", "tinyurl.com", "tr.im", "trib.al",
-          "v.gd", "x.co");
 
   private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
 
@@ -105,20 +96,12 @@ public class UserLinkValidator {
       return Optional.of("Link URL must use a domain name, not an IP address.");
     if (!host.contains(".")) return Optional.of("Link URL must use a fully qualified domain name.");
 
-    if (isShortener(host))
-      return Optional.of("Links from URL shortening services are not allowed. Use the full URL.");
+    if (UrlPolicy.isShortener(host)) return Optional.of(LinkRejectedException.SHORTENER_MESSAGE);
 
     if (!isPubliclyResolvable(host))
       return Optional.of("The domain " + host + " could not be found.");
 
     return Optional.empty();
-  }
-
-  static boolean isShortener(final String host) {
-    for (final String domain : SHORTENER_DOMAINS) {
-      if (host.equals(domain) || host.endsWith("." + domain)) return true;
-    }
-    return false;
   }
 
   boolean isPubliclyResolvable(final String host) {

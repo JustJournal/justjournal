@@ -34,6 +34,7 @@ import com.justjournal.core.UserContextService;
 import com.justjournal.exception.ForbiddenException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
+import com.justjournal.jsonfeed.Attachment;
 import com.justjournal.jsonfeed.Author;
 import com.justjournal.jsonfeed.Feed;
 import com.justjournal.jsonfeed.Item;
@@ -44,6 +45,7 @@ import com.justjournal.repository.*;
 import com.justjournal.rss.CachedHeadlineBean;
 import com.justjournal.rss.Rss;
 import com.justjournal.services.*;
+import com.justjournal.services.EntryAttachmentService.EntryAttachments;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
@@ -141,6 +143,10 @@ public class UsersController {
 
   private final com.justjournal.core.Settings settings;
 
+  private final EntryAttachmentService entryAttachmentService;
+
+  private final EntryAttachmentRenderer attachmentRenderer;
+
   @Autowired
   public UsersController(
           final EntryService entryService,
@@ -157,7 +163,8 @@ public class UsersController {
           final MarkdownService markdownService,
           final AtomFeed atom, TrackbackService trackbackService, CachedHeadlineBean cachedHeadlineBean,
           UserContextService userContextService, PdfFormatService pdfFormatService,
-          com.justjournal.core.Settings settings) {
+          com.justjournal.core.Settings settings, EntryAttachmentService entryAttachmentService,
+          EntryAttachmentRenderer attachmentRenderer) {
     this.entryService = entryService;
     this.commentDao = commentDao;
     this.entryDao = entryDao;
@@ -176,6 +183,8 @@ public class UsersController {
     this.userContextService = userContextService;
     this.pdfFormatService = pdfFormatService;
     this.settings = settings;
+    this.entryAttachmentService = entryAttachmentService;
+    this.attachmentRenderer = attachmentRenderer;
   }
 
 
@@ -249,6 +258,12 @@ public class UsersController {
     final Entry entry = getEntry(id, userContext);
     model.addAttribute(MODEL_ENTRY, entry);
     model.addAttribute(MODEL_ENTRY + "_format", getSingleEntry(entry, userContext));
+    if (entry != null) {
+      // link previews use the entry's own picture when everyone may see it
+      final FeedAttachments shared =
+          entryAttachmentService.forFeed(List.of(entry)).get(entry.getId());
+      if (shared != null) model.addAttribute("entryImageUrl", shared.previewImageUrl());
+    }
 
     model.addAttribute(MODEL_AVATAR, avatarService.isAvatarAvailable(userContext.getBlogUser()));
 
@@ -522,6 +537,7 @@ public class UsersController {
       var entries = entryDao
                       .findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page)
                       .getContent();
+      final Map<Integer, FeedAttachments> attachments = entryAttachmentService.forFeed(entries);
       String avatar = null;
       if (avatarService.isAvatarAvailable(user)) {
         avatar = settings.getBaseUri() + "Avatar/" + user.getId();
@@ -547,6 +563,9 @@ public class UsersController {
                               .date_published(DateConvert.encode3339(entry.getDate()))
                               .date_modified(DateConvert.encode3339(entry.getModified()))
                               .tags(entry.getTags().stream().map(t -> t.getTag().getName()).toList())
+                              .image(jsonImage(attachments.get(entry.getId())))
+                              .external_url(jsonLink(attachments.get(entry.getId())))
+                              .attachments(jsonAttachments(attachments.get(entry.getId())))
                               .build()).toList())
               .build();
 
@@ -558,6 +577,29 @@ public class UsersController {
       log.error("Unable to generate JSON", e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
+  }
+
+  private static String jsonImage(final FeedAttachments a) {
+    return a == null ? null : a.previewImageUrl();
+  }
+
+  private static String jsonLink(final FeedAttachments a) {
+    return a == null ? null : a.linkUrl();
+  }
+
+  private static List<Attachment> jsonAttachments(final FeedAttachments a) {
+    if (a == null || !a.hasImage()) return null;
+    final Attachment picture = new Attachment();
+    picture.setUrl(a.imageUrl());
+    picture.setMime_type(a.imageType());
+    picture.setSize_in_bytes((int) Math.min(a.imageLength(), Integer.MAX_VALUE));
+    picture.setTitle(a.imageAlt());
+    return List.of(picture);
+  }
+
+  /** The logged in user, or 0 for a reader who isn't logged in. */
+  private static int viewerId(final UserContext uc) {
+    return uc.getAuthenticatedUser() == null ? 0 : uc.getAuthenticatedUser().getId();
   }
 
   @GetMapping(value = "{username}/rss", produces = "application/rss+xml; charset=UTF-8")
@@ -1027,6 +1069,8 @@ public class UsersController {
 
       log.debug("getEntries: Begin Iteration of records.");
 
+      final Map<Integer, EntryAttachments> attachments =
+          entryAttachmentService.forEntries(entries.getContent());
       for (final Entry o : entries) {
         // Parse the previous string back into a Date.
         final ParsePosition pos = new ParsePosition(0);
@@ -1044,7 +1088,7 @@ public class UsersController {
           lastDate = curDate;
         }
 
-        sb.append(formatEntry(uc, o, currentDate, false));
+        sb.append(formatEntry(uc, o, currentDate, false, attachments.get(o.getId())));
       }
     } catch (final Exception e1) {
       log.error("getEntries: Exception is {}", e1.getMessage(), e1);
@@ -1097,6 +1141,7 @@ public class UsersController {
         String lastDate = "";
         String curDate;
 
+        final Map<Integer, EntryAttachments> attachments = entryAttachmentService.forEntries(entries);
         /* Iterator */
         final Iterator<Entry> itr = entries.iterator();
         log.debug("getFavorites: Number of entries {}", entries.size());
@@ -1148,6 +1193,7 @@ public class UsersController {
 
           sb.append("<div class=\"ebody\">");
           sb.append(ENDL);
+          sb.append(attachmentRenderer.html(o, attachments.get(o.getId()), viewerId(uc)));
 
           // Keep this synced with getEntries()
           if (o.getFormat().equals(FormatType.TEXT)) {
@@ -1335,6 +1381,7 @@ public class UsersController {
       String lastDate = "";
       String curDate;
 
+      final Map<Integer, EntryAttachments> attachments = entryAttachmentService.forEntries(entries);
       /* Iterator */
       final Iterator<Entry> itr = entries.iterator();
       log.trace("getFriends: Number of entries {}", entries.size());
@@ -1386,6 +1433,7 @@ public class UsersController {
 
         sb.append("<div class=\"ebody\">");
         sb.append(ENDL);
+        sb.append(attachmentRenderer.html(o, attachments.get(o.getId()), viewerId(uc)));
 
         // Keep this synced with getEntries()
         if (o.getFormat().equals(FormatType.TEXT)) {
@@ -1768,6 +1816,8 @@ public class UsersController {
         String lastDate = "";
         String curDate;
 
+        final Map<Integer, EntryAttachments> attachments =
+            entryAttachmentService.forEntries(entries);
         /* Iterator */
         final Iterator<Entry> itr = entries.iterator();
         for (int i = 0, n = entries.size(); i < n; i++) {
@@ -1784,7 +1834,7 @@ public class UsersController {
             lastDate = curDate;
           }
 
-          sb.append(formatEntry(uc, o, currentDate, false));
+          sb.append(formatEntry(uc, o, currentDate, false, attachments.get(o.getId())));
         }
       }
 
@@ -1819,10 +1869,9 @@ public class UsersController {
     rss.setManagingEditor(user.getUserContact().getEmail() + " (" + user.getFirstName() + ")");
 
     final Pageable page = PageRequest.of(0, 15);
-    rss.populate(
-        entryDao
-            .findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page)
-            .getContent());
+    final List<Entry> entries =
+        entryDao.findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page).getContent();
+    rss.populate(entries, entryAttachmentService.forFeed(entries));
     return rss.toXml();
   }
 
@@ -1846,10 +1895,9 @@ public class UsersController {
     atom.setId(blogbase + "/atom");
     atom.setSelfLink("/users/" + user.getUsername() + "/atom");
     final Pageable page = PageRequest.of(0, 15);
-    atom.populate(
-        entryDao
-            .findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page)
-            .getContent());
+    final List<Entry> entries =
+        entryDao.findByUserAndSecurityOrderByDateDesc(user, Security.PUBLIC, page).getContent();
+    atom.populate(entries, entryAttachmentService.forFeed(entries));
     return atom.toXml();
   }
 
@@ -1901,6 +1949,7 @@ public class UsersController {
 
       log.trace("getTags: Begin Iteration of records.");
 
+      final Map<Integer, EntryAttachments> attachments = entryAttachmentService.forEntries(entries);
       final Iterator<Entry> itr = entries.iterator();
       for (int i = 0, n = entries.size(); i < n; i++) {
         Entry o = itr.next();
@@ -1919,7 +1968,7 @@ public class UsersController {
           lastDate = curDate;
         }
 
-        sb.append(formatEntry(uc, o, currentDate, false));
+        sb.append(formatEntry(uc, o, currentDate, false, attachments.get(o.getId())));
       }
     } catch (final Exception e1) {
         log.error("getTags: Exception is {}\n", e1.getMessage(), e1);
@@ -1938,6 +1987,21 @@ public class UsersController {
    */
   protected String formatEntry(
       final UserContext uc, final Entry o, final Date currentDate, final boolean single) {
+    return formatEntry(uc, o, currentDate, single, entryAttachmentService.forEntry(o.getId()));
+  }
+
+  /**
+   * Format an entry whose attachments were already looked up, as list pages do for all their
+   * entries at once.
+   *
+   * @param attachments the entry's picture and link, or null for none
+   */
+  protected String formatEntry(
+      final UserContext uc,
+      final Entry o,
+      final Date currentDate,
+      final boolean single,
+      final EntryAttachments attachments) {
     final StringBuilder sb = new StringBuilder();
     final SimpleDateFormat formatmytime = new SimpleDateFormat("h:mm a");
 
@@ -1994,6 +2058,7 @@ public class UsersController {
 
     sb.append("\t\t\t<div class=\"ebody\">");
     sb.append(ENDL);
+    sb.append(attachmentRenderer.html(o, attachments, viewerId(uc)));
 
     /*
       autoformat controls whether new lines should be

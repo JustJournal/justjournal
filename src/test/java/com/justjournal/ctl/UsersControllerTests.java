@@ -89,6 +89,15 @@ import com.justjournal.services.MarkdownService;
 import com.justjournal.services.PdfFormatService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.services.UserImageService;
+import com.justjournal.services.EntryAccessService;
+import com.justjournal.model.FeedAttachments;
+import com.justjournal.model.EntryImage;
+import com.justjournal.model.EntryLink;
+import com.justjournal.model.LinkPreviewStatus;
+import com.justjournal.model.ModerationStatus;
+import com.justjournal.services.EntryAttachmentService.EntryAttachments;
+import com.justjournal.services.EntryAttachmentService;
+import com.justjournal.services.EntryImageService;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -97,6 +106,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -139,6 +149,9 @@ class UsersControllerTests {
   private AtomFeed atom;
   private MarkdownService markdownService;
   private Settings settings;
+  private EntryAttachmentService entryAttachmentService;
+  private EntryAccessService entryAccessService;
+  private EntryImageService entryImageService;
 
   private MockMvc mockMvc;
   private User blogUser;
@@ -164,6 +177,9 @@ class UsersControllerTests {
     atom = mock(AtomFeed.class);
     markdownService = mock(MarkdownService.class);
     settings = mock(Settings.class);
+    entryAttachmentService = mock(EntryAttachmentService.class);
+    entryAccessService = mock(EntryAccessService.class);
+    entryImageService = mock(EntryImageService.class);
 
     when(settings.getBlogBaseUrl(anyString()))
         .thenAnswer(inv -> "http://localhost/users/" + inv.getArgument(0));
@@ -191,7 +207,9 @@ class UsersControllerTests {
             cachedHeadlineBean,
             userContextService,
             pdfFormatService,
-            settings);
+            settings,
+            entryAttachmentService,
+            new EntryAttachmentRenderer(entryAccessService, entryImageService));
 
     // the real pages are Thymeleaf templates; here the view name and model are what matter
     final View noView = (m, request, response) -> {};
@@ -567,6 +585,67 @@ class UsersControllerTests {
     assertTrue(html.contains("<p>excerpt</p>"), html);
     // nobody is logged in, so no comment edit actions
     assertFalse(html.contains("Delete Comment"), html);
+  }
+
+  @Test
+  void entry_attachmentsSitBetweenTheSubjectAndTheBody() throws Exception {
+    anonymous();
+    final Entry entry = publicEntry(5, blogUser);
+    when(entryDao.findById(5)).thenReturn(Optional.of(entry));
+    final EntryImage picture = new EntryImage();
+    picture.setId(3);
+    picture.setOwnerId(blogUser.getId());
+    picture.setEntryId(5);
+    picture.setWidth(800);
+    picture.setHeight(600);
+    picture.setModerationStatus(ModerationStatus.APPROVED);
+    final EntryLink link = new EntryLink();
+    link.setId(4);
+    link.setOwnerId(blogUser.getId());
+    link.setEntryId(5);
+    link.setUrl("https://example.com/story");
+    link.setPreviewStatus(LinkPreviewStatus.READY);
+    link.setTitle("<b>Bold</b> claim");
+    when(entryAttachmentService.forEntry(5)).thenReturn(new EntryAttachments(picture, link));
+    when(entryAccessService.canView(eq(entry), anyInt())).thenReturn(true);
+    when(entryImageService.visible(eq(picture), eq(entry), anyInt())).thenReturn(true);
+
+    final var result =
+        mockMvc.perform(get("/users/" + BLOG + "/entry/5")).andExpect(status().isOk()).andReturn();
+    final String html = modelString(result, "entry_format");
+
+    final int subject = html.indexOf("class=\"subject\"");
+    final int figure = html.indexOf("<figure class=\"entry-image\">");
+    final int card = html.indexOf("<aside class=\"entry-link-card\">");
+    final int body = html.indexOf("Body of 5");
+    assertTrue(subject >= 0 && subject < figure && figure < card && card < body, html);
+    assertTrue(html.contains("&lt;b&gt;Bold&lt;/b&gt; claim"), html);
+    assertTrue(html.contains("rel=\"nofollow ugc noopener noreferrer\""), html);
+  }
+
+  @Test
+  void entry_attachmentsTheReaderMayNotSeeAreLeftOut() throws Exception {
+    anonymous();
+    final Entry entry = publicEntry(5, blogUser);
+    when(entryDao.findById(5)).thenReturn(Optional.of(entry));
+    final EntryImage held = new EntryImage();
+    held.setId(3);
+    held.setModerationStatus(ModerationStatus.REVIEW);
+    final EntryLink blocked = new EntryLink();
+    blocked.setId(4);
+    blocked.setUrl("https://bad.example/");
+    blocked.setPreviewStatus(LinkPreviewStatus.BLOCKED);
+    when(entryAttachmentService.forEntry(5)).thenReturn(new EntryAttachments(held, blocked));
+    when(entryAccessService.canView(eq(entry), anyInt())).thenReturn(true);
+    when(entryImageService.visible(eq(held), eq(entry), anyInt())).thenReturn(false);
+
+    final var result =
+        mockMvc.perform(get("/users/" + BLOG + "/entry/5")).andExpect(status().isOk()).andReturn();
+    final String html = modelString(result, "entry_format");
+
+    assertFalse(html.contains("entry-image"), html);
+    assertFalse(html.contains("bad.example"), html);
+    assertFalse(html.contains("isn't shown"), html);
   }
 
   @Test
@@ -1038,6 +1117,8 @@ class UsersControllerTests {
     when(entryDao.findByUserAndSecurityOrderByDateDesc(eq(blogUser), eq(Security.PUBLIC), any(Pageable.class)))
         .thenReturn(new PageImpl<>(entries));
     when(atom.toXml()).thenReturn("<feed/>");
+    final Map<Integer, FeedAttachments> attachments = Map.of(1, FeedAttachments.NONE);
+    when(entryAttachmentService.forFeed(entries)).thenReturn(attachments);
 
     mockMvc
         .perform(get("/users/" + BLOG + "/atom"))
@@ -1048,7 +1129,7 @@ class UsersControllerTests {
     verify(atom).setAlternateLink(BASE);
     verify(atom).setId(BASE + "/atom");
     verify(atom).setSelfLink("/users/bob/atom");
-    verify(atom).populate(entries);
+    verify(atom).populate(entries, attachments);
   }
 
   @Test
@@ -1066,6 +1147,8 @@ class UsersControllerTests {
     when(entryDao.findByUserAndSecurityOrderByDateDesc(eq(blogUser), eq(Security.PUBLIC), any(Pageable.class)))
         .thenReturn(new PageImpl<>(entries));
     when(rss.toXml()).thenReturn("<rss/>");
+    final Map<Integer, FeedAttachments> attachments = Map.of(1, FeedAttachments.NONE);
+    when(entryAttachmentService.forFeed(entries)).thenReturn(attachments);
 
     mockMvc
         .perform(get("/users/" + BLOG + "/rss"))
@@ -1077,7 +1160,7 @@ class UsersControllerTests {
     verify(rss).setSelfLink(BASE + "/rss");
     verify(rss).setWebMaster("webmaster@example.com");
     verify(rss).setManagingEditor("bob@example.com (Bob)");
-    verify(rss).populate(entries);
+    verify(rss).populate(entries, attachments);
   }
 
   @Test

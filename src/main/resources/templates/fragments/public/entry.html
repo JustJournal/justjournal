@@ -10,6 +10,26 @@
                         (optional)
                     </div>
                     <div class="form-group">
+                        <label for="entry-image-file">Picture</label>
+                        <input type="file" id="entry-image-file" accept="image/jpeg,image/png,image/gif">
+                        <input type="hidden" id="entry-image-id" value="">
+                        <input class="form-control" type="text" id="entry-image-alt" maxlength="255" placeholder="Describe the picture for people who can't see it" value="">
+                        <span class="help-block">(optional) Shown above the entry. JPEG, PNG or GIF, up to 20 MB.</span>
+                        <div class="progress" id="entry-image-progress-container" style="display:none;">
+                            <div class="progress-bar" id="entry-image-progress" role="progressbar" style="width: 0;">0%</div>
+                        </div>
+                        <div class="alert" id="entry-image-message" style="display:none;"></div>
+                        <div id="entry-image-preview" style="display:none;">
+                            <img src="" alt="" style="max-width: 100%; max-height: 240px;">
+                            <button class="btn btn-default btn-sm" type="button" id="entry-image-remove">Remove picture</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="entry-link">Link</label>
+                        <input class="form-control" type="url" id="entry-link" maxlength="1024" placeholder="https://" value="">
+                        <span class="help-block">(optional) Shown as a preview card above the entry. Shortened links aren't allowed. The preview appears shortly after you save.</span>
+                    </div>
+                    <div class="form-group">
                         <textarea id="body" name="body" style="width: 100%" cols="60" rows="20"></textarea>
                     </div>
                     <div class="form-group" id="markdown-explain">

@@ -168,6 +168,13 @@
             <version>4.5.14</version>
         </dependency>
 
+        <!-- parses link preview pages we fetched ourselves; Jsoup.connect is never used -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.17.2</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
