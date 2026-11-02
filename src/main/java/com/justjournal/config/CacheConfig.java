@@ -38,16 +38,20 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.justjournal.model.Tag;
+import com.justjournal.services.activitypub.RemoteKeyResolver;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -100,6 +104,18 @@ public class CacheConfig {
   public ReactiveRedisTemplate<String, String> reactiveRedisTemplateString(
       final ReactiveRedisConnectionFactory connectionFactory) {
     return new ReactiveRedisTemplate<>(connectionFactory, RedisSerializationContext.string());
+  }
+
+  /** Other servers' public keys, which {@link RemoteKeyResolver} fetches; kept for a while only. */
+  @Bean
+  public RedisCacheManagerBuilderCustomizer activityPubKeyCache(
+      @Value("${activitypub.key-cache-minutes:60}") final long minutes) {
+    return builder ->
+        builder.withCacheConfiguration(
+            RemoteKeyResolver.CACHE,
+            RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(minutes))
+                .disableCachingNullValues());
   }
 
   @PostConstruct

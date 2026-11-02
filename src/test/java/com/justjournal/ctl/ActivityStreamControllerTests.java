@@ -48,6 +48,7 @@ import com.justjournal.atom.AtomFeed;
 import com.justjournal.config.ExceptionHandlerConfig;
 import com.justjournal.core.Settings;
 import com.justjournal.core.UserContextService;
+import com.justjournal.model.ActorKey;
 import com.justjournal.model.Entry;
 import com.justjournal.model.EntryTag;
 import com.justjournal.model.FeedAttachments;
@@ -79,6 +80,7 @@ import com.justjournal.services.MarkdownService;
 import com.justjournal.services.PdfFormatService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.services.UserImageService;
+import com.justjournal.services.activitypub.ActorKeyService;
 import com.justjournal.services.activitypub.FollowerService;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -116,6 +118,8 @@ class ActivityStreamControllerTests {
   /** What Mastodon sends when someone pastes a URL into its search. */
   private static final String MASTODON_SEARCH =
       "application/activity+json, " + AS_PROFILE + ", text/html;q=0.1";
+  private static final String BOB_PEM =
+      "-----BEGIN PUBLIC KEY-----\nMIIBIjANBg...\n-----END PUBLIC KEY-----\n";
   private static final String BROWSER =
       "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
 
@@ -127,6 +131,7 @@ class ActivityStreamControllerTests {
   private AvatarService avatarService;
   private UserPicRepository userPicRepository;
   private FollowerService followerService;
+  private ActorKeyService actorKeyService;
   private MockMvc mockMvc;
   private User bob;
   private Journal journal;
@@ -142,7 +147,8 @@ class ActivityStreamControllerTests {
     entryAttachmentService = mock(EntryAttachmentService.class);
     avatarService = mock(AvatarService.class);
     userPicRepository = mock(UserPicRepository.class);
-    followerService = mock(FollowerService.class);
+    followerService = mock(FollowerService.class,
+    actorKeyService = mock(ActorKeyService.class);
 
     when(entryService.convertBodyToHtml(any(), anyString()))
         .thenAnswer(inv -> "<p>" + inv.getArgument(1) + "</p>");
@@ -168,7 +174,8 @@ class ActivityStreamControllerTests {
             entryAttachmentService,
             avatarService,
             userPicRepository,
-            followerService);
+            followerService,
+            actorKeyService);
 
     final UserContextService userContextService = mock(UserContextService.class);
     final UsersController usersController =
@@ -212,6 +219,11 @@ class ActivityStreamControllerTests {
     journal.setUser(bob);
     bob.getJournals().add(journal);
     when(userRepository.findByUsername("bob")).thenReturn(bob);
+    final ActorKey key = new ActorKey();
+    key.setUserId(7);
+    key.setPublicKeyPem(BOB_PEM);
+    key.setPrivateKeyPem("never shown");
+    when(actorKeyService.forUser(bob)).thenReturn(key);
   }
 
   // ---- fixtures -------------------------------------------------------------------------
@@ -358,7 +370,10 @@ class ActivityStreamControllerTests {
 
     final JsonNode actor = json("/users/bob");
 
-    assertEquals("https://www.w3.org/ns/activitystreams", actor.get("@context").asText());
+    // the security context defines publicKey
+    assertEquals(2, actor.get("@context").size());
+    assertEquals("https://www.w3.org/ns/activitystreams", actor.get("@context").get(0).asText());
+    assertEquals("https://w3id.org/security/v1", actor.get("@context").get(1).asText());
     assertEquals(ACTOR, actor.get("id").asText());
     assertEquals("Person", actor.get("type").asText());
     assertEquals("bob", actor.get("preferredUsername").asText());
@@ -374,7 +389,10 @@ class ActivityStreamControllerTests {
     assertEquals(ACTOR + "/following", actor.get("following").asText());
     assertEquals("2004-05-06T12:00:00.000Z", actor.get("published").asText());
     assertFalse(actor.get("manuallyApprovesFollowers").asBoolean());
-    assertFalse(actor.has("publicKey"));
+    assertEquals(ACTOR + "#main-key", actor.get("publicKey").get("id").asText());
+    assertEquals(ACTOR, actor.get("publicKey").get("owner").asText());
+    assertEquals(BOB_PEM, actor.get("publicKey").get("publicKeyPem").asText());
+    assertFalse(actor.toString().contains("never shown"));
     assertFalse(actor.has("discoverable"));
   }
 
@@ -401,6 +419,8 @@ class ActivityStreamControllerTests {
     bob.getJournals().clear();
     as("/users/bob", ActivityStreamController.ACTIVITY_JSON_VALUE)
         .andExpect(status().isNotFound());
+    // no key is made for a journal nobody may see
+    verify(actorKeyService, never()).forUser(any());
   }
 
   @Test

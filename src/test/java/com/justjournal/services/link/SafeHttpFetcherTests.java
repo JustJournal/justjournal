@@ -100,6 +100,13 @@ class SafeHttpFetcherTests {
       send(ex, 200, "text/html; charset=ISO-8859-1", PAGE);
     });
     handle("/xhtml", ex -> send(ex, 200, "application/xhtml+xml", PAGE));
+    handle("/signed", ex -> {
+      for (final String name : List.of("X-Hop", "Accept", "Host")) {
+        requestHeaders.put(name, String.valueOf(ex.getRequestHeaders().getFirst(name)));
+      }
+      send(ex, 200, "application/activity+json", "{}".getBytes(StandardCharsets.UTF_8));
+    });
+    handle("/to-signed", ex -> redirect(ex, 302, "/signed"));
     handle("/nocharset", ex -> send(ex, 200, "TEXT/HTML", PAGE));
     handle("/relative", ex -> redirect(ex, 302, "/page"));
     handle("/dir/relative-dots", ex -> redirect(ex, 301, "../page?x=1#frag"));
@@ -309,6 +316,31 @@ class SafeHttpFetcherTests {
     assertEquals(url("/page").fetchUri(), result.finalUri());
     assertEquals("JustJournal test", requestHeaders.get("User-Agent"));
     assertTrue(requestHeaders.get("Accept").contains("text/html"), requestHeaders.get("Accept"));
+  }
+
+  @Test
+  void fetch_addsHeadersWorkedOutForEachHop() throws Exception {
+    final List<URI> asked = new CopyOnWriteArrayList<>();
+    final String accept = "application/activity+json, application/ld+json; profile=\"x\"";
+    final SafeHttpFetcher.Result result =
+        fetcher()
+            .fetch(
+                url("/to-signed"),
+                Set.of("application/activity+json"),
+                CAP,
+                target -> {
+                  asked.add(target);
+                  return Map.of(
+                      "X-Hop", target.getPath(),
+                      "Accept", accept,
+                      "Host", target.getHost() + ":" + target.getPort());
+                });
+
+    assertEquals(List.of(url("/to-signed").fetchUri(), url("/signed").fetchUri()), asked);
+    assertEquals("/signed", requestHeaders.get("X-Hop"));
+    assertEquals(accept, requestHeaders.get("Accept"));
+    assertEquals("site.fetch-test.com:" + port, requestHeaders.get("Host"));
+    assertEquals("application/activity+json", result.contentType());
   }
 
   @Test
