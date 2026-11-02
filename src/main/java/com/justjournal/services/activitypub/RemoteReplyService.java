@@ -278,7 +278,13 @@ public class RemoteReplyService {
     if (!inReplyTo.startsWith(prefix)) return null;
     final String number = inReplyTo.substring(prefix.length());
     if (!ENTRY_NUMBER.matcher(number).matches()) return null;
-    final Entry entry = entryRepository.findById(Integer.parseInt(number)).orElse(null);
+    final int entryId;
+    try {
+      entryId = Integer.parseInt(number);
+    } catch (final NumberFormatException e) {
+      return null;
+    }
+    final Entry entry = entryRepository.findById(entryId).orElse(null);
     if (entry == null || entry.getUser() == null || entry.getUser().getId() != user.getId())
       return null;
     return entry;
