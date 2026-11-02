@@ -40,6 +40,7 @@ import com.justjournal.model.Location;
 import com.justjournal.model.Mood;
 import com.justjournal.model.RecentEntry;
 import com.justjournal.model.Security;
+import com.justjournal.model.Tag;
 import com.justjournal.model.User;
 import com.justjournal.model.api.EntryTo;
 import com.justjournal.repository.CommentRepository;
@@ -52,6 +53,7 @@ import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.utility.HTMLUtil;
+import com.justjournal.utility.StopWords;
 
 import java.util.*;
 
@@ -379,6 +381,12 @@ public class EntryController {
       return ErrorHandler.modelError("Entry does not specify a security level.");
     }
 
+    final String tagError = invalidTagMessage(entryTo.getTags());
+    if (tagError != null) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError(tagError);
+    }
+
     // a link that can't be used refuses the whole save, before anything is written
     final EntryAttachmentService.Prepared attachments;
     try {
@@ -500,6 +508,12 @@ public class EntryController {
       return ErrorHandler.modelError("Entry does not specify a security level.");
     }
 
+    final String tagError = invalidTagMessage(entryTo.getTags());
+    if (tagError != null) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return ErrorHandler.modelError(tagError);
+    }
+
     Entry entry = new Entry(entryTo);
     entry.setUser(user);
 
@@ -556,6 +570,28 @@ public class EntryController {
     final int viewerId = Login.isAuthenticated(session) ? Login.currentLoginId(session) : 0;
     entryAttachmentService.decorate(entry, to, viewerId);
     return to;
+  }
+
+  /**
+   * Check requested tags before anything is saved, since a tag that can't be stored would otherwise
+   * fail after the entry was written.
+   *
+   * @param tags requested tag names
+   * @return error message for the first unusable tag, or null when all are fine
+   */
+  private static String invalidTagMessage(final Set<String> tags) {
+    if (tags == null) return null;
+
+    for (final String tag : tags) {
+      if (StopWords.isStopWord(tag)) continue;
+      try {
+        new Tag(tag);
+      } catch (final IllegalArgumentException e) {
+        return "Tag \"" + StringUtils.abbreviate(tag, 40)
+            + "\" is invalid. Tags are letters only, 30 characters or less.";
+      }
+    }
+    return null;
   }
 
   private Location getLocation(int locationId) {

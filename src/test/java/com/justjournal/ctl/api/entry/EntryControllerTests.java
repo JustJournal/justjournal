@@ -801,4 +801,43 @@ class EntryControllerTests {
 
     verify(entryAttachmentService).decorate(entry, result, 1);
   }
+
+  @Test
+  void post_withAnInvalidTag_isRejectedBeforeSaving() {
+    final EntryTo badTag = entryTo("TEXT");
+    badTag.setTags(Set.of("news", "open-source"));
+
+    final Map<String, String> result =
+        entryController.post(badTag, session, response, new ExtendedModelMap());
+
+    assertEquals(400, response.getStatus());
+    assertEquals(
+        "Tag \"open-source\" is invalid. Tags are letters only, 30 characters or less.",
+        result.get("error"));
+    verify(entryRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void put_withAnInvalidTag_isRejectedBeforeSaving() {
+    final EntryTo badTag = entryTo("TEXT");
+    badTag.setTags(Set.of("windows11"));
+
+    final Map<String, String> result = entryController.put(badTag, session, response);
+
+    assertEquals(400, response.getStatus());
+    assertEquals(
+        "Tag \"windows11\" is invalid. Tags are letters only, 30 characters or less.",
+        result.get("error"));
+    verify(entryRepository, never()).save(any());
+  }
+
+  @Test
+  void post_withLetterOnlyTags_isSaved() {
+    final EntryTo tagged = entryTo("TEXT");
+    tagged.setTags(Set.of("news", "Linux"));
+
+    postAndCapture("TEXT", tagged);
+
+    assertEquals(200, response.getStatus());
+  }
 }
