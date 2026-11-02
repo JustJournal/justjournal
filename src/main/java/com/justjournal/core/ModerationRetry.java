@@ -1,13 +1,19 @@
 package com.justjournal.core;
 
+import com.justjournal.model.EntryImage;
+import com.justjournal.model.EntryLink;
 import com.justjournal.model.ModerationStatus;
 import com.justjournal.model.UserImage;
 import com.justjournal.model.UserPic;
+import com.justjournal.repository.EntryImageRepository;
+import com.justjournal.repository.EntryLinkRepository;
 import com.justjournal.repository.UserImageRepository;
 import com.justjournal.repository.UserPicRepository;
 import com.justjournal.services.AlbumImageService;
+import com.justjournal.services.EntryImageService;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.StoredImageFiles;
 import java.io.InputStream;
 import java.util.List;
 import lombok.Setter;
@@ -19,7 +25,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Judges again the pictures and avatars that were held for review only because the content filter
+ * Judges again the pictures, post pictures, link previews and avatars that were held for review only because the content filter
  * could not be asked when they were uploaded, such as when no Ollama server answered. Pictures the
  * model itself held, and anything a person has since approved, are left alone.
  *
@@ -39,6 +45,10 @@ public class ModerationRetry {
   private final ImageStorageService imageStorageService;
   private final ImageModerationService moderation;
   private final TransactionTemplate transactionTemplate;
+  private final EntryImageRepository entryImageRepository;
+  private final EntryLinkRepository entryLinkRepository;
+  private final EntryImageService entryImageService;
+  private final StoredImageFiles files;
 
   /** Off when the filter is off: nothing new would be learnt by asking. */
   @Setter
@@ -51,20 +61,31 @@ public class ModerationRetry {
       final AlbumImageService albumImageService,
       final ImageStorageService imageStorageService,
       final ImageModerationService moderation,
-      final TransactionTemplate transactionTemplate) {
+      final TransactionTemplate transactionTemplate,
+      final EntryImageRepository entryImageRepository,
+      final EntryLinkRepository entryLinkRepository,
+      final EntryImageService entryImageService,
+      final StoredImageFiles files) {
     this.userImageRepository = userImageRepository;
     this.userPicRepository = userPicRepository;
     this.albumImageService = albumImageService;
     this.imageStorageService = imageStorageService;
     this.moderation = moderation;
     this.transactionTemplate = transactionTemplate;
+    this.entryImageRepository = entryImageRepository;
+    this.entryLinkRepository = entryLinkRepository;
+    this.entryImageService = entryImageService;
+    this.files = files;
   }
 
-  /** A batch of pictures, then a batch of avatars, unless the filter turns out to be down. */
+  /**
+   * A batch each of pictures, post pictures, link previews and avatars, stopping as soon as the
+   * filter turns out to be down.
+   */
   @Scheduled(fixedDelay = 1000 * 60 * 15, initialDelay = 1000 * 60 * 3)
   public void run() {
     if (!enabled) return;
-    if (retryPictures()) retryAvatars();
+    if (retryPictures() && retryEntryImages() && retryLinkImages()) retryAvatars();
   }
 
   /**
@@ -104,6 +125,93 @@ public class ModerationRetry {
                         userImageRepository.save(current);
                         log.info(
                             "Picture {} judged again: {} ({})",
+                            current.getId(),
+                            verdict.status(),
+                            verdict.category());
+                      }));
+    }
+    return true;
+  }
+
+  /**
+   * @return false if the filter still cannot be reached
+   */
+  boolean retryEntryImages() {
+    final List<EntryImage> held =
+        transactionTemplate.execute(
+            status ->
+                entryImageRepository.findByModerationStatusAndModerationCategoryOrderByIdAsc(
+                    ModerationStatus.REVIEW,
+                    ImageModerationService.CATEGORY_ERROR,
+                    PageRequest.of(0, BATCH_SIZE)));
+    if (held == null) return true;
+
+    for (final EntryImage image : held) {
+      final ImageModerationService.Result verdict;
+      try {
+        verdict = moderation.moderate(entryImageService.readOriginalForModeration(image));
+      } catch (final Exception e) {
+        log.warn("Could not read post picture {} to judge it again: {}", image.getId(), e.getMessage());
+        continue;
+      }
+      if (filterDown(verdict)) return false;
+
+      transactionTemplate.executeWithoutResult(
+          status ->
+              entryImageRepository
+                  .findById(image.getId())
+                  .filter(ModerationRetry::stillHeldForError)
+                  .ifPresent(
+                      current -> {
+                        current.setModerationStatus(verdict.status());
+                        current.setModerationCategory(verdict.category());
+                        entryImageRepository.save(current);
+                        log.info(
+                            "Post picture {} judged again: {} ({})",
+                            current.getId(),
+                            verdict.status(),
+                            verdict.category());
+                      }));
+    }
+    return true;
+  }
+
+  /**
+   * @return false if the filter still cannot be reached
+   */
+  boolean retryLinkImages() {
+    final List<EntryLink> held =
+        transactionTemplate.execute(
+            status ->
+                entryLinkRepository.findByImageModerationStatusAndImageModerationCategoryOrderByIdAsc(
+                    ModerationStatus.REVIEW,
+                    ImageModerationService.CATEGORY_ERROR,
+                    PageRequest.of(0, BATCH_SIZE)));
+    if (held == null) return true;
+
+    for (final EntryLink link : held) {
+      if (link.getImageFilename() == null) continue;
+      final ImageModerationService.Result verdict;
+      try (InputStream stream = files.get(link.getImageFilename())) {
+        verdict = moderation.moderate(stream.readAllBytes());
+      } catch (final Exception e) {
+        log.warn("Could not read link preview {} to judge it again: {}", link.getId(), e.getMessage());
+        continue;
+      }
+      if (filterDown(verdict)) return false;
+
+      transactionTemplate.executeWithoutResult(
+          status ->
+              entryLinkRepository
+                  .findById(link.getId())
+                  .filter(ModerationRetry::stillHeldForError)
+                  .ifPresent(
+                      current -> {
+                        current.setImageModerationStatus(verdict.status());
+                        current.setImageModerationCategory(verdict.category());
+                        entryLinkRepository.save(current);
+                        log.info(
+                            "Link preview {} judged again: {} ({})",
                             current.getId(),
                             verdict.status(),
                             verdict.category());
@@ -164,6 +272,16 @@ public class ModerationRetry {
   private static boolean stillHeldForError(final UserImage image) {
     return image.getModerationStatus() == ModerationStatus.REVIEW
         && ImageModerationService.CATEGORY_ERROR.equals(image.getModerationCategory());
+  }
+
+  private static boolean stillHeldForError(final EntryImage image) {
+    return image.getModerationStatus() == ModerationStatus.REVIEW
+        && ImageModerationService.CATEGORY_ERROR.equals(image.getModerationCategory());
+  }
+
+  private static boolean stillHeldForError(final EntryLink link) {
+    return link.getImageModerationStatus() == ModerationStatus.REVIEW
+        && ImageModerationService.CATEGORY_ERROR.equals(link.getImageModerationCategory());
   }
 
   private static boolean stillHeldForError(final UserPic avatar) {

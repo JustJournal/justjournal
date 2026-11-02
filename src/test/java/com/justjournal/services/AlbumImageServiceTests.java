@@ -60,16 +60,17 @@ class AlbumImageServiceTests {
     jdbcTemplate = mock(JdbcTemplate.class);
     moderation = mock(ImageModerationService.class);
     verdict(ModerationStatus.APPROVED);
+    final StoredImageFiles files = new StoredImageFiles(storage);
+    files.setBucket("pics");
     service =
         new AlbumImageService(
-            storage,
+            files,
             minioClient,
             new ImageService(),
             moderation,
             userImageRepository,
             userRepository,
             jdbcTemplate);
-    service.setImageBucket("pics");
   }
 
   private void verdict(final ModerationStatus status) {

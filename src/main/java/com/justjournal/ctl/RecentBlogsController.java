@@ -36,6 +36,7 @@ import com.justjournal.model.Security;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.rss.Rss;
+import com.justjournal.services.EntryAttachmentService;
 import java.time.Duration;
 import java.util.Calendar;
 import java.util.Date;
@@ -70,7 +71,11 @@ public class RecentBlogsController {
 
   private final RecentBlogsRepository recentBlogsRepository;
 
-  public RecentBlogsController(EntryRepository entryRepository, Settings set, Rss rss, RecentBlogsRepository recentBlogsRepository) {
+  private final EntryAttachmentService entryAttachmentService;
+
+  public RecentBlogsController(EntryRepository entryRepository, Settings set, Rss rss, RecentBlogsRepository recentBlogsRepository,
+                               EntryAttachmentService entryAttachmentService) {
+    this.entryAttachmentService = entryAttachmentService;
     this.entryRepository = entryRepository;
     this.set = set;
     this.rss = rss;
@@ -128,7 +133,7 @@ public class RecentBlogsController {
         count++;
       }
 
-      rss.populate(map.values());
+      rss.populate(map.values(), entryAttachmentService.forFeed(map.values()));
 
       final Date d = rss.getNewestEntryDate();
       String result = rss.toXml();

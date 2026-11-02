@@ -45,6 +45,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.justjournal.core.Settings;
+import com.justjournal.exception.BadRequestException;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.Comment;
@@ -64,6 +65,7 @@ import com.justjournal.repository.UserRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.TrackbackService;
+import com.justjournal.services.EntryAttachmentService;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -103,6 +105,7 @@ class EntryControllerTests {
   @Mock private TrackbackService trackbackService;
   @Mock private Settings settings;
   @Mock private RecentBlogsRepository recentBlogsRepository;
+  @Mock private EntryAttachmentService entryAttachmentService;
 
   @InjectMocks private EntryController entryController;
 
@@ -133,6 +136,10 @@ class EntryControllerTests {
   }
 
   private Entry postAndCapture(final String format) {
+    return postAndCapture(format, entryTo(format));
+  }
+
+  private Entry postAndCapture(final String format, final EntryTo to) {
     when(entryRepository.saveAndFlush(any(Entry.class)))
         .thenAnswer(
             inv -> {
@@ -141,7 +148,7 @@ class EntryControllerTests {
               return e;
             });
 
-    entryController.post(entryTo(format), session, response, new ExtendedModelMap());
+    entryController.post(to, session, response, new ExtendedModelMap());
 
     final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
     verify(entryRepository).saveAndFlush(captor.capture());
@@ -690,5 +697,108 @@ class EntryControllerTests {
     assertEquals(400, response.getStatus());
     assertEquals("Entry does not specify a security level.", result.get("error"));
     verify(entryRepository, never()).save(any());
+  }
+
+  @Test
+  void post_refusedLink_isABadRequestAndNothingIsSaved() {
+    when(entryAttachmentService.prepare(1, 0, null, null, "https://bit.ly/x"))
+        .thenThrow(new BadRequestException("Links from URL shortening services are not allowed."));
+    final EntryTo to = entryTo("TEXT");
+    to.setLink("https://bit.ly/x");
+
+    final Map<String, String> result =
+        entryController.post(to, session, response, new ExtendedModelMap());
+
+    assertEquals(400, response.getStatus());
+    assertEquals("Links from URL shortening services are not allowed.", result.get("error"));
+    verify(entryRepository, never()).saveAndFlush(any());
+    verify(entryAttachmentService, never()).apply(any(), any());
+  }
+
+  @Test
+  void post_appliesTheAttachmentsToTheSavedEntry() {
+    final EntryAttachmentService.Prepared prepared =
+        new EntryAttachmentService.Prepared(3, "a cat", false, null);
+    when(entryAttachmentService.prepare(1, 0, 3, "a cat", null)).thenReturn(prepared);
+    final EntryTo to = entryTo("TEXT");
+    to.setImageId(3);
+    to.setImageAlt("a cat");
+
+    final Entry saved = postAndCapture("TEXT", to);
+
+    verify(entryAttachmentService).apply(saved, prepared);
+  }
+
+  @Test
+  void put_editingChecksAttachmentsAgainstTheEntry() {
+    final User user = owner();
+    when(userRepository.findById(1)).thenReturn(Optional.of(user));
+    when(entryRepository.findById(7)).thenReturn(Optional.of(entryOf(user, Security.PRIVATE)));
+    when(entryRepository.save(any(Entry.class))).thenAnswer(inv -> inv.getArgument(0));
+    final EntryAttachmentService.Prepared prepared =
+        new EntryAttachmentService.Prepared(null, null, true, null);
+    when(entryAttachmentService.prepare(1, 7, null, null, "")).thenReturn(prepared);
+    final EntryTo to = entryTo("TEXT");
+    to.setEntryId(7);
+    to.setLink("");
+
+    entryController.put(to, session, response);
+
+    final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
+    verify(entryRepository).save(captor.capture());
+    verify(entryAttachmentService).apply(captor.getValue(), prepared);
+  }
+
+  @Test
+  void put_someoneElsesEntryIdCountsAsANewEntryForAttachments() {
+    final User other = new User();
+    other.setId(2);
+    when(entryRepository.findById(7)).thenReturn(Optional.of(entryOf(other, Security.PRIVATE)));
+    when(entryRepository.save(any(Entry.class))).thenAnswer(inv -> inv.getArgument(0));
+    final EntryTo to = entryTo("TEXT");
+    to.setEntryId(7);
+    to.setImageId(3);
+
+    entryController.put(to, session, response);
+
+    verify(entryAttachmentService).prepare(1, 0, 3, null, null);
+  }
+
+  @Test
+  void put_refusedLink_isABadRequestAndNothingIsSaved() {
+    when(entryRepository.findById(0)).thenReturn(Optional.empty());
+    when(entryAttachmentService.prepare(1, 0, null, null, "http://127.0.0.1/"))
+        .thenThrow(new BadRequestException("Links must point to a public web site."));
+    final EntryTo to = entryTo("TEXT");
+    to.setLink("http://127.0.0.1/");
+
+    final Map<String, String> result = entryController.put(to, session, response);
+
+    assertEquals(400, response.getStatus());
+    assertEquals("Links must point to a public web site.", result.get("error"));
+    verify(entryRepository, never()).save(any());
+  }
+
+  @Test
+  void delete_removesTheAttachmentsFirst() {
+    final User user = owner();
+    when(userRepository.findById(1)).thenReturn(Optional.of(user));
+    when(entryRepository.findById(7)).thenReturn(Optional.of(entryOf(user, Security.PUBLIC)));
+
+    entryController.delete(7, session, response);
+
+    final org.mockito.InOrder order = org.mockito.Mockito.inOrder(entryAttachmentService, entryRepository);
+    order.verify(entryAttachmentService).deleteForEntry(7);
+    order.verify(entryRepository).deleteById(7);
+  }
+
+  @Test
+  void getById_decoratesForTheViewer() {
+    final Entry entry = entryOf(owner(), Security.PUBLIC);
+    when(entryRepository.findById(7)).thenReturn(Optional.of(entry));
+
+    final EntryTo result = entryController.getById("laffer1", 7, response, session);
+
+    verify(entryAttachmentService).decorate(entry, result, 1);
   }
 }

@@ -388,8 +388,80 @@ html .ebody a {
 }
 
 html .ebody h1 a, html .ebody h2 a, html .ebody h3 a, html .ebody h4 a,
-html .ebody td > div > a, html .ebody a.entry-action {
+html .ebody td > div > a, html .ebody a.entry-action, html .ebody a.entry-link {
     text-decoration: none;
+}
+
+/* the picture and link card attached to an entry, shown between the subject and the body. Colors
+   come from the theme: borders use currentColor so every style stays readable. */
+html .ebody .entry-image {
+    margin: 0 0 1em;
+}
+
+html .ebody .entry-image img {
+    max-width: 100%;
+    height: auto;
+}
+
+html .ebody .entry-image figcaption,
+html .ebody .entry-attachment-note {
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+html .ebody .entry-link-card {
+    margin: 0 0 1em;
+    border: 1px solid currentColor;
+    border-color: rgba(128, 128, 128, 0.4);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+html .ebody a.entry-link {
+    display: flex;
+    align-items: stretch;
+    color: inherit;
+}
+
+html .ebody .entry-link-image {
+    flex: 0 0 auto;
+    width: 200px;
+    max-width: 40%;
+    height: auto;
+    object-fit: cover;
+}
+
+html .ebody .entry-link-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    padding: 0.6em 0.8em;
+    min-width: 0;
+}
+
+html .ebody .entry-link-site {
+    font-size: 0.8em;
+    opacity: 0.75;
+}
+
+html .ebody .entry-link-title {
+    font-weight: bold;
+    overflow-wrap: anywhere;
+}
+
+html .ebody .entry-link-desc {
+    font-size: 0.9em;
+}
+
+@media (max-width: 480px) {
+    html .ebody a.entry-link {
+        flex-direction: column;
+    }
+
+    html .ebody .entry-link-image {
+        width: 100%;
+        max-width: 100%;
+    }
 }
 
 html .ebody h1 a:hover, html .ebody h2 a:hover, html .ebody h3 a:hover, html .ebody h4 a:hover {

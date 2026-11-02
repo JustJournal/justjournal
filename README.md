@@ -14,6 +14,43 @@ It also uses minio for avatar storage and redis 7.x
 
 If you would like more information, please look at the INSTALL file.
 
+## Link Safety
+
+Links attached to blog posts are checked against Spamhaus DBL and Google Safe Browsing before they
+are saved. Both are set under `link-safety` in `application.yml`.
+
+### Spamhaus DBL
+
+DBL is on in the default profile (`link-safety.dbl.enabled: true`). Spamhaus refuses queries sent
+through public DNS resolvers such as 8.8.8.8 or 1.1.1.1; those come back as "unknown" and the link
+is allowed. To make the check work, do one of:
+
+- Run a local recursive resolver (unbound, for example) and point the server's DNS at it, or
+- Sign up for a free Spamhaus Data Query Service key at
+  https://www.spamhaus.com/free-trial/sign-up-for-a-free-data-query-service-account/ and set the
+  zone to your key:
+
+  ```yaml
+  link-safety:
+    dbl:
+      zone: <your-dqs-key>.dbl.dq.spamhaus.net
+  ```
+
+### Google Safe Browsing
+
+Safe Browsing is off until an API key is set.
+
+1. In the Google Cloud console, enable the Safe Browsing API:
+   https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com
+   (see https://developers.google.com/safe-browsing/v4/get-started).
+2. Create an API key under APIs & Services > Credentials and restrict it to the Safe Browsing API.
+3. Give the key to JustJournal with the `SAFE_BROWSING_API_KEY` environment variable, or set
+   `link-safety.safe-browsing.api-key` directly.
+
+The Safe Browsing Lookup API is for non-commercial use and sends the checked URLs to Google.
+
+Set `link-safety.fail-closed: true` to refuse a link when either service can't be reached.
+
 ## Breaking Changes
 
 ### 3.1.10

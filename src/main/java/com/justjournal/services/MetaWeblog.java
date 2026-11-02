@@ -83,6 +83,8 @@ public class MetaWeblog extends BaseXmlRpcService {
 
   @Autowired private EntryService entryService;
 
+  @Autowired private EntryAttachmentService entryAttachmentService;
+
 
 
   /**
@@ -295,7 +297,10 @@ public class MetaWeblog extends BaseXmlRpcService {
         return error(ERROR_ENTRY_ID + postid);
       }
 
-      if (entry.getUser().getId() == userId) entryRepository.deleteById(eid);
+      if (entry.getUser().getId() == userId) {
+        entryAttachmentService.deleteForEntry(eid);
+        entryRepository.deleteById(eid);
+      }
     } catch (final Exception e) {
       log.error("Unable to delete entry", e);
       return error("Unable to delete entry id " + postid);

@@ -25,6 +25,8 @@
  */
 package com.justjournal.rss;
 
+import com.justjournal.model.FeedAttachments;
+import lombok.Getter;
 import lombok.Setter;
 
 /**
@@ -61,6 +63,11 @@ public final class RssItem {
 
   @Setter
   private boolean truncateFields = true;
+
+  /** The picture and link attached to the entry, or null. */
+  @Getter
+  @Setter
+  private FeedAttachments attachments;
 
   public boolean isTruncateFields() {
     return truncateFields;

@@ -131,6 +131,27 @@ public class EntryTo implements Serializable {
   @JsonProperty("comments")
   private Set<CommentTo> comments = new HashSet<>();
 
+  /**
+   * The picture shown above the entry: the id of an upload to /EntryImage. Null leaves it as it
+   * is, 0 removes it.
+   */
+  @Getter @Setter private Integer imageId;
+
+  /** Description of the picture; null leaves it as it is. */
+  @Getter @Setter private String imageAlt;
+
+  /** The link previewed above the entry. Null leaves it as it is, blank removes it. */
+  @Getter @Setter private String link;
+
+  /** Where the picture can be seen, when reading an entry. */
+  @Getter @Setter private String imageUrl;
+
+  /** Why the picture isn't shown to others yet, when reading your own entry. */
+  @Getter @Setter private String imageNotice;
+
+  /** PENDING, READY, FAILED or BLOCKED, when reading an entry with a link. */
+  @Getter @Setter private String linkStatus;
+
   @Deprecated
   public void setTag(final String tag) {
     this.tag = tag == null ? "" : tag;

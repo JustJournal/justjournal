@@ -27,6 +27,7 @@ package com.justjournal.atom;
 
 import com.justjournal.core.Settings;
 import com.justjournal.model.Entry;
+import com.justjournal.model.FeedAttachments;
 import com.justjournal.model.FormatType;
 import com.justjournal.services.MarkdownService;
 import com.justjournal.utility.DateConvert;
@@ -109,6 +110,16 @@ public class AtomFeed {
   }
 
   public void populate(Collection<Entry> entries) {
+    populate(entries, Map.of());
+  }
+
+  /**
+   * Populate the feed with entries and what is attached to them.
+   *
+   * @param entries entries, newest first
+   * @param attachments the picture and link of each entry, by entry id; entries missing have none
+   */
+  public void populate(final Collection<Entry> entries, final Map<Integer, FeedAttachments> attachments) {
     AtomEntry item;
 
     // TODO: this sucks... need to make this reusable
@@ -122,9 +133,13 @@ public class AtomFeed {
         item.setId("urn:jj:justjournal.com:atom1:" + o.getUser().getUsername() + ":" + o.getId());
         item.setTitle(o.getSubject());
 
+        final String content;
         if (o.getFormat().equals(FormatType.MARKDOWN))
-          item.setContent(markdownService.convertToText(o.getBody()));
-        else item.setContent(o.getBody());
+          content = markdownService.convertToText(o.getBody());
+        else content = o.getBody();
+        final FeedAttachments attached = attachments.get(o.getId());
+        item.setAttachments(attached);
+        item.setContent(withAttachments(content, attached));
         item.setLink(settings.getBlogBaseUrl(o.getUser().getUsername()) + "/entry/" + o.getId());
         item.setPublished(DateConvert.encode3339(o.getDate()));
         item.setUpdated(DateConvert.encode3339(o.getDate()));
@@ -153,6 +168,7 @@ public class AtomFeed {
     sb.append("<?xml-stylesheet type=\"text/xsl\" href=\"/static/streamburner/streamburner.xsl\"?>\n");
     sb.append(
         "<feed xmlns=\"http://www.w3.org/2005/Atom\"\n"
+            + "      xmlns:media=\"http://search.yahoo.com/mrss/\"\n"
             + "      xml:lang=\"en\"\n"
             + "      xml:base=\"https://www.justjournal.com\">\n");
     sb.append("\t<id>urn:jj:justjournal.com:atom1:");
@@ -221,6 +237,8 @@ public class AtomFeed {
         sb.append("</summary>\n");
       }
 
+      appendAttachments(sb, o.getAttachments());
+
       if (o.getContent() != null) {
         sb.append("\t\t\t<content type=\"html\">");
         sb.append(Xml.cleanString(o.getContent()));
@@ -233,6 +251,54 @@ public class AtomFeed {
     sb.append("\t</feed>\n");
 
     return sb.toString();
+  }
+
+  /**
+   * The picture above the text and the link below it, for readers that only show the content.
+   * Values are escaped here as HTML; toXml escapes the whole content again as XML.
+   */
+  private static String withAttachments(final String content, final FeedAttachments a) {
+    if (a == null) return content;
+    final StringBuilder html = new StringBuilder();
+    if (a.hasImage()) {
+      html.append("<p><img src=\"").append(Xml.cleanString(a.imageThumbnailUrl()));
+      html.append("\" alt=\"").append(Xml.cleanString(a.imageAlt())).append("\"/></p>\n");
+    }
+    if (content != null) html.append(content);
+    if (a.hasLink()) {
+      html.append("\n<p><a href=\"").append(Xml.cleanString(a.linkUrl())).append("\">");
+      html.append(Xml.cleanString(a.linkTitle())).append("</a>");
+      if (a.linkDescription() != null && !a.linkDescription().isEmpty()) {
+        html.append("<br/>").append(Xml.cleanString(a.linkDescription()));
+      }
+      html.append("</p>");
+    }
+    return html.toString();
+  }
+
+  /** The picture as an enclosure and Media RSS thumbnail, and the link as a related link. */
+  private static void appendAttachments(final StringBuilder sb, final FeedAttachments a) {
+    if (a == null) return;
+    if (a.hasImage()) {
+      sb.append("\t\t\t<link rel=\"enclosure\" type=\"").append(Xml.cleanString(a.imageType()));
+      sb.append("\" length=\"").append(a.imageLength());
+      sb.append("\" href=\"").append(Xml.cleanString(a.imageUrl())).append("\"/>\n");
+    }
+    if (a.hasLink()) {
+      sb.append("\t\t\t<link rel=\"related\" type=\"text/html\" href=\"");
+      sb.append(Xml.cleanString(a.linkUrl()));
+      sb.append("\" title=\"").append(Xml.cleanString(a.linkTitle())).append("\"/>\n");
+    }
+    final String thumbnail = a.previewImageUrl();
+    if (thumbnail != null) {
+      final int width = a.hasImage() ? a.imageWidth() : a.linkImageWidth();
+      final int height = a.hasImage() ? a.imageHeight() : a.linkImageHeight();
+      sb.append("\t\t\t<media:thumbnail url=\"").append(Xml.cleanString(thumbnail)).append('"');
+      if (width > 0 && height > 0) {
+        sb.append(" width=\"").append(width).append("\" height=\"").append(height).append('"');
+      }
+      sb.append("/>\n");
+    }
   }
 
   private String date() {

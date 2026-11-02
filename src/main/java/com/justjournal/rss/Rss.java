@@ -30,6 +30,7 @@ import static com.justjournal.core.Constants.PATH_USERS;
 import com.justjournal.core.Settings;
 import com.justjournal.model.DateTimeBean;
 import com.justjournal.model.Entry;
+import com.justjournal.model.FeedAttachments;
 import com.justjournal.model.FormatType;
 import com.justjournal.services.MarkdownService;
 import com.justjournal.utility.DateConvert;
@@ -115,7 +116,16 @@ public class Rss {
 
 
   public void populate(final Collection<Entry> entries) {
+    populate(entries, Map.of());
+  }
 
+  /**
+   * Populate the feed with entries and what is attached to them.
+   *
+   * @param entries entries, newest first
+   * @param attachments the picture and link of each entry, by entry id; entries missing have none
+   */
+  public void populate(final Collection<Entry> entries, final Map<Integer, FeedAttachments> attachments) {
     RssItem item;
 
     // TODO: this sucks... need to make this reusable
@@ -138,7 +148,14 @@ public class Rss {
         else if (o.getFormat().equals(FormatType.HTML))
           descUnicode = HTMLUtil.clean(o.getBody(), false);
         else descUnicode = o.getBody();
-        item.setDescription(HTMLUtil.convertCharacterEntities(descUnicode));
+        final FeedAttachments attached = attachments.get(o.getId());
+        item.setAttachments(attached);
+        // readers that ignore the extra elements still get the link
+        final String withLink =
+            attached != null && attached.hasLink()
+                ? descUnicode + "\n\nLink: " + attached.linkTitle() + " " + attached.linkUrl()
+                : descUnicode;
+        item.setDescription(HTMLUtil.convertCharacterEntities(withLink));
         item.setGuid(entryUrl);
         item.setPubDate(new DateTimeBean(o.getDate()).toPubDate());
 
@@ -221,7 +238,9 @@ public class Rss {
 
     sb.append("<?xml-stylesheet type=\"text/xsl\" href=\"/static/streamburner/streamburner.xsl\"?>\n");
 
-    sb.append("<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n");
+    sb.append(
+        "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\""
+            + " xmlns:media=\"http://search.yahoo.com/mrss/\">\n");
     sb.append("\t<channel>\n");
 
     sb.append("\t\t<title>");
@@ -330,6 +349,8 @@ public class Rss {
         sb.append("\" />\n");
       }
 
+      appendAttachments(sb, o);
+
       sb.append("\t\t</item>\n");
     }
     if (selfLink != null && !selfLink.isEmpty())
@@ -340,6 +361,52 @@ public class Rss {
     sb.append("</rss>\n");
 
     return sb.toString();
+  }
+
+  /**
+   * The entry's picture as the enclosure (RSS allows one) and Media RSS content, and its link as a
+   * related atom:link. Without a picture of its own, the link's preview becomes the thumbnail.
+   */
+  private static void appendAttachments(final StringBuilder sb, final RssItem o) {
+    final FeedAttachments a = o.getAttachments();
+    if (a == null) return;
+
+    if (a.hasImage()) {
+      final String url = Xml.cleanString(a.imageUrl());
+      final String type = Xml.cleanString(a.imageType());
+      if (o.getEnclosureURL() == null || o.getEnclosureURL().isEmpty()) {
+        sb.append("\t\t\t<enclosure url=\"").append(url);
+        sb.append("\" length=\"").append(a.imageLength());
+        sb.append("\" type=\"").append(type).append("\" />\n");
+      }
+      sb.append("\t\t\t<media:content url=\"").append(url);
+      sb.append("\" type=\"").append(type);
+      sb.append("\" medium=\"image\" fileSize=\"").append(a.imageLength()).append("\">\n");
+      if (a.imageAlt() != null && !a.imageAlt().isEmpty()) {
+        sb.append("\t\t\t\t<media:description>");
+        sb.append(Xml.cleanString(a.imageAlt()));
+        sb.append("</media:description>\n");
+      }
+      sb.append("\t\t\t</media:content>\n");
+      appendThumbnail(sb, a.imageThumbnailUrl(), a.imageWidth(), a.imageHeight());
+    } else if (a.hasLinkImage()) {
+      appendThumbnail(sb, a.linkImageUrl(), a.linkImageWidth(), a.linkImageHeight());
+    }
+
+    if (a.hasLink()) {
+      sb.append("\t\t\t<atom:link rel=\"related\" type=\"text/html\" href=\"");
+      sb.append(Xml.cleanString(a.linkUrl()));
+      sb.append("\" title=\"").append(Xml.cleanString(a.linkTitle())).append("\" />\n");
+    }
+  }
+
+  private static void appendThumbnail(
+      final StringBuilder sb, final String url, final int width, final int height) {
+    sb.append("\t\t\t<media:thumbnail url=\"").append(Xml.cleanString(url)).append('"');
+    if (width > 0 && height > 0) {
+      sb.append(" width=\"").append(width).append("\" height=\"").append(height).append('"');
+    }
+    sb.append(" />\n");
   }
 
   /**
