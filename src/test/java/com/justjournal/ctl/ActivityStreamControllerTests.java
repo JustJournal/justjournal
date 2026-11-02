@@ -147,7 +147,7 @@ class ActivityStreamControllerTests {
     entryAttachmentService = mock(EntryAttachmentService.class);
     avatarService = mock(AvatarService.class);
     userPicRepository = mock(UserPicRepository.class);
-    followerService = mock(FollowerService.class,
+    followerService = mock(FollowerService.class);
     actorKeyService = mock(ActorKeyService.class);
 
     when(entryService.convertBodyToHtml(any(), anyString()))
