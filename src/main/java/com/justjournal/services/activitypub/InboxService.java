@@ -54,7 +54,8 @@ import org.springframework.stereotype.Service;
  *   <li>{@code Follow} of the journal's actor: the follower's actor is fetched for its inbox; if
  *       the journal federates the follower is stored and sent an {@code Accept}, otherwise sent a
  *       {@code Reject} and nothing is stored.
- *   <li>{@code Undo} of such a Follow, embedded as Mastodon sends it: the follower is removed.
+ *   <li>{@code Undo} of such a Follow, embedded as Mastodon sends it or named by its id alone: the
+ *       follower is removed.
  *   <li>{@code Delete} of the sending actor itself: the account is gone, so it is removed from the
  *       followers of every journal.
  * </ul>
@@ -158,7 +159,9 @@ public class InboxService {
 
     final boolean accept = federationPolicy.federates(user);
     if (accept) {
-      followerService.add(user, follower.id(), follower.inbox(), follower.sharedInbox());
+      // kept so an Undo naming the Follow by its id alone can be matched
+      final URI followId = httpUrl(text(follow, "id"));
+      followerService.add(user, follower.id(), follower.inbox(), follower.sharedInbox(), followId);
     }
     deliveryService.enqueue(
         local, user.getId(), reply(accept, local, follow, sender), List.of(follower.inbox()));
@@ -168,15 +171,36 @@ public class InboxService {
 
   private Outcome undo(final User user, final JsonNode undo, final String sender) {
     final JsonNode follow = undo.get("object");
-    // only an embedded Follow can be matched: the ids of Follows are not kept
-    if (follow == null || !follow.isObject() || !"Follow".equals(text(follow, "type")))
-      return Outcome.IGNORED;
+    if (follow == null) return Outcome.IGNORED;
+    if (follow.isTextual() || (follow.isObject() && !embedded(follow)))
+      return undoById(user, follow, sender);
+    if (!follow.isObject() || !"Follow".equals(text(follow, "type"))) return Outcome.IGNORED;
     final String local = actorKeyService.userActorId(user.getUsername());
     if (!sender.equals(id(follow.get("actor"))) || !local.equals(id(follow.get("object"))))
       return Outcome.IGNORED;
     final URI actor = uri(sender);
     if (actor == null) return Outcome.IGNORED;
     followerService.remove(user, actor);
+    return Outcome.HANDLED;
+  }
+
+  /** Whether an Undo's object carries the activity itself rather than naming it by its id. */
+  private static boolean embedded(final JsonNode object) {
+    return object.has("actor") || object.has("object");
+  }
+
+  /**
+   * Undo of a Follow named only by its id, as a string or an object without its actor and object.
+   * Only the sender's own Follow of this journal matches; anything else is taken as already undone.
+   */
+  private Outcome undoById(final User user, final JsonNode follow, final String sender) {
+    if (follow.isObject() && follow.has("type") && !"Follow".equals(text(follow, "type")))
+      return Outcome.IGNORED;
+    final URI followId = httpUrl(id(follow));
+    final URI actor = uri(sender);
+    if (followId == null || actor == null) return Outcome.IGNORED;
+    if (!followerService.removeByFollowId(user, actor, followId)) return Outcome.IGNORED;
+    log.info("{} undid its Follow {} of {}", sender, followId, user.getUsername());
     return Outcome.HANDLED;
   }
 
