@@ -22,6 +22,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -159,42 +160,52 @@ public class EntryAttachmentService {
   /**
    * Apply a prepared change to a saved entry. Anything replaced is deleted, its files once the
    * transaction commits.
+   *
+   * @return whether the entry's picture, its description or its link changed
    */
   @Transactional
-  public void apply(final Entry saved, final Prepared prepared) {
+  public boolean apply(final Entry saved, final Prepared prepared) {
     final int entryId = saved.getId();
     final int ownerId = saved.getUser().getId();
+    boolean changed = false;
 
     final Optional<EntryImage> current = entryImageRepository.findByEntryId(entryId);
     final Integer wantedImage = prepared.imageId();
     if (wantedImage != null) {
       final boolean keep = current.isPresent() && current.get().getId() == wantedImage;
       if (!keep) {
-        current.ifPresent(this::deleteImage);
+        if (current.isPresent()) {
+          deleteImage(current.get());
+          changed = true;
+        }
         // the unique key on entry_id needs the old row gone before the new one takes its place
         entryImageRepository.flush();
         if (wantedImage > 0) {
-          entryImageRepository
-              .findById(wantedImage)
-              .filter(image -> image.getOwnerId() == ownerId && image.getEntryId() == null)
-              .ifPresent(
-                  image -> {
-                    image.setEntryId(entryId);
-                    setAlt(image, prepared.imageAlt());
-                    entryImageRepository.save(image);
-                  });
+          final Optional<EntryImage> claimed =
+              entryImageRepository
+                  .findById(wantedImage)
+                  .filter(image -> image.getOwnerId() == ownerId && image.getEntryId() == null);
+          if (claimed.isPresent()) {
+            final EntryImage image = claimed.get();
+            image.setEntryId(entryId);
+            setAlt(image, prepared.imageAlt());
+            entryImageRepository.save(image);
+            changed = true;
+          }
         }
       } else {
-        setAlt(current.get(), prepared.imageAlt());
+        changed = setAlt(current.get(), prepared.imageAlt());
         entryImageRepository.save(current.get());
       }
     } else if (prepared.imageAlt() != null && current.isPresent()) {
-      setAlt(current.get(), prepared.imageAlt());
+      changed = setAlt(current.get(), prepared.imageAlt());
       entryImageRepository.save(current.get());
     }
 
     if (prepared.linkChanged()) {
-      entryLinkRepository.findByEntryId(entryId).forEach(this::deleteLink);
+      final List<EntryLink> old = entryLinkRepository.findByEntryId(entryId);
+      old.forEach(this::deleteLink);
+      changed |= !old.isEmpty();
       if (prepared.link() != null) {
         final EntryLink link = new EntryLink();
         link.setOwnerId(ownerId);
@@ -203,14 +214,22 @@ public class EntryAttachmentService {
         link.setPreviewStatus(LinkPreviewStatus.PENDING);
         link.setNextAttemptAt(new Date());
         entryLinkRepository.save(link);
+        changed = true;
       }
     }
+    return changed;
   }
 
-  private static void setAlt(final EntryImage image, final String alt) {
-    if (alt == null) return;
+  /**
+   * @return whether the description changed
+   */
+  private static boolean setAlt(final EntryImage image, final String alt) {
+    if (alt == null) return false;
     final String trimmed = alt.trim();
-    image.setAltText(trimmed.isEmpty() ? null : trimmed);
+    final String wanted = trimmed.isEmpty() ? null : trimmed;
+    final boolean changed = !Objects.equals(wanted, image.getAltText());
+    image.setAltText(wanted);
+    return changed;
   }
 
   /** The attachments of each entry that has any, by entry id. */

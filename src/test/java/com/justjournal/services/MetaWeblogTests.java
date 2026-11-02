@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -56,14 +57,16 @@ import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -91,6 +94,7 @@ class MetaWeblogTests {
   @Mock private EntryTagsRepository entryTagsRepository;
   @Mock private EntryService entryService;
   @Mock private EntryAttachmentService entryAttachmentService;
+  @Mock private ActivityPublisher activityPublisher;
 
   @InjectMocks private MetaWeblog metaWeblog;
 
@@ -262,6 +266,7 @@ class MetaWeblogTests {
     assertEquals(PrefBool.Y, saved.getAllowComments());
     assertEquals(PrefBool.Y, saved.getEmailComments());
     assertEquals("", saved.getMusic());
+    verify(activityPublisher).entrySaved(null, saved);
   }
 
   @Test
@@ -283,6 +288,8 @@ class MetaWeblogTests {
 
     verify(entryRepository).deleteById(5);
     verify(entryRepository, never()).deleteById(6);
+    verify(activityPublisher).entryDeleted(argThat(e -> e.getId() == 5));
+    verify(activityPublisher, never()).entryDeleted(argThat(e -> e.getId() == 6));
   }
 
   @Test
@@ -307,7 +314,18 @@ class MetaWeblogTests {
   @Test
   void editPost_appliesTheCategoriesThatExistAsTags() {
     final Entry existing = ownedEntry(5);
+    existing.setSubject("old subject");
     when(entryRepository.findById(5)).thenReturn(Optional.of(existing));
+    // the entry is noted while it still has its old subject
+    final List<String> subjectWhenNoted = new ArrayList<>();
+    final ActivityPublisher.EntryState before =
+        new ActivityPublisher.EntryState(5, true, "old subject", "", null, null, Set.of());
+    when(activityPublisher.capture(existing))
+        .thenAnswer(
+            inv -> {
+              subjectWhenNoted.add(existing.getSubject());
+              return before;
+            });
     final Tag java = new Tag("java");
     when(tagDao.findByName("java")).thenReturn(java);
     when(tagDao.findByName("unknown")).thenReturn(null);
@@ -323,6 +341,8 @@ class MetaWeblogTests {
     assertEquals(java, captor.getValue().getTag());
     assertEquals(existing, captor.getValue().getEntry());
     verify(tagDao, never()).findByName("the"); // stop words are skipped
+    assertEquals(List.of("old subject"), subjectWhenNoted);
+    verify(activityPublisher).entrySaved(before, existing);
   }
 
   @Test
@@ -332,6 +352,7 @@ class MetaWeblogTests {
     assertEquals(true, metaWeblog.editPost("6", "laffer1", "secret", content(), true));
 
     verify(entryRepository, never()).save(any());
+    verify(activityPublisher, never()).entrySaved(any(), any());
   }
 
   @Test

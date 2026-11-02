@@ -25,6 +25,7 @@ import com.justjournal.services.EntryImageService;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageStorageService;
 import com.justjournal.services.StoredImageFiles;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,7 @@ class ModerationRetryTests {
   private EntryImageService entryImageService;
   private StoredImageFiles files;
   private ModerationRetry retry;
+  private ActivityPublisher activityPublisher;
 
   @BeforeEach
   void setUp() {
@@ -60,6 +62,7 @@ class ModerationRetryTests {
     entryLinkRepository = mock(EntryLinkRepository.class);
     entryImageService = mock(EntryImageService.class);
     files = mock(StoredImageFiles.class);
+    activityPublisher = mock(ActivityPublisher.class);
     final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
 
@@ -74,7 +77,8 @@ class ModerationRetryTests {
             entryImageRepository,
             entryLinkRepository,
             entryImageService,
-            files);
+            files,
+            activityPublisher);
     retry.setEnabled(true);
   }
 
@@ -155,6 +159,8 @@ class ModerationRetryTests {
     assertEquals(ModerationStatus.APPROVED, avatar.getModerationStatus());
     assertEquals("safe", avatar.getModerationCategory());
     verify(userPicRepository).save(avatar);
+    // the approved avatar is now the actor's icon
+    verify(activityPublisher).profileChanged(9);
   }
 
   @Test
@@ -272,6 +278,9 @@ class ModerationRetryTests {
     verify(entryImageRepository).save(picture);
     assertEquals(ModerationStatus.APPROVED, link.getImageModerationStatus());
     verify(entryLinkRepository).save(link);
+    // the post's picture now shows; the link's preview picture is never sent
+    verify(activityPublisher).entryAttachmentsChanged(30);
+    verify(activityPublisher).entryAttachmentsChanged(anyInt());
   }
 
   @Test

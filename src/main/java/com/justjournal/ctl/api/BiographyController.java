@@ -35,6 +35,7 @@ import com.justjournal.model.User;
 import com.justjournal.model.UserBio;
 import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.utility.StringUtil;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletResponse;
@@ -59,6 +60,7 @@ public class BiographyController {
 
   private UserBioRepository bioDao = null;
   private UserRepository userDao;
+  private ActivityPublisher activityPublisher;
 
   @Autowired
   public void setBioDao(final UserBioRepository bioDao) {
@@ -68,6 +70,11 @@ public class BiographyController {
   @Autowired
   public void setUserDao(final UserRepository userDao) {
     this.userDao = userDao;
+  }
+
+  @Autowired
+  public void setActivityPublisher(final ActivityPublisher activityPublisher) {
+    this.activityPublisher = activityPublisher;
   }
 
   @Cacheable(value = "biography", key = "#username")
@@ -107,8 +114,10 @@ public class BiographyController {
     try {
       if (userID > 0) {
         final UserBio biography = bioDao.findByUserId(userID);
+        final boolean changed = !bio.equals(biography.getBio());
         biography.setBio(bio);
         bioDao.save(biography);
+        if (changed) activityPublisher.profileChanged(userID);
 
         return java.util.Collections.singletonMap("status", "success");
       } else {

@@ -55,6 +55,7 @@ import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.BingService;
 import com.justjournal.services.TrackbackService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.Optional;
@@ -82,6 +83,7 @@ class UpdateJournalTests {
   private Login webLogin;
   private TrackbackService trackbackService;
   private BingService bingService;
+  private ActivityPublisher activityPublisher;
 
   private UpdateJournal servlet;
   private User user;
@@ -98,6 +100,7 @@ class UpdateJournalTests {
     webLogin = mock(Login.class);
     trackbackService = mock(TrackbackService.class);
     bingService = mock(BingService.class);
+    activityPublisher = mock(ActivityPublisher.class);
     servlet =
         new UpdateJournal(
             settings,
@@ -107,7 +110,8 @@ class UpdateJournalTests {
             moodDao,
             webLogin,
             trackbackService,
-            bingService);
+            bingService,
+            activityPublisher);
 
     user = new User();
     user.setId(USER_ID);
@@ -273,6 +277,8 @@ class UpdateJournalTests {
     assertEquals(2, entry.getLocation().getId());
     assertEquals(12, entry.getMood().getId());
     assertTrue(entry.getBody().contains("<b>beach</b>"), entry.getBody());
+    // a new entry: nothing to compare with
+    verify(activityPublisher).entrySaved(null, entry);
 
     final Calendar when = new GregorianCalendar();
     when.setTime(entry.getDate());
@@ -371,6 +377,7 @@ class UpdateJournalTests {
 
     assertEquals("JJ.JOURNAL.UPDATE.FAIL", out.trim());
     verify(entryRepository, never()).save(any());
+    verify(activityPublisher, never()).entrySaved(any(), any());
   }
 
   @Test

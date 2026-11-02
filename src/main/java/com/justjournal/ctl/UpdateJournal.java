@@ -39,6 +39,7 @@ import com.justjournal.repository.UserRepository;
 import com.justjournal.services.BingService;
 import com.justjournal.services.RestPing;
 import com.justjournal.services.TrackbackService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.Spelling;
 import com.justjournal.utility.StringUtil;
@@ -102,8 +103,11 @@ public class UpdateJournal extends HttpServlet {
 
   private final transient BingService bingService;
 
+  private final transient ActivityPublisher activityPublisher;
+
   public UpdateJournal(Settings settings, EntryRepository entryRepository, UserRepository user,
-                       LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService) {
+                       LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService,
+                       ActivityPublisher activityPublisher) {
     super();
     this.settings = settings;
     this.entryRepository = entryRepository;
@@ -113,6 +117,7 @@ public class UpdateJournal extends HttpServlet {
     this.webLogin = webLogin;
     this.trackbackService = trackbackService;
     this.bingService = bingService;
+    this.activityPublisher = activityPublisher;
   }
 
   /**
@@ -545,6 +550,7 @@ public class UpdateJournal extends HttpServlet {
         // create entry
         if (!blnError) {
           entryRepository.save(et);
+          activityPublisher.entrySaved(null, et);
 
           /*  if (!result) {
               if (myclient == ClientType.web)

@@ -36,6 +36,7 @@ import com.justjournal.repository.UserPicRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -70,12 +71,15 @@ public class GravatarFetcher {
 
   private final TransactionTemplate transactionTemplate;
 
-  public GravatarFetcher(ImageStorageService imageStorageService, ImageService imageService, UserPicRepository userPicRepository, UserRepository userRepository, TransactionTemplate transactionTemplate) {
+  private final ActivityPublisher activityPublisher;
+
+  public GravatarFetcher(ImageStorageService imageStorageService, ImageService imageService, UserPicRepository userPicRepository, UserRepository userRepository, TransactionTemplate transactionTemplate, ActivityPublisher activityPublisher) {
     this.imageStorageService = imageStorageService;
     this.imageService = imageService;
     this.userPicRepository = userPicRepository;
     this.userRepository = userRepository;
     this.transactionTemplate = transactionTemplate;
+    this.activityPublisher = activityPublisher;
   }
 
   byte[] getGravatar(final String email) {
@@ -117,6 +121,7 @@ public class GravatarFetcher {
 
     try {
       imageStorageService.uploadAvatar(userId, type, source, new ByteArrayInputStream(image));
+      activityPublisher.profileChanged(userId);
     } catch (final Exception e) {
       log.warn("Could not upload avatar for user id: {}", userId, e);
     }

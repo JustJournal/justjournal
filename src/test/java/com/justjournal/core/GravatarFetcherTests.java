@@ -20,6 +20,7 @@ import com.justjournal.repository.UserPicRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +37,7 @@ class GravatarFetcherTests {
   private UserPicRepository userPicRepository;
   private UserRepository userRepository;
   private PlatformTransactionManager transactionManager;
+  private ActivityPublisher activityPublisher;
 
   /** Whether a transaction was open, at each Gravatar fetch. */
   private final List<Boolean> openDuringFetch = new ArrayList<>();
@@ -63,13 +65,15 @@ class GravatarFetcherTests {
         .when(transactionManager)
         .commit(any());
 
+    activityPublisher = mock(ActivityPublisher.class);
     fetcher =
         new GravatarFetcher(
             imageStorageService,
             new ImageService(),
             userPicRepository,
             userRepository,
-            new TransactionTemplate(transactionManager)) {
+            new TransactionTemplate(transactionManager),
+            activityPublisher) {
           @Override
           byte[] getGravatar(final String email) {
             openDuringFetch.add(openTransactions > 0);
@@ -107,6 +111,9 @@ class GravatarFetcherTests {
     verify(imageStorageService)
         .uploadAvatar(eq(2), eq("image/jpeg"), eq(AvatarSource.GRAVATAR), any());
     verify(imageStorageService, times(1)).uploadAvatar(anyInt(), any(), any(), any());
+    // the new avatar is the actor's icon
+    verify(activityPublisher).profileChanged(2);
+    verify(activityPublisher, times(1)).profileChanged(anyInt());
     // one to list the users, then one per user
     verify(transactionManager, times(4)).getTransaction(any());
     assertEquals(List.of(false, false), openDuringFetch, "no transaction open while fetching");

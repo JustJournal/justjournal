@@ -211,7 +211,7 @@ class EntryAttachmentServiceTests {
     when(images.findByEntryId(30)).thenReturn(Optional.of(old));
     when(images.findById(3)).thenReturn(Optional.of(fresh));
 
-    service.apply(entry, new Prepared(3, " a cat ", false, null));
+    assertTrue(service.apply(entry, new Prepared(3, " a cat ", false, null)));
 
     verify(images).delete(old);
     verify(entryImageService).deleteFiles(old);
@@ -226,7 +226,7 @@ class EntryAttachmentServiceTests {
     final EntryImage old = image(2, OWNER, 30);
     when(images.findByEntryId(30)).thenReturn(Optional.of(old));
 
-    service.apply(entry, new Prepared(0, null, false, null));
+    assertTrue(service.apply(entry, new Prepared(0, null, false, null)));
 
     verify(images).delete(old);
     verify(images, never()).save(any());
@@ -237,7 +237,8 @@ class EntryAttachmentServiceTests {
     final EntryImage current = image(2, OWNER, 30);
     when(images.findByEntryId(30)).thenReturn(Optional.of(current));
 
-    service.apply(entry, new Prepared(2, "", false, null));
+    // no description before or after: nothing changed
+    assertFalse(service.apply(entry, new Prepared(2, "", false, null)));
 
     verify(images, never()).delete(any());
     assertNull(current.getAltText());
@@ -245,10 +246,21 @@ class EntryAttachmentServiceTests {
   }
 
   @Test
+  void newDescriptionOnTheSamePicture_isAChange() {
+    final EntryImage current = image(2, OWNER, 30);
+    when(images.findByEntryId(30)).thenReturn(Optional.of(current));
+
+    assertTrue(service.apply(entry, new Prepared(2, "a dog", false, null)));
+    assertFalse(service.apply(entry, new Prepared(null, " a dog ", false, null)));
+
+    assertEquals("a dog", current.getAltText());
+  }
+
+  @Test
   void pictureClaimedMeanwhileIsNotTaken() {
     when(images.findById(3)).thenReturn(Optional.of(image(3, OWNER, 31)));
 
-    service.apply(entry, new Prepared(3, null, false, null));
+    assertFalse(service.apply(entry, new Prepared(3, null, false, null)));
 
     verify(images, never()).save(any());
   }
@@ -259,7 +271,7 @@ class EntryAttachmentServiceTests {
     old.setImageFilename("link/5/old.jpg");
     when(links.findByEntryId(30)).thenReturn(List.of(old));
 
-    service.apply(entry, new Prepared(null, null, true, normalized(LINK)));
+    assertTrue(service.apply(entry, new Prepared(null, null, true, normalized(LINK))));
 
     verify(links).delete(old);
     verify(files).removeAfterCommit("link/5/old.jpg");
@@ -273,7 +285,7 @@ class EntryAttachmentServiceTests {
 
   @Test
   void unchangedLinkIsLeftAlone() {
-    service.apply(entry, Prepared.UNCHANGED);
+    assertFalse(service.apply(entry, Prepared.UNCHANGED));
 
     verify(links, never()).delete(any());
     verify(links, never()).save(any());

@@ -17,6 +17,7 @@ import com.justjournal.model.LinkPreviewStatus;
 import com.justjournal.model.ModerationStatus;
 import com.justjournal.repository.EntryLinkRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.services.link.FetchException;
 import com.justjournal.services.link.LinkRejectedException;
 import com.justjournal.services.link.LinkSafetyService;
@@ -52,6 +53,7 @@ class LinkPreviewServiceTests {
   private ImageModerationService moderation;
   private StoredImageFiles files;
   private RecentBlogsRepository recentBlogs;
+  private ActivityPublisher activityPublisher;
   private LinkPreviewService service;
   private EntryLink row;
 
@@ -64,6 +66,7 @@ class LinkPreviewServiceTests {
     moderation = mock(ImageModerationService.class);
     files = mock(StoredImageFiles.class);
     recentBlogs = mock(RecentBlogsRepository.class);
+    activityPublisher = mock(ActivityPublisher.class);
     when(recentBlogs.delete()).thenReturn(Mono.just(true));
     final PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
     when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
@@ -78,7 +81,8 @@ class LinkPreviewServiceTests {
             moderation,
             files,
             new TransactionTemplate(transactionManager),
-            recentBlogs);
+            recentBlogs,
+            activityPublisher);
 
     row = new EntryLink();
     row.setId(7);
@@ -135,6 +139,8 @@ class LinkPreviewServiceTests {
     verify(files).put(row.getImageFilename(), "image/jpeg", THUMBNAIL);
     verify(repository).save(row);
     verify(recentBlogs).delete();
+    // the link now carries the page's title
+    verify(activityPublisher).entryAttachmentsChanged(30);
   }
 
   @Test
@@ -210,6 +216,8 @@ class LinkPreviewServiceTests {
     assertEquals("DBL", row.getFailureReason());
     verify(fetcher, never()).fetch(any(), any(), anyInt());
     verify(recentBlogs).delete();
+    // the link is no longer shown
+    verify(activityPublisher).entryAttachmentsChanged(30);
   }
 
   @Test
@@ -221,6 +229,8 @@ class LinkPreviewServiceTests {
 
     assertEquals(LinkPreviewStatus.FAILED, row.getPreviewStatus());
     assertEquals("PRIVATE_ADDRESS", row.getFailureReason());
+    // still shown under its address, as before
+    verify(activityPublisher, never()).entryAttachmentsChanged(anyInt());
   }
 
   @Test
@@ -284,6 +294,7 @@ class LinkPreviewServiceTests {
     verify(repository, never()).save(any());
     verify(files).remove(org.mockito.ArgumentMatchers.startsWith("link/5/"));
     verify(recentBlogs, never()).delete();
+    verify(activityPublisher, never()).entryAttachmentsChanged(anyInt());
   }
 
   @Test

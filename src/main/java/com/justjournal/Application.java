@@ -35,6 +35,7 @@ import com.justjournal.services.BingService;
 import com.justjournal.services.Blogger;
 import com.justjournal.services.MetaWeblog;
 import com.justjournal.services.TrackbackService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.mongo.MongoRepositoriesAutoConfiguration;
@@ -78,8 +79,9 @@ public class Application extends SpringBootServletInitializer {
 
   @Bean
   public ServletRegistrationBean<UpdateJournal> updateJournalServlet(Settings settings, EntryRepository entryRepository, UserRepository user,
-                                                                     LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService) {
-    return new ServletRegistrationBean<>(new UpdateJournal(settings, entryRepository, user, locationDao, moodDao, webLogin, trackbackService, bingService), "/updateJournal");
+                                                                     LocationRepository locationDao, MoodRepository moodDao, Login webLogin, TrackbackService trackbackService, BingService bingService,
+                                                                     ActivityPublisher activityPublisher) {
+    return new ServletRegistrationBean<>(new UpdateJournal(settings, entryRepository, user, locationDao, moodDao, webLogin, trackbackService, bingService, activityPublisher), "/updateJournal");
   }
 
   @Bean

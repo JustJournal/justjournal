@@ -34,6 +34,7 @@ import com.justjournal.model.EntryImage;
 import com.justjournal.model.ModerationStatus;
 import com.justjournal.repository.EntryImageRepository;
 import com.justjournal.repository.EntryRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
@@ -81,6 +82,7 @@ public class EntryImageService {
   private final EntryImageRepository entryImageRepository;
   private final EntryRepository entryRepository;
   private final EntryAccessService entryAccessService;
+  private final ActivityPublisher activityPublisher;
 
   public EntryImageService(
       final StoredImageFiles files,
@@ -88,13 +90,15 @@ public class EntryImageService {
       final ImageModerationService moderation,
       final EntryImageRepository entryImageRepository,
       final EntryRepository entryRepository,
-      final EntryAccessService entryAccessService) {
+      final EntryAccessService entryAccessService,
+      final ActivityPublisher activityPublisher) {
     this.files = files;
     this.imageService = imageService;
     this.moderation = moderation;
     this.entryImageRepository = entryImageRepository;
     this.entryRepository = entryRepository;
     this.entryAccessService = entryAccessService;
+    this.activityPublisher = activityPublisher;
   }
 
   /**
@@ -243,6 +247,10 @@ public class EntryImageService {
     entryImageRepository.delete(image);
     entryImageRepository.flush();
     deleteFiles(image);
+    // only an approved picture was ever shown on the post
+    if (image.getEntryId() != null && image.getModerationStatus() == ModerationStatus.APPROVED) {
+      activityPublisher.entryAttachmentsChanged(image.getEntryId());
+    }
   }
 
   /** Remove the picture's files once the transaction commits, or now if there is none. */

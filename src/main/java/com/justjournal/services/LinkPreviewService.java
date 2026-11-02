@@ -4,6 +4,7 @@ import com.justjournal.model.EntryLink;
 import com.justjournal.model.LinkPreviewStatus;
 import com.justjournal.repository.EntryLinkRepository;
 import com.justjournal.repository.cache.RecentBlogsRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.services.link.FetchException;
 import com.justjournal.services.link.LinkPreviewData;
 import com.justjournal.services.link.LinkRejectedException;
@@ -63,6 +64,7 @@ public class LinkPreviewService {
   private final StoredImageFiles files;
   private final TransactionTemplate transactionTemplate;
   private final RecentBlogsRepository recentBlogsRepository;
+  private final ActivityPublisher activityPublisher;
 
   @Setter
   @Value("${link-preview.max-attempts:3}")
@@ -93,7 +95,8 @@ public class LinkPreviewService {
       final ImageModerationService moderation,
       final StoredImageFiles files,
       final TransactionTemplate transactionTemplate,
-      final RecentBlogsRepository recentBlogsRepository) {
+      final RecentBlogsRepository recentBlogsRepository,
+      final ActivityPublisher activityPublisher) {
     this.entryLinkRepository = entryLinkRepository;
     this.linkSafetyService = linkSafetyService;
     this.fetcher = fetcher;
@@ -103,6 +106,7 @@ public class LinkPreviewService {
     this.files = files;
     this.transactionTemplate = transactionTemplate;
     this.recentBlogsRepository = recentBlogsRepository;
+    this.activityPublisher = activityPublisher;
   }
 
   /** The preview picture as stored, before it is written to the link's row. */
@@ -165,6 +169,10 @@ public class LinkPreviewService {
     }
     log.info("Link preview {} ready{}", linkId, image == null ? " without a picture" : "");
     recentBlogsRepository.delete().subscribe();
+    // the link was shown under its address until now; the preview picture isn't sent
+    if (link.getEntryId() != null && data.title() != null && !data.title().isBlank()) {
+      activityPublisher.entryAttachmentsChanged(link.getEntryId());
+    }
   }
 
   /**
@@ -216,7 +224,11 @@ public class LinkPreviewService {
               current.setPreviewStatus(unsafe ? LinkPreviewStatus.BLOCKED : LinkPreviewStatus.FAILED);
               current.setFailureReason(e.reason().name());
             });
-    if (written && unsafe) recentBlogsRepository.delete().subscribe();
+    if (written && unsafe) {
+      recentBlogsRepository.delete().subscribe();
+      // a blocked link is no longer shown
+      if (link.getEntryId() != null) activityPublisher.entryAttachmentsChanged(link.getEntryId());
+    }
   }
 
   private void failed(final EntryLink link, final String reason) {
