@@ -43,6 +43,7 @@ import redis.clients.jedis.Jedis;
 class RateLimitConfigTests {
 
   static final int BURST = 50;
+  static final int LOOKUP_BURST = 120;
 
   private final HttpClient http = HttpClient.newHttpClient();
 
@@ -87,12 +88,17 @@ class RateLimitConfigTests {
    * so that a spoofed address which did get through would land in a fresh bucket each time.
    */
   private void assertRejected(final Supplier<String> forwardedFor) throws Exception {
-    for (int i = 0; i < BURST; i++) {
-      if (status("/users/jjsite", forwardedFor.get()) == 429) {
+    assertRejected("/users/jjsite", forwardedFor, BURST);
+  }
+
+  private void assertRejected(
+      final String path, final Supplier<String> forwardedFor, final int burst) throws Exception {
+    for (int i = 0; i < burst; i++) {
+      if (status(path, forwardedFor.get()) == 429) {
         return;
       }
     }
-    fail("no request was rejected within " + BURST + " requests past the burst");
+    fail("no request to " + path + " was rejected within " + burst + " requests past the burst");
   }
 
   @Test
@@ -133,6 +139,28 @@ class RateLimitConfigTests {
     assertEquals(200, status("/Avatar/1", ip));
   }
 
+  @Test
+  void lookups_notCountedAgainstPages() throws Exception {
+    final String ip = randomIp();
+    useUpBurst(ip);
+    assertRejected(() -> ip);
+    assertEquals(200, status("/api/mood", ip));
+    assertEquals(200, status("/api/location", ip));
+    assertEquals(200, status("/api/security", ip));
+    assertEquals(200, status("/api/mood/12", ip));
+  }
+
+  @Test
+  void lookups_haveTheirOwnLooserBurst() throws Exception {
+    final String ip = randomIp();
+    for (int i = 0; i < LOOKUP_BURST; i++) {
+      assertEquals(200, status("/api/mood", ip), "request " + (i + 1));
+    }
+    assertRejected("/api/security", () -> ip, LOOKUP_BURST);
+    // the pages bucket is untouched
+    assertEquals(200, status("/users/jjsite", ip));
+  }
+
   @SpringBootConfiguration
   @ImportAutoConfiguration({
     ConfigurationPropertiesAutoConfiguration.class,
@@ -149,7 +177,16 @@ class RateLimitConfigTests {
 
   @RestController
   static class TestController {
-    @GetMapping({"/users/{user}", "/static/{file}", "/favicon.ico", "/Avatar/{id}"})
+    @GetMapping({
+      "/users/{user}",
+      "/static/{file}",
+      "/favicon.ico",
+      "/Avatar/{id}",
+      "/api/mood",
+      "/api/mood/{id}",
+      "/api/location",
+      "/api/security"
+    })
     String ok() {
       return "ok";
     }

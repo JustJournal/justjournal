@@ -198,7 +198,7 @@ bucket4j:
       cache-name: buckets
       filter-method: servlet
       filter-order: 1
-      url: '^(?!/(static|components|js|ckeditor|images|styles|software|Avatar|AlbumImage|EntryImage|EntryLinkImage|favicon\.ico|robots\.txt)).*'
+      url: '^(?!/(static|components|js|ckeditor|images|styles|software|Avatar|AlbumImage|EntryImage|EntryLinkImage|favicon\.ico|robots\.txt|api/(mood|location|security)(/|$))).*'
       metrics:
         tags:
           - key: IP
@@ -235,6 +235,24 @@ bucket4j:
               unit: minutes
             - id: sustained
               capacity: 30
+              time: 1
+              unit: hours
+    # the mood, location and security lists: small, read-only, and loaded together every time the
+    # entry form opens, so they have a looser bucket of their own rather than the page limit
+    - id: lookups
+      cache-name: buckets
+      filter-method: servlet
+      filter-order: 3
+      url: '^/api/(mood|location|security)(/.*)?$'
+      rate-limits:
+        - cache-key: "getRemoteAddr()"
+          bandwidths:
+            - id: burst
+              capacity: 120
+              time: 1
+              unit: minutes
+            - id: sustained
+              capacity: 1200
               time: 1
               unit: hours
 
