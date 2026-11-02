@@ -221,6 +221,9 @@ public class AccountController {
       // fediverse followers and anything still queued for them
       jdbcTemplate.execute("DELETE FROM activitypub_delivery WHERE user_id=" + userID + ";");
       jdbcTemplate.execute("DELETE FROM activitypub_follower WHERE user_id=" + userID + ";");
+      // accounts followed elsewhere; the actor Delete told their servers, and posts nobody here
+      // follows any more go with the next remote post purge
+      jdbcTemplate.execute("DELETE FROM activitypub_following WHERE user_id=" + userID + ";");
 
       jdbcTemplate.execute("DELETE FROM user_pref WHERE user_id=" + userID + ";");
 

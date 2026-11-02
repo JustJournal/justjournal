@@ -66,6 +66,8 @@ import com.justjournal.model.Journal;
 import com.justjournal.model.Location;
 import com.justjournal.model.Mood;
 import com.justjournal.model.MoodThemeData;
+import com.justjournal.model.RemoteFollowing;
+import com.justjournal.model.RemotePost;
 import com.justjournal.model.RemoteReply;
 import com.justjournal.model.RssSubscription;
 import com.justjournal.model.Security;
@@ -100,6 +102,7 @@ import com.justjournal.model.ModerationStatus;
 import com.justjournal.services.EntryAttachmentService.EntryAttachments;
 import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.EntryImageService;
+import com.justjournal.services.activitypub.RemotePostService;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -155,6 +158,7 @@ class UsersControllerTests {
   private EntryAttachmentService entryAttachmentService;
   private EntryAccessService entryAccessService;
   private EntryImageService entryImageService;
+  private RemotePostService remotePostService;
 
   private MockMvc mockMvc;
   private User blogUser;
@@ -184,6 +188,7 @@ class UsersControllerTests {
     entryAttachmentService = mock(EntryAttachmentService.class);
     entryAccessService = mock(EntryAccessService.class);
     entryImageService = mock(EntryImageService.class);
+    remotePostService = mock(RemotePostService.class);
 
     when(settings.getBlogBaseUrl(anyString()))
         .thenAnswer(inv -> "http://localhost/users/" + inv.getArgument(0));
@@ -214,7 +219,8 @@ class UsersControllerTests {
             settings,
             entryAttachmentService,
             new EntryAttachmentRenderer(entryAccessService, entryImageService),
-            remoteReplyRepository);
+            remoteReplyRepository,
+            remotePostService);
 
     // the real pages are Thymeleaf templates; here the view name and model are what matter
     final View noView = (m, request, response) -> {};
@@ -1032,6 +1038,101 @@ class UsersControllerTests {
     assertTrue(out.contains("addFavorite(2)"), out);
     assertTrue(out.contains("1 comment</a>"), out);
     assertTrue(out.contains("3 comments</a>"), out);
+  }
+
+  private static RemotePostService.FriendsPagePost fediversePost(
+      final int id, final Date published, final String content) {
+    final RemoteFollowing account = new RemoteFollowing();
+    account.setActorId("https://remote.social/users/carol");
+    account.setHandle("@carol@remote.social");
+    account.setDisplayName("Carol <3");
+    account.setProfileUrl("https://remote.social/@carol");
+    final RemotePost post = new RemotePost();
+    post.setId(id);
+    post.setActorId(account.getActorId());
+    post.setObjectId("https://remote.social/users/carol/statuses/" + id);
+    post.setUrl("https://remote.social/@carol/" + id);
+    post.setPublished(published);
+    post.setContent(content);
+    return new RemotePostService.FriendsPagePost(
+        post,
+        account,
+        List.of(new RemotePostService.Link("https://remote.social/media/" + id + ".png", null)));
+  }
+
+  @Test
+  void friends_ownerSeesFediversePostsInterleavedByDate() throws Exception {
+    final User alice = user(8, "alice");
+    final MockHttpSession session = viewedBy(blogUser);
+    final Entry older = friendsPageEntry(1, alice);
+    older.setBody("older entry");
+    older.setDate(at(2024, 3, 8, 9));
+    final Entry newer = friendsPageEntry(2, alice);
+    newer.setBody("newer entry");
+    newer.setDate(at(2024, 3, 10, 9));
+    when(entryService.getFriendsEntries(BLOG)).thenReturn(List.of(newer, older));
+    when(remotePostService.forFriendsPage(blogUser, 20))
+        .thenReturn(
+            List.of(
+                fediversePost(30, at(2024, 3, 11, 9), "<p>newest toot</p>"),
+                fediversePost(31, at(2024, 3, 9, 9), "<p>middle toot</p>"),
+                fediversePost(32, at(2024, 3, 1, 9), "<p>oldest toot</p>")));
+
+    final String out =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG + "/friends").session(session))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("fediverse", true))
+                .andReturn(),
+            "friends");
+
+    final int newest = out.indexOf("newest toot");
+    final int newerEntry = out.indexOf("newer entry");
+    final int middle = out.indexOf("middle toot");
+    final int olderEntry = out.indexOf("older entry");
+    final int oldest = out.indexOf("oldest toot");
+    assertTrue(newest > 0 && newest < newerEntry, out);
+    assertTrue(newerEntry < middle && middle < olderEntry && olderEntry < oldest, out);
+    // labelled, linked to the original, and the account's name escaped
+    assertTrue(out.contains("from the fediverse: @carol@remote.social"), out);
+    assertTrue(out.contains("href=\"https://remote.social/@carol/30\""), out);
+    assertTrue(out.contains("Carol &lt;3"), out);
+    assertTrue(
+        out.contains(
+            "href=\"https://remote.social/media/30.png\" rel=\"nofollow ugc noopener\">"
+                + "attachment 1</a>"),
+        out);
+    assertFalse(out.contains("<img src=\"https://remote.social"), out);
+    assertTrue(out.contains("<h2>" + day(at(2024, 3, 11, 9)) + "</h2>"), out);
+  }
+
+  @Test
+  void friends_otherVisitorsNeverSeeFediversePosts() throws Exception {
+    final User alice = user(8, "alice");
+    when(entryService.getFriendsEntries(BLOG)).thenReturn(List.of());
+    when(remotePostService.forFriendsPage(any(), anyInt()))
+        .thenReturn(List.of(fediversePost(30, at(2024, 3, 11, 9), "<p>toot</p>")));
+
+    final String forAlice =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG + "/friends").session(viewedBy(alice)))
+                .andExpect(model().attribute("fediverse", false))
+                .andReturn(),
+            "friends");
+    anonymous();
+    final String forNobody =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG + "/friends"))
+                .andExpect(model().attribute("fediverse", false))
+                .andReturn(),
+            "friends");
+
+    assertFalse(forAlice.contains("toot"), forAlice);
+    assertFalse(forNobody.contains("toot"), forNobody);
+    verify(remotePostService, never()).forFriendsPage(any(), anyInt());
   }
 
   @Test

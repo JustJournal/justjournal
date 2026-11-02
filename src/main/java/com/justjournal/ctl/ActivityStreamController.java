@@ -41,6 +41,7 @@ import com.justjournal.services.EntryAccessService;
 import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.activitypub.ActivityStreamsObjects;
 import com.justjournal.services.activitypub.FollowerService;
+import com.justjournal.services.activitypub.FollowingService;
 import java.util.List;
 import java.util.Map;
 import org.springframework.data.domain.Page;
@@ -98,6 +99,7 @@ public class ActivityStreamController {
   private final EntryAccessService entryAccessService;
   private final EntryAttachmentService entryAttachmentService;
   private final FollowerService followerService;
+  private final FollowingService followingService;
   private final ActivityStreamsObjects objects;
 
   public ActivityStreamController(
@@ -106,12 +108,14 @@ public class ActivityStreamController {
       final EntryAccessService entryAccessService,
       final EntryAttachmentService entryAttachmentService,
       final FollowerService followerService,
+      final FollowingService followingService,
       final ActivityStreamsObjects objects) {
     this.userRepository = userRepository;
     this.entryRepository = entryRepository;
     this.entryAccessService = entryAccessService;
     this.entryAttachmentService = entryAttachmentService;
     this.followerService = followerService;
+    this.followingService = followingService;
     this.objects = objects;
   }
 
@@ -157,7 +161,15 @@ public class ActivityStreamController {
       value = "/users/{username}/following",
       produces = {ACTIVITY_JSON_VALUE, LD_JSON_VALUE})
   public ResponseEntity<JsonNode> following(@PathVariable(PATH_USERNAME) final String username) {
-    return emptyCollection(username, "/following");
+    final User user = publicUser(username);
+    if (user == null) return notFound();
+
+    // how many accepted follows, but not which: the list stays private, as followers does
+    final ObjectNode collection = withContext();
+    collection.put("id", actorId(user) + "/following");
+    collection.put("type", "OrderedCollection");
+    collection.put("totalItems", followingService.countAccepted(user));
+    return ok(collection);
   }
 
   /** Public entries, newest first: the collection itself, or one page of it when asked. */
@@ -220,17 +232,6 @@ public class ActivityStreamController {
    */
   static String objectType(final Entry entry) {
     return ActivityStreamsObjects.objectType(entry);
-  }
-
-  private ResponseEntity<JsonNode> emptyCollection(final String username, final String path) {
-    final User user = publicUser(username);
-    if (user == null) return notFound();
-
-    final ObjectNode collection = withContext();
-    collection.put("id", actorId(user) + path);
-    collection.put("type", "OrderedCollection");
-    collection.put("totalItems", 0);
-    return ok(collection);
   }
 
   private Page<Entry> publicEntries(final User user, final int page, final int size) {

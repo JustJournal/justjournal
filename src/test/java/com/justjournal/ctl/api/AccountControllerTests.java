@@ -332,6 +332,7 @@ class AccountControllerTests {
     final InOrder order = inOrder(jdbcTemplate, userRepository);
     order.verify(jdbcTemplate).execute("DELETE FROM activitypub_delivery WHERE user_id=7;");
     order.verify(jdbcTemplate).execute("DELETE FROM activitypub_follower WHERE user_id=7;");
+    order.verify(jdbcTemplate).execute("DELETE FROM activitypub_following WHERE user_id=7;");
     order.verify(userRepository).deleteById(7);
   }
 

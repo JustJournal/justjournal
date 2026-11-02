@@ -54,6 +54,8 @@ class InboxServiceRepliesTests {
   private FollowerService followerService;
   private ActivityPubFetcher fetcher;
   private RemoteReplyService remoteReplies;
+  private RemotePostService remotePosts;
+  private FollowingService followingService;
   private InboxService inboxService;
   private User bob;
 
@@ -62,6 +64,9 @@ class InboxServiceRepliesTests {
     followerService = mock(FollowerService.class);
     fetcher = mock(ActivityPubFetcher.class);
     remoteReplies = mock(RemoteReplyService.class);
+    remotePosts = mock(RemotePostService.class);
+    followingService = mock(FollowingService.class);
+    when(remotePosts.receive(any(), any())).thenReturn(Outcome.IGNORED);
     inboxService =
         new InboxService(
             followerService,
@@ -69,7 +74,9 @@ class InboxServiceRepliesTests {
             mock(FederationPolicy.class),
             mock(ActorKeyService.class),
             fetcher,
-            remoteReplies);
+            remoteReplies,
+            followingService,
+            remotePosts);
     when(fetcher.normalize(anyString()))
         .thenAnswer(
             inv -> {
@@ -115,6 +122,37 @@ class InboxServiceRepliesTests {
   }
 
   @Test
+  void whatTheRepliesIgnoreGoesToTheFollowedPosts() {
+    final ObjectNode create = activity("Create");
+    final ObjectNode update = activity("Update");
+    final ObjectNode delete = activity("Delete");
+    delete.put("object", NOTE);
+    when(remoteReplies.create(bob, create, ALICE)).thenReturn(Outcome.IGNORED);
+    when(remoteReplies.update(update, ALICE)).thenReturn(Outcome.IGNORED);
+    when(remoteReplies.delete(NOTE, ALICE)).thenReturn(Outcome.IGNORED);
+    when(remotePosts.receive(any(), any())).thenReturn(Outcome.HANDLED);
+
+    assertEquals(Outcome.HANDLED, inboxService.handle(bob, create, ALICE));
+    assertEquals(Outcome.HANDLED, inboxService.handle(bob, update, ALICE));
+    assertEquals(Outcome.HANDLED, inboxService.handle(bob, delete, ALICE));
+    verify(remotePosts).receive(create, ALICE);
+    verify(remotePosts).receive(update, ALICE);
+    verify(remotePosts).receive(delete, ALICE);
+  }
+
+  @Test
+  void aReplyHandledOrToRetryNeverReachesTheFollowedPosts() {
+    final ObjectNode create = activity("Create");
+    final ObjectNode update = activity("Update");
+    when(remoteReplies.create(bob, create, ALICE)).thenReturn(Outcome.HANDLED);
+    when(remoteReplies.update(update, ALICE)).thenReturn(Outcome.RETRY);
+
+    assertEquals(Outcome.HANDLED, inboxService.handle(bob, create, ALICE));
+    assertEquals(Outcome.RETRY, inboxService.handle(bob, update, ALICE));
+    verify(remotePosts, never()).receive(any(), any());
+  }
+
+  @Test
   void deleteOfTheActorRemovesItsReplies() {
     final ObjectNode delete = activity("Delete");
     delete.put("object", ALICE);
@@ -122,6 +160,7 @@ class InboxServiceRepliesTests {
     assertEquals(Outcome.HANDLED, inboxService.handle(bob, delete, ALICE));
     verify(followerService).removeEverywhere(URI.create(ALICE));
     verify(remoteReplies).removeActor(ALICE);
+    verify(followingService).remoteActorGone(URI.create(ALICE));
   }
 
   @Test

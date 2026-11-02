@@ -81,6 +81,7 @@ class ActorDeletionTests {
 
   private FederationPolicy policy;
   private FollowerService followerService;
+  private FollowingService followingService;
   private DeliveryService deliveryService;
   private InboxClient inboxClient;
   private ActorDeletion deletion;
@@ -101,11 +102,19 @@ class ActorDeletionTests {
     policy = new FederationPolicy();
     policy.setEnabled(true);
     followerService = mock(FollowerService.class);
+    followingService = mock(FollowingService.class);
     deliveryService = mock(DeliveryService.class);
     inboxClient = mock(InboxClient.class);
     when(inboxClient.check(any())).thenAnswer(inv -> inv.getArgument(0));
     deletion =
-        new ActorDeletion(policy, followerService, deliveryService, objects, inboxClient, signer);
+        new ActorDeletion(
+            policy,
+            followerService,
+            followingService,
+            deliveryService,
+            objects,
+            inboxClient,
+            signer);
 
     bob = new User();
     bob.setId(7);
@@ -147,6 +156,28 @@ class ActorDeletionTests {
     order.verify(deliveryService).cancelPending(bob);
     order.verify(followerService).removeAll(bob);
     order.verify(deliveryService).enqueue(eq(ACTOR), eq(7), anyString(), any());
+    verify(followingService).removeAll(bob);
+  }
+
+  @Test
+  void federationStopped_alsoTellsTheServersOfFollowedAccounts_andForgetsTheFollows()
+      throws Exception {
+    final URI followed = URI.create("https://followed.example/inbox");
+    followedFrom(MASTODON);
+    when(followingService.deliveryInboxes(bob))
+        .thenReturn(new LinkedHashSet<>(List.of(MASTODON, followed)));
+
+    deletion.federationStopped(bob);
+
+    final ArgumentCaptor<String> activity = ArgumentCaptor.forClass(String.class);
+    verify(deliveryService)
+        .enqueue(eq(ACTOR), eq(7), activity.capture(), eq(Set.of(MASTODON, followed)));
+    assertActorDelete(activity.getValue());
+    // read before the follows go; no Undo is queued, the actor Delete covers them
+    final InOrder order = inOrder(followingService, deliveryService);
+    order.verify(followingService).deliveryInboxes(bob);
+    order.verify(followingService).removeAll(bob);
+    verify(deliveryService).enqueue(anyString(), anyInt(), anyString(), any());
   }
 
   @Test
@@ -166,7 +197,7 @@ class ActorDeletionTests {
     assertEquals(0, deletion.federationStopped(bob));
     assertEquals(0, deletion.federationStopped(null));
 
-    verifyNoInteractions(followerService, deliveryService);
+    verifyNoInteractions(followerService, followingService, deliveryService);
   }
 
   // ---- account deleted ------------------------------------------------------------------------
@@ -186,6 +217,17 @@ class ActorDeletionTests {
     assertEquals("keyId=\"" + ACTOR + "#main-key\"", signedHeaders.get(0).get("Signature"));
     // not queued: the key that signs it is about to be deleted
     verifyNoInteractions(deliveryService);
+  }
+
+  @Test
+  void accountDeleting_alsoPostsToTheServersOfFollowedAccounts() throws Exception {
+    final URI followed = URI.create("https://followed.example/inbox");
+    when(followingService.deliveryInboxes(bob)).thenReturn(Set.of(followed));
+    when(inboxClient.post(any(), any(), any())).thenReturn(202);
+
+    assertEquals(1, deletion.accountDeleting(bob));
+
+    verify(inboxClient).post(eq(followed), any(), any());
   }
 
   @Test
