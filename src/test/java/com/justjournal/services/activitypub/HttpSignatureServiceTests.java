@@ -370,13 +370,13 @@ class HttpSignatureServiceTests {
     final Map<String, List<String>> headers = signedByAlice(BODY);
     final String path = "/users/bob/inbox";
 
-    // within an hour either way is fine
-    service(NOW.plus(Duration.ofMinutes(59))).verify("POST", path, headers, BODY);
+    // up to 12 hours old, and up to an hour ahead of our clock, is fine
+    service(NOW.plus(Duration.ofHours(12).minusMinutes(1))).verify("POST", path, headers, BODY);
     service(NOW.minus(Duration.ofMinutes(59))).verify("POST", path, headers, BODY);
 
     for (final Instant now :
         List.of(
-            NOW.plus(Duration.ofMinutes(61)),
+            NOW.plus(Duration.ofHours(12).plusMinutes(1)),
             NOW.minus(Duration.ofMinutes(61)),
             NOW.minus(Duration.ofDays(400)))) {
       final HttpSignatureException e =

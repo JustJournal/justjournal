@@ -126,7 +126,7 @@ public class CacheConfig {
    */
   @Bean
   public RedisCacheManagerBuilderCustomizer activityPubSeenCache(
-      @Value("${activitypub.signature.max-age-seconds:3600}") final long maxAgeSeconds,
+      @Value("${activitypub.signature.max-age-seconds:43200}") final long maxAgeSeconds,
       @Value("${activitypub.signature.max-future-seconds:3600}") final long maxFutureSeconds) {
     return builder ->
         builder.withCacheConfiguration(

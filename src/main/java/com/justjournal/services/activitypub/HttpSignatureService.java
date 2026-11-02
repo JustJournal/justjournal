@@ -72,10 +72,13 @@ public class HttpSignatureService {
   private final RemoteKeyResolver remoteKeyResolver;
   private final Clock clock;
 
-  /** How old a Date may be. */
+  /**
+   * How old a Date may be: 12 hours, as Mastodon allows, for senders that sign a request once and
+   * send it again later.
+   */
   @Setter
-  @Value("${activitypub.signature.max-age-seconds:3600}")
-  private long maxAgeSeconds = 3600;
+  @Value("${activitypub.signature.max-age-seconds:43200}")
+  private long maxAgeSeconds = 43200;
 
   /** How far ahead of our clock a Date may be. */
   @Setter
