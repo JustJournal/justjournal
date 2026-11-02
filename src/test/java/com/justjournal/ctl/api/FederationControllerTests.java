@@ -38,15 +38,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.justjournal.config.ExceptionHandlerConfig;
+import com.justjournal.model.Journal;
 import com.justjournal.model.PrefBool;
+import com.justjournal.model.User;
 import com.justjournal.model.UserPref;
 import com.justjournal.repository.UserPrefRepository;
+import com.justjournal.services.activitypub.ActorDeletion;
 import com.justjournal.services.activitypub.FederationPolicy;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -58,6 +62,8 @@ class FederationControllerTests {
   private UserPrefRepository userPrefRepository;
   private FederationPolicy policy;
   private UserPref pref;
+  private User user;
+  private ActorDeletion actorDeletion;
   private MockMvc mockMvc;
 
   @BeforeEach
@@ -67,9 +73,20 @@ class FederationControllerTests {
     policy.setEnabled(true);
     pref = new UserPref();
     when(userPrefRepository.findByUserId(USER_ID)).thenReturn(Optional.of(pref));
+    // a user with a public journal, so only the opt-in decides whether it federates
+    user = new User();
+    user.setId(USER_ID);
+    user.setUsername("bob");
+    ReflectionTestUtils.setField(user, "userPref", pref);
+    pref.setUser(user);
+    final Journal journal = new Journal();
+    journal.setUser(user);
+    user.getJournals().add(journal);
+    actorDeletion = mock(ActorDeletion.class);
 
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new FederationController(userPrefRepository, policy))
+        MockMvcBuilders.standaloneSetup(
+                new FederationController(userPrefRepository, policy, actorDeletion))
             .setControllerAdvice(new ExceptionHandlerConfig())
             .build();
   }
@@ -105,19 +122,38 @@ class FederationControllerTests {
 
     assertEquals(PrefBool.Y, pref.getFederate());
     verify(userPrefRepository).save(pref);
+    verify(actorDeletion, never()).federationStopped(any());
     mockMvc
         .perform(get("/api/federation").session(loggedIn()))
         .andExpect(jsonPath("$.federate").value(true));
   }
 
   @Test
-  void turningItOff_isSaved() throws Exception {
+  void turningItOff_isSaved_andTellsFollowersTheActorIsGone() throws Exception {
     pref.setFederate(PrefBool.Y);
 
     putFederate(false, 200);
 
     assertEquals(PrefBool.N, pref.getFederate());
     verify(userPrefRepository).save(pref);
+    verify(actorDeletion).federationStopped(user);
+  }
+
+  @Test
+  void turningItOffWhenItWasOff_sendsNothing() throws Exception {
+    putFederate(false, 200);
+
+    verify(actorDeletion, never()).federationStopped(any());
+  }
+
+  @Test
+  void turningItOffForAnOwnerOnlyJournal_sendsNothing_itWasNotFederating() throws Exception {
+    pref.setFederate(PrefBool.Y);
+    user.getJournals().forEach(journal -> journal.setOwnerViewOnly(true));
+
+    putFederate(false, 200);
+
+    verify(actorDeletion, never()).federationStopped(any());
   }
 
   @Test
@@ -142,6 +178,8 @@ class FederationControllerTests {
     putFederate(false, 200);
 
     assertEquals(PrefBool.N, pref.getFederate());
+    // nothing is sent while the site doesn't federate
+    verify(actorDeletion, never()).federationStopped(any());
   }
 
   @Test

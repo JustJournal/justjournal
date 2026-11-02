@@ -172,6 +172,9 @@ activitypub:
     max-request-ms: 30000
     keep-delivered-days: 7
     keep-failed-days: 30
+    # deleting an account posts an actor Delete to each follower's server straight away, since the
+    # key that signs it goes with the account; this is how long the request waits for all of them
+    account-delete-seconds: 30
     user-agent: "JustJournal (+https://www.justjournal.com/)"
 
 bing:

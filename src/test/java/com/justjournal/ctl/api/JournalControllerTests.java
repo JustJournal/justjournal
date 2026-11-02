@@ -39,13 +39,17 @@ import static org.mockito.Mockito.when;
 
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Journal;
+import com.justjournal.model.PrefBool;
 import com.justjournal.model.Style;
 import com.justjournal.model.User;
+import com.justjournal.model.UserPref;
 import com.justjournal.model.api.JournalTo;
 import com.justjournal.repository.JournalRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.StyleService;
 import com.justjournal.services.activitypub.ActivityPublisher;
+import com.justjournal.services.activitypub.ActorDeletion;
+import com.justjournal.services.activitypub.FederationPolicy;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +61,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /** Journals can be listed by anyone and created, changed and removed only by their owner. */
 class JournalControllerTests {
@@ -67,6 +72,7 @@ class JournalControllerTests {
   private UserRepository userRepository;
   private StyleService styleService;
   private ActivityPublisher activityPublisher;
+  private ActorDeletion actorDeletion;
   private JournalController controller;
 
   private MockHttpSession session;
@@ -81,8 +87,17 @@ class JournalControllerTests {
     userRepository = mock(UserRepository.class);
     styleService = mock(StyleService.class);
     activityPublisher = mock(ActivityPublisher.class);
+    actorDeletion = mock(ActorDeletion.class);
+    final FederationPolicy federationPolicy = new FederationPolicy();
+    federationPolicy.setEnabled(true);
     controller =
-        new JournalController(journalRepository, userRepository, styleService, activityPublisher);
+        new JournalController(
+            journalRepository,
+            userRepository,
+            styleService,
+            activityPublisher,
+            federationPolicy,
+            actorDeletion);
 
     session = new MockHttpSession();
     response = new MockHttpServletResponse();
@@ -95,6 +110,14 @@ class JournalControllerTests {
     style.setId(2);
     when(styleService.get(2)).thenReturn(style);
     when(journalRepository.saveAndFlush(any(Journal.class))).thenAnswer(inv -> inv.getArgument(0));
+  }
+
+  /** The owner turned federation on, and the journal is public. */
+  private void federating() {
+    final UserPref pref = new UserPref();
+    pref.setFederate(PrefBool.Y);
+    ReflectionTestUtils.setField(owner, "userPref", pref);
+    owner.getJournals().add(journal);
   }
 
   private void loginAs(final int id, final String username) {
@@ -196,6 +219,33 @@ class JournalControllerTests {
     assertNotNull(journal.getModified());
     // the journal's name is the actor's name
     verify(activityPublisher).profileChanged(owner);
+    // the owner never turned federation on
+    verify(actorDeletion, never()).federationStopped(any());
+  }
+
+  @Test
+  void put_madeOwnerOnlyWhileFederating_tellsFollowersTheActorIsGone() {
+    loginAs(OWNER_ID, "owner");
+    federating();
+    when(journalRepository.findOneBySlug("mine")).thenReturn(journal);
+
+    controller.put("mine", journalTo("mine"), session, response);
+
+    assertEquals(200, response.getStatus());
+    verify(actorDeletion).federationStopped(owner);
+  }
+
+  @Test
+  void put_stillPublicWhileFederating_sendsNoDelete() {
+    loginAs(OWNER_ID, "owner");
+    federating();
+    when(journalRepository.findOneBySlug("mine")).thenReturn(journal);
+    final JournalTo stillPublic = journalTo("mine");
+    stillPublic.setOwnerViewOnly(false);
+
+    controller.put("mine", stillPublic, session, response);
+
+    verify(actorDeletion, never()).federationStopped(any());
   }
 
   @Test
@@ -298,5 +348,30 @@ class JournalControllerTests {
     assertEquals(Map.of("slug", "mine"), result);
     verify(journalRepository).delete(journal);
     verify(journalRepository).flush();
+    verify(actorDeletion, never()).federationStopped(any());
+  }
+
+  @Test
+  void delete_theOnlyJournalWhileFederating_tellsFollowersTheActorIsGone() {
+    loginAs(OWNER_ID, "owner");
+    federating();
+    when(journalRepository.findOneBySlug("mine")).thenReturn(journal);
+
+    controller.delete("mine", session, response);
+
+    verify(journalRepository).delete(journal);
+    verify(actorDeletion).federationStopped(owner);
+  }
+
+  @Test
+  void delete_oneOfTwoJournalsWhileFederating_sendsNoDelete() {
+    loginAs(OWNER_ID, "owner");
+    federating();
+    owner.getJournals().add(Journal.builder().id(6).slug("other").name("Other").user(owner).build());
+    when(journalRepository.findOneBySlug("mine")).thenReturn(journal);
+
+    controller.delete("mine", session, response);
+
+    verify(actorDeletion, never()).federationStopped(any());
   }
 }

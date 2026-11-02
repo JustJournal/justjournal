@@ -32,11 +32,14 @@ import com.justjournal.ctl.error.ErrorHandler;
 import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.Journal;
 import com.justjournal.model.Style;
+import com.justjournal.model.User;
 import com.justjournal.model.api.JournalTo;
 import com.justjournal.repository.JournalRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.StyleService;
 import com.justjournal.services.activitypub.ActivityPublisher;
+import com.justjournal.services.activitypub.ActorDeletion;
+import com.justjournal.services.activitypub.FederationPolicy;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -72,17 +75,23 @@ public class JournalController {
   private final UserRepository userRepository;
   private final StyleService styleService;
   private final ActivityPublisher activityPublisher;
+  private final FederationPolicy federationPolicy;
+  private final ActorDeletion actorDeletion;
 
   @Autowired
   public JournalController(
       final JournalRepository journalRepository,
       final UserRepository userRepository,
       final StyleService styleService,
-      final ActivityPublisher activityPublisher) {
+      final ActivityPublisher activityPublisher,
+      final FederationPolicy federationPolicy,
+      final ActorDeletion actorDeletion) {
     this.journalRepository = journalRepository;
     this.userRepository = userRepository;
     this.styleService = styleService;
     this.activityPublisher = activityPublisher;
+    this.federationPolicy = federationPolicy;
+    this.actorDeletion = actorDeletion;
   }
 
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -163,6 +172,7 @@ public class JournalController {
         return ErrorHandler.modelError("You do not have permission to update this journal.");
       }
 
+      final boolean federated = federationPolicy.federates(j.getUser());
       // the name is the actor's name
       final boolean renamed = !Objects.equals(j.getName(), journalTo.getName());
       j.setAllowSpider(journalTo.isAllowSpider());
@@ -180,6 +190,8 @@ public class JournalController {
       j.setModified(Calendar.getInstance().getTime());
       j = journalRepository.saveAndFlush(j);
       if (renamed) activityPublisher.profileChanged(j.getUser());
+      // an owner view only journal doesn't federate
+      if (federated && j.isOwnerViewOnly()) actorDeletion.federationStopped(j.getUser());
 
       return java.util.Collections.singletonMap("slug", j.getSlug());
     } catch (final Exception e) {
@@ -216,8 +228,15 @@ public class JournalController {
       return ErrorHandler.modelError("You do not have permission to delete this journal.");
     }
 
+    final User owner = journal.getUser();
+    final boolean federated = federationPolicy.federates(owner);
     journalRepository.delete(journal);
     journalRepository.flush();
+    // a user with no journal left doesn't federate
+    if (federated
+        && owner.getJournals().stream().allMatch(other -> other.getId() == journal.getId())) {
+      actorDeletion.federationStopped(owner);
+    }
     return java.util.Collections.singletonMap("slug", journal.getSlug());
   }
 }
