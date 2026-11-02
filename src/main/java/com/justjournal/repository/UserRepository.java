@@ -27,6 +27,7 @@ package com.justjournal.repository;
 
 
 import com.justjournal.model.User;
+import java.util.Date;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -52,4 +53,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
   @Query("SELECT u FROM User u, Journal j where j.user = u and j.ownerViewOnly = false")
   List<User> getPublicUsers();
+
+  /** Users who logged in after the given time. */
+  long countByLastLoginAfter(Date since);
 }
