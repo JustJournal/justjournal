@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -115,18 +116,21 @@ class FollowerServiceTests {
             bob,
             URI.create("https://mastodon.social/users/a"),
             URI.create("https://mastodon.social/users/a/inbox"),
-            URI.create("https://mastodon.social/inbox"));
+            URI.create("https://mastodon.social/inbox"),
+            URI.create("https://mastodon.social/1f2e"));
 
     assertEquals(7, saved.getUserId());
     assertEquals("https://mastodon.social/users/a", saved.getActorId());
     assertEquals("https://mastodon.social/users/a/inbox", saved.getInbox());
     assertEquals("https://mastodon.social/inbox", saved.getSharedInbox());
+    assertEquals("https://mastodon.social/1f2e", saved.getFollowId());
   }
 
   @Test
   void add_again_updatesTheInboxesInsteadOfAddingTwice() {
     final RemoteFollower existing =
         follower("https://mastodon.social/users/a", "https://old.example/inbox", "x");
+    existing.setFollowId("https://mastodon.social/old");
     when(repository.findByUserIdAndActorId(7, "https://mastodon.social/users/a"))
         .thenReturn(Optional.of(existing));
 
@@ -135,11 +139,32 @@ class FollowerServiceTests {
             bob,
             URI.create("https://mastodon.social/users/a"),
             URI.create("https://mastodon.social/users/a/inbox"),
-            null);
+            null,
+            URI.create("https://mastodon.social/new"));
 
     assertSame(existing, saved);
     assertEquals("https://mastodon.social/users/a/inbox", saved.getInbox());
     assertNull(saved.getSharedInbox());
+    assertEquals("https://mastodon.social/new", saved.getFollowId());
+  }
+
+  @Test
+  void add_again_withoutAFollowId_forgetsTheOldOne() {
+    final RemoteFollower existing =
+        follower("https://mastodon.social/users/a", "https://mastodon.social/users/a/inbox", null);
+    existing.setFollowId("https://mastodon.social/old");
+    when(repository.findByUserIdAndActorId(7, "https://mastodon.social/users/a"))
+        .thenReturn(Optional.of(existing));
+
+    final RemoteFollower saved =
+        service.add(
+            bob,
+            URI.create("https://mastodon.social/users/a"),
+            URI.create("https://mastodon.social/users/a/inbox"),
+            null,
+            null);
+
+    assertNull(saved.getFollowId());
   }
 
   @Test
@@ -147,13 +172,13 @@ class FollowerServiceTests {
     final URI inbox = URI.create("https://mastodon.social/inbox");
     assertThrows(
         IllegalArgumentException.class,
-        () -> service.add(bob, URI.create("/users/a"), inbox, null));
+        () -> service.add(bob, URI.create("/users/a"), inbox, null, null));
     assertThrows(
         IllegalArgumentException.class,
-        () -> service.add(bob, URI.create("mailto:a@example.com"), inbox, null));
+        () -> service.add(bob, URI.create("mailto:a@example.com"), inbox, null, null));
     assertThrows(
         IllegalArgumentException.class,
-        () -> service.add(bob, URI.create("ftp://example.com/a"), inbox, null));
+        () -> service.add(bob, URI.create("ftp://example.com/a"), inbox, null, null));
     assertThrows(
         IllegalArgumentException.class,
         () ->
@@ -161,8 +186,42 @@ class FollowerServiceTests {
                 bob,
                 URI.create("https://example.com/" + "a".repeat(RemoteFollower.MAX_URL_LENGTH)),
                 inbox,
+                null,
                 null));
+    final URI actor = URI.create("https://mastodon.social/users/a");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.add(bob, actor, inbox, null, URI.create("urn:uuid:1f2e")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.add(
+                bob,
+                actor,
+                inbox,
+                null,
+                URI.create("https://example.com/" + "a".repeat(RemoteFollower.MAX_URL_LENGTH))));
     verify(repository, never()).save(any());
+  }
+
+  @Test
+  void removeByFollowId_onlyMatchesTheActorsOwnFollow() {
+    final URI follow = URI.create("https://mastodon.social/1f2e");
+    when(repository.deleteByUserIdAndActorIdAndFollowId(
+            7, "https://mastodon.social/users/a", "https://mastodon.social/1f2e"))
+        .thenReturn(1L);
+
+    assertTrue(
+        service.removeByFollowId(bob, URI.create("https://mastodon.social/users/a"), follow));
+    assertFalse(
+        service.removeByFollowId(bob, URI.create("https://mastodon.social/users/m"), follow));
+    verify(repository)
+        .deleteByUserIdAndActorIdAndFollowId(
+            7, "https://mastodon.social/users/m", "https://mastodon.social/1f2e");
+    assertFalse(service.removeByFollowId(bob, null, follow));
+    assertFalse(
+        service.removeByFollowId(bob, URI.create("https://mastodon.social/users/a"), null));
+    verify(repository, never()).deleteByUserIdAndActorId(anyInt(), any());
   }
 
   @Test

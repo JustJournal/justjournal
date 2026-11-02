@@ -41,6 +41,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,11 +55,13 @@ import org.springframework.stereotype.Service;
  *   <li>{@code Follow} of the journal's actor: the follower's actor is fetched for its inbox; if
  *       the journal federates the follower is stored and sent an {@code Accept}, otherwise sent a
  *       {@code Reject} and nothing is stored.
- *   <li>{@code Undo} of such a Follow, embedded as Mastodon sends it: the follower is removed.
+ *   <li>{@code Undo} of such a Follow, embedded as Mastodon sends it or named by its id alone: the
+ *       follower is removed.
  *   <li>{@code Delete} of the sending actor itself: the account is gone, so it is removed from the
- *       followers of every journal, and from the accounts writers follow with its posts.
+ *       followers of every journal, its replies, and the accounts writers follow with their posts.
  *   <li>{@code Accept} or {@code Reject} of a Follow a writer sent: see {@link FollowingService}.
- *   <li>{@code Create}, {@code Update} or {@code Delete} of a post by an account a writer follows:
+ *   <li>{@code Create}, {@code Update} and {@code Delete} of replies to the journal's entries,
+ *       which {@link RemoteReplyService} acts on, or else of a post by an account a writer follows:
  *       see {@link RemotePostService}.
  * </ul>
  *
@@ -87,6 +90,7 @@ public class InboxService {
   private final FederationPolicy federationPolicy;
   private final ActorKeyService actorKeyService;
   private final ActivityPubFetcher fetcher;
+  private final RemoteReplyService remoteReplies;
   private final FollowingService followingService;
   private final RemotePostService remotePostService;
 
@@ -101,6 +105,7 @@ public class InboxService {
       final FederationPolicy federationPolicy,
       final ActorKeyService actorKeyService,
       final ActivityPubFetcher fetcher,
+      final RemoteReplyService remoteReplies,
       final FollowingService followingService,
       final RemotePostService remotePostService) {
     this.followerService = followerService;
@@ -108,6 +113,7 @@ public class InboxService {
     this.federationPolicy = federationPolicy;
     this.actorKeyService = actorKeyService;
     this.fetcher = fetcher;
+    this.remoteReplies = remoteReplies;
     this.followingService = followingService;
     this.remotePostService = remotePostService;
   }
@@ -127,7 +133,14 @@ public class InboxService {
       case "Undo" -> undo(user, activity, sender);
       case "Delete" -> delete(activity, sender);
       case "Accept", "Reject" -> followingService.response(user, activity, sender);
-      case "Create", "Update" -> remotePostService.receive(activity, sender);
+      case "Create" ->
+          orElse(
+              remoteReplies.create(user, activity, sender),
+              () -> remotePostService.receive(activity, sender));
+      case "Update" ->
+          orElse(
+              remoteReplies.update(activity, sender),
+              () -> remotePostService.receive(activity, sender));
       default -> Outcome.IGNORED;
     };
   }
@@ -136,8 +149,8 @@ public class InboxService {
    * A Delete whose signature can't be checked. When a Mastodon account is deleted it signs the
    * Delete with the account's key, but its actor (and so the key) is already gone, so the
    * signature can't be verified. Such a Delete of the sending actor itself is taken only when the
-   * actor follows a journal here and a fresh, unsigned fetch of the actor's own address answers
-   * 404 or 410; anyone could send the Delete, but only the actor's server can make it vanish.
+   * actor follows a journal here or replied to an entry, and a fresh, unsigned fetch of the
+   * actor's own address answers 404 or 410; anyone could send the Delete, but only the actor's server can make it vanish.
    *
    * @return HANDLED when the actor was removed, IGNORED when the Delete is not taken
    */
@@ -146,12 +159,18 @@ public class InboxService {
     final String actor = id(activity.get("actor"));
     final URI actorUri = uri(actor);
     if (actorUri == null || !actor.equals(id(activity.get("object")))) return Outcome.IGNORED;
-    if (!followerService.followsAny(actorUri) && !followingService.followedByAny(actorUri))
-      return Outcome.IGNORED;
+    if (!followerService.followsAny(actorUri)
+        && !followingService.followedByAny(actorUri)
+        && !remoteReplies.hasReplies(actor)) return Outcome.IGNORED;
     if (!isGone(actor)) return Outcome.IGNORED;
     final long removed = followerService.removeEverywhere(actorUri);
+    final long replies = remoteReplies.removeActor(actor);
     followingService.remoteActorGone(actorUri);
-    log.info("Actor {} is gone; removed it from {} journals' followers", actor, removed);
+    log.info(
+        "Actor {} is gone; removed it from {} journals' followers and {} replies",
+        actor,
+        removed,
+        replies);
     return Outcome.HANDLED;
   }
 
@@ -172,7 +191,9 @@ public class InboxService {
 
     final boolean accept = federationPolicy.federates(user);
     if (accept) {
-      followerService.add(user, follower.id(), follower.inbox(), follower.sharedInbox());
+      // kept so an Undo naming the Follow by its id alone can be matched
+      final URI followId = httpUrl(text(follow, "id"));
+      followerService.add(user, follower.id(), follower.inbox(), follower.sharedInbox(), followId);
     }
     deliveryService.enqueue(
         local, user.getId(), reply(accept, local, follow, sender), List.of(follower.inbox()));
@@ -182,9 +203,10 @@ public class InboxService {
 
   private Outcome undo(final User user, final JsonNode undo, final String sender) {
     final JsonNode follow = undo.get("object");
-    // only an embedded Follow can be matched: the ids of Follows are not kept
-    if (follow == null || !follow.isObject() || !"Follow".equals(text(follow, "type")))
-      return Outcome.IGNORED;
+    if (follow == null) return Outcome.IGNORED;
+    if (follow.isTextual() || (follow.isObject() && !embedded(follow)))
+      return undoById(user, follow, sender);
+    if (!follow.isObject() || !"Follow".equals(text(follow, "type"))) return Outcome.IGNORED;
     final String local = actorKeyService.userActorId(user.getUsername());
     if (!sender.equals(id(follow.get("actor"))) || !local.equals(id(follow.get("object"))))
       return Outcome.IGNORED;
@@ -194,14 +216,47 @@ public class InboxService {
     return Outcome.HANDLED;
   }
 
+  /** Whether an Undo's object carries the activity itself rather than naming it by its id. */
+  private static boolean embedded(final JsonNode object) {
+    return object.has("actor") || object.has("object");
+  }
+
+  /**
+   * Undo of a Follow named only by its id, as a string or an object without its actor and object.
+   * Only the sender's own Follow of this journal matches; anything else is taken as already undone.
+   */
+  private Outcome undoById(final User user, final JsonNode follow, final String sender) {
+    if (follow.isObject() && follow.has("type") && !"Follow".equals(text(follow, "type")))
+      return Outcome.IGNORED;
+    final URI followId = httpUrl(id(follow));
+    final URI actor = uri(sender);
+    if (followId == null || actor == null) return Outcome.IGNORED;
+    if (!followerService.removeByFollowId(user, actor, followId)) return Outcome.IGNORED;
+    log.info("{} undid its Follow {} of {}", sender, followId, user.getUsername());
+    return Outcome.HANDLED;
+  }
+
   private Outcome delete(final JsonNode delete, final String sender) {
     final URI actor = uri(sender);
-    if (actor == null) return Outcome.IGNORED;
-    if (!sender.equals(id(delete.get("object")))) return remotePostService.receive(delete, sender);
+    final String object = id(delete.get("object"));
+    if (actor == null || object == null) return Outcome.IGNORED;
+    if (!sender.equals(object))
+      return orElse(
+          remoteReplies.delete(object, sender), () -> remotePostService.receive(delete, sender));
     final long removed = followerService.removeEverywhere(actor);
+    final long replies = remoteReplies.removeActor(sender);
     followingService.remoteActorGone(actor);
-    log.info("Actor {} was deleted; removed it from {} journals' followers", sender, removed);
+    log.info(
+        "Actor {} was deleted; removed it from {} journals' followers and {} replies",
+        sender,
+        removed,
+        replies);
     return Outcome.HANDLED;
+  }
+
+  /** The first outcome, unless it was ignored; then what the next service makes of it. */
+  private static Outcome orElse(final Outcome first, final Supplier<Outcome> next) {
+    return first == Outcome.IGNORED ? next.get() : first;
   }
 
   /** Accept or Reject of a Follow, from the followed journal's actor. */

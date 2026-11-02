@@ -158,6 +158,7 @@ public class UsersController {
   private final EntryAttachmentRenderer attachmentRenderer;
 
   private final RemotePostService remotePostService;
+  private final RemoteReplyRepository remoteReplyRepository;
 
   @Autowired
   public UsersController(
@@ -176,7 +177,9 @@ public class UsersController {
           final AtomFeed atom, TrackbackService trackbackService, CachedHeadlineBean cachedHeadlineBean,
           UserContextService userContextService, PdfFormatService pdfFormatService,
           com.justjournal.core.Settings settings, EntryAttachmentService entryAttachmentService,
-          EntryAttachmentRenderer attachmentRenderer, RemotePostService remotePostService) {
+          EntryAttachmentRenderer attachmentRenderer,
+          RemoteReplyRepository remoteReplyRepository,
+          RemotePostService remotePostService) {
     this.entryService = entryService;
     this.commentDao = commentDao;
     this.entryDao = entryDao;
@@ -198,6 +201,7 @@ public class UsersController {
     this.entryAttachmentService = entryAttachmentService;
     this.attachmentRenderer = attachmentRenderer;
     this.remotePostService = remotePostService;
+    this.remoteReplyRepository = remoteReplyRepository;
   }
 
 
@@ -1134,6 +1138,8 @@ public class UsersController {
     return isMyFriend(me, you) && isMyFriend(you, me);
   }
 
+  // long and branchy since long before fediverse replies; splitting it up is a change of its own
+  // skipcq: JAVA-R1000
   private String getFavorites(final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
     final Collection<Entry> entries = new ArrayList<>();
@@ -1338,21 +1344,7 @@ public class UsersController {
           sb.append("\" title=\"Link to this entry\">link</a> ");
           sb.append('(');
 
-          switch (o.getComments().size()) {
-            case 0:
-              break;
-            case 1:
-              sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-              sb.append(o.getId());
-              sb.append("\" title=\"View Comment\">1 comment</a> | ");
-              break;
-            default:
-              sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-              sb.append(o.getId());
-              sb.append("\" title=\"View Comments\">");
-              sb.append(o.getComments().size());
-              sb.append(" comments</a> | ");
-          }
+          appendCommentsLink(sb, o);
 
           sb.append("<a href=\"/comment/");
           sb.append(o.getId());
@@ -1384,7 +1376,7 @@ public class UsersController {
    * @param uc The UserContext we are working on including blog owner, authenticated user, and sb to
    *     write
    */
-  // long and branchy since long before fediverse posts; splitting it up is a change of its own
+  // long and branchy since long before the fediverse; splitting it up is a change of its own
   // skipcq: JAVA-R1000
   private String getFriends(final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
@@ -1587,21 +1579,7 @@ public class UsersController {
         sb.append("\" title=\"Link to this entry\">link</a> ");
         sb.append('(');
 
-        switch (o.getComments().size()) {
-          case 0:
-            break;
-          case 1:
-            sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-            sb.append(o.getId());
-            sb.append("\" title=\"View Comment\">1 comment</a> | ");
-            break;
-          default:
-            sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-            sb.append(o.getId());
-            sb.append("\" title=\"View Comments\">");
-            sb.append(o.getComments().size());
-            sb.append(" comments</a> | ");
-        }
+        appendCommentsLink(sb, o);
 
         sb.append("<a href=\"/comment/");
         sb.append(o.getId());
@@ -2118,6 +2096,8 @@ public class UsersController {
    *
    * @param attachments the entry's picture and link, or null for none
    */
+  // long and branchy since long before fediverse replies; splitting it up is a change of its own
+  // skipcq: JAVA-R1000
   protected String formatEntry(
       final UserContext uc,
       final Entry o,
@@ -2334,21 +2314,7 @@ public class UsersController {
 
       sb.append('(');
 
-      switch (o.getComments().size()) {
-        case 0:
-          break;
-        case 1:
-          sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-          sb.append(o.getId());
-          sb.append("\" title=\"View Comment\">1 comment</a> | ");
-          break;
-        default:
-          sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
-          sb.append(o.getId());
-          sb.append("\" title=\"View Comments\">");
-          sb.append(o.getComments().size());
-          sb.append(" comments</a> | ");
-      }
+      appendCommentsLink(sb, o);
 
       sb.append("<a href=\"/comment/");
       sb.append(o.getId());
@@ -2368,9 +2334,11 @@ public class UsersController {
 
     if (single) {
       final List<Comment> comments = commentDao.findByEntryId(o.getId());
+      final List<RemoteReply> replies =
+          remoteReplyRepository.findByEntryIdOrderByPublishedAscIdAsc(o.getId());
 
       sb.append("<div class=\"commentcount\">");
-      sb.append(comments.size());
+      sb.append(comments.size() + replies.size());
       sb.append(" comments</div>\n");
 
       sb.append("<div class=\"rightflt\">");
@@ -2378,7 +2346,7 @@ public class UsersController {
           .append(o.getId())
           .append("\" title=\"Add Comment\">Add Comment</a></div>\n");
 
-      if (!comments.isEmpty()) sb.append("<h3>Comments</h3>");
+      if (!comments.isEmpty() || !replies.isEmpty()) sb.append("<h3>Comments</h3>");
       for (final Comment co : comments) {
         sb.append("<div class=\"comment\">\n");
         sb.append("<div class=\"chead\">\n");
@@ -2427,6 +2395,7 @@ public class UsersController {
         }
         sb.append("\n</div>\n");
       }
+      for (final RemoteReply reply : replies) appendRemoteReply(sb, reply, uc.isAuthBlog());
 
       // trackback
       List<TrackbackTo> trackbacks = trackbackService.getByEntry(o.getId());
@@ -2488,5 +2457,63 @@ public class UsersController {
     return "<button type=\"button\" class=\"btn btn-link entry-action\" title=\"" + label
         + "\" aria-label=\"" + label + "\" onclick=\"" + onclick + "\">"
         + "<i class=\"fa " + icon + "\" aria-hidden=\"true\"></i></button>";
+  }
+
+  /**
+   * A link to an entry's comments, counting replies from other fediverse servers, followed by a
+   * separator; nothing when there are none.
+   */
+  private void appendCommentsLink(final StringBuilder sb, final Entry o) {
+    final int count =
+        o.getComments().size() + (int) remoteReplyRepository.countByEntryId(o.getId());
+    if (count == 0) return;
+    sb.append("<a href=\"/users/").append(o.getUser().getUsername()).append("/entry/");
+    sb.append(o.getId());
+    if (count == 1) {
+      sb.append("\" title=\"View Comment\">1 comment</a> | ");
+    } else {
+      sb.append("\" title=\"View Comments\">").append(count).append(" comments</a> | ");
+    }
+  }
+
+  /**
+   * A reply from another fediverse server, laid out as a comment: its author's name linked to their
+   * profile, and their {@code @user@host}. Their picture isn't shown. The content was cleaned when
+   * it arrived.
+   *
+   * @param owner whether the journal's owner is looking, who may delete it
+   */
+  private static void appendRemoteReply(
+      final StringBuilder sb, final RemoteReply reply, final boolean owner) {
+    sb.append("<div class=\"comment remote-comment\">\n");
+    sb.append("<div class=\"chead\">\n");
+    sb.append("<i class=\"fa fa-globe\" aria-hidden=\"true\"></i> ");
+    sb.append("<a href=\"");
+    sb.append(HtmlUtils.htmlEscape(reply.getAuthorUrl()));
+    sb.append("\" rel=\"nofollow ugc noopener\">");
+    sb.append(HtmlUtils.htmlEscape(reply.getAuthorName()));
+    sb.append("</a>\n");
+    if (reply.getAuthorHandle() != null) {
+      sb.append("<span class=\"handle\">");
+      sb.append(HtmlUtils.htmlEscape(reply.getAuthorHandle()));
+      sb.append("</span>\n");
+    }
+
+    sb.append("<br/><span class=\"time\">");
+    sb.append(new DateTimeBean(reply.getPublished()).toPubDate());
+    sb.append("</span>\n");
+
+    if (owner) {
+      sb.append("<br/><span class=\"actions\">\n");
+      sb.append("<a onclick=\"deleteRemoteComment(");
+      sb.append(reply.getId());
+      sb.append(")\" title=\"Delete Comment\">");
+      sb.append("<i class=\"fa fa-trash-o\"></i>");
+      sb.append("</a>\n");
+      sb.append("</span>\n");
+    }
+    sb.append("</div>\n");
+    sb.append(reply.getContent());
+    sb.append("\n</div>\n");
   }
 }

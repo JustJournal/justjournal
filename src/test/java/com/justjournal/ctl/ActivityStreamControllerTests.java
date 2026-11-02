@@ -64,6 +64,7 @@ import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.FavoriteRepository;
 import com.justjournal.repository.MoodThemeDataRepository;
+import com.justjournal.repository.RemoteReplyRepository;
 import com.justjournal.repository.RssSubscriptionsRepository;
 import com.justjournal.repository.UserPicRepository;
 import com.justjournal.repository.UserRepository;
@@ -202,6 +203,7 @@ class ActivityStreamControllerTests {
             settings,
             entryAttachmentService,
             new EntryAttachmentRenderer(new EntryAccessService(), mock(EntryImageService.class)),
+            mock(RemoteReplyRepository.class),
             mock(RemotePostService.class));
 
     final View noView = (m, request, response) -> {};

@@ -73,6 +73,10 @@ public class RemoteFollower implements Serializable {
   @Column(name = "shared_inbox", length = MAX_URL_LENGTH)
   private String sharedInbox;
 
+  /** The id of the Follow the actor last sent, when it had one, so an Undo can name it. */
+  @Column(name = "follow_id", length = MAX_URL_LENGTH)
+  private String followId;
+
   @Column(name = "created", nullable = false)
   private Date created = new Date();
 }

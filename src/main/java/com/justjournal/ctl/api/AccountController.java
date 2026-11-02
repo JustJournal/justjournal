@@ -191,6 +191,11 @@ public class AccountController {
       imageStorageService.deleteAvatar(userID);
 
       commentRepository.deleteAll(commentRepository.findByUser(user.get()));
+      // replies from other fediverse servers to the entries, before the entries
+      jdbcTemplate.execute(
+          "DELETE FROM activitypub_reply WHERE entry_id IN (SELECT id FROM entry WHERE uid="
+              + userID
+              + ");");
       // before the entries: a batch delete doesn't cascade, and the files must go too
       entryAttachmentService.deleteAllForOwner(userID);
       entryRepository.deleteAllInBatch(entryRepository.findByUser(user.get()));
