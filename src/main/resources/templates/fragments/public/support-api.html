@@ -8,6 +8,7 @@
         <li><a href="#conventions">Conventions</a></li>
         <li><a href="#login">Logging in</a></li>
         <li><a href="#entries">Entries</a></li>
+        <li><a href="#attachments">Pictures and links on entries</a></li>
         <li><a href="#comments">Comments</a></li>
         <li><a href="#lookups">Moods, locations and security levels</a></li>
         <li><a href="#journal">Tags, calendar and statistics</a></li>
@@ -79,6 +80,11 @@
   "allowComments": true,
   "emailComments": true,
   "autoFormat": false,
+  "imageId": 512,
+  "imageAlt": "Tux at the keyboard",
+  "imageUrl": "/EntryImage/512/display",
+  "link": "https://example.com/article",
+  "linkStatus": "READY",
   "comments": []
 }</pre>
     <ul>
@@ -93,6 +99,8 @@
             becomes <code>node-js</code>, <code>C++</code> becomes <code>cplusplus</code>, <code>C#</code>
             becomes <code>csharp</code> and accents are dropped. A tag left empty is ignored; one still longer
             than 30 characters is refused with a 400.</li>
+        <li><code>imageId</code>, <code>imageAlt</code> and <code>link</code> attach a picture and a link preview;
+            see <a href="#attachments">Pictures and links on entries</a>.</li>
         <li>When posting, fields you leave out get the defaults: the current date, <code>TEXT</code> format, comments
             allowed, not a draft. Only <code>body</code> is required.</li>
     </ul>
@@ -109,7 +117,8 @@
             <tr><td><code>GET /api/entry/{username}/page/{page}</code></td>
                 <td>Same as above with 20 entries per page.</td></tr>
             <tr><td><code>GET /api/entry/{username}/eid/{id}</code></td>
-                <td>One entry. <code>403</code> if you aren't allowed to see it.</td></tr>
+                <td>One entry. <code>403</code> if you aren't allowed to see it. This is the request that includes
+                    the entry's picture and link fields.</td></tr>
             <tr><td><code>GET /api/entry/{username}/recent</code></td>
                 <td>Ids and subjects of the latest entries, for a "recent entries" list.</td></tr>
             <tr><td><code>POST /api/entry</code></td>
@@ -122,6 +131,66 @@
             </tbody>
         </table>
     </div>
+
+    <h3 id="attachments">Pictures and links on entries</h3>
+    <p>An entry can have one picture and one link. Both are shown between the subject and the body, and carried in
+        the <a href="#feeds">feeds</a>.</p>
+
+    <h4>Pictures</h4>
+    <p>Upload the picture first, then save the entry with the id you get back.</p>
+    <div class="table-responsive">
+        <table class="table table-condensed">
+            <thead><tr><th>Request</th><th>Description</th></tr></thead>
+            <tbody>
+            <tr><td><code>POST /EntryImage</code></td>
+                <td>Upload a picture (login required). Send <code>multipart/form-data</code> with the image in a part
+                    named <code>file</code> and, optionally, a description in <code>alt</code>. JPEG, PNG and GIF
+                    are accepted, up to 20 MB and 100 megapixels. Returns <code>201</code> with
+                    <code>{"id": 512, "url": "/EntryImage/512/display"}</code>. Every picture goes through a
+                    content filter: one it isn't sure about returns <code>202</code> with the same fields and a
+                    <code>message</code>, and only you can see it until it has been reviewed; one with nudity or
+                    sexual content is refused with <code>400</code>. A file that is too large gets
+                    <code>413</code>.</td></tr>
+            <tr><td><code>GET /EntryImage/{id}/display</code></td>
+                <td>The picture resized to fit in 1024&times;1024, as shown on the entry.</td></tr>
+            <tr><td><code>GET /EntryImage/{id}</code></td><td>The original file.</td></tr>
+            <tr><td><code>DELETE /EntryImage/{id}</code></td><td>Delete a picture you uploaded.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <ul>
+        <li>On <code>POST</code> or <code>PUT /api/entry</code>, set <code>imageId</code> to the upload's id to attach
+            it, <code>0</code> to remove the entry's picture, or leave it out to keep the current one. A picture can
+            be on one entry only, and only on your own.</li>
+        <li><code>imageAlt</code> describes the picture for readers who can't see it, up to 255 characters. Leave it
+            out to keep the current description; send an empty string to clear it.</li>
+        <li>Replacing or removing a picture deletes the old one. An upload that isn't put on an entry within 24
+            hours is deleted, and you can have at most 10 uploads waiting at once.</li>
+        <li>Reading the entry gives <code>imageId</code>, <code>imageAlt</code> and <code>imageUrl</code> when you
+            may see the picture. On your own entry, <code>imageNotice</code> says when it is still waiting for
+            review.</li>
+        <li>Pictures follow the entry's security level: a private or friends-only entry's picture is only shown to
+            the people who can read the entry.</li>
+    </ul>
+
+    <h4>Links</h4>
+    <ul>
+        <li>On <code>POST</code> or <code>PUT /api/entry</code>, set <code>link</code> to a URL to show a preview card
+            for it. Send an empty string to remove the link, or leave it out to keep the current one.</li>
+        <li>The link is checked before anything is saved, and a link that fails refuses the whole save with
+            <code>400</code> and a message. It must be <code>http</code> or <code>https</code> on the usual port, at
+            most 1024 characters, not from a URL shortener, on a domain that exists and points only at public
+            addresses, and not listed as unsafe (the site blocklist, Spamhaus DBL or Google Safe Browsing).
+            Re-saving an entry with the link it already has skips the checks.</li>
+        <li>The preview is fetched in the background after the save: the page's title, description and Open Graph
+            picture. Reading the entry gives <code>link</code> and a <code>linkStatus</code> of
+            <code>PENDING</code> while that happens, then <code>READY</code>, or <code>FAILED</code> when the page
+            couldn't be read after three tries. Until the preview is ready the card shows just
+            the link. A link later found on an unsafe list becomes <code>BLOCKED</code> and is no longer shown to
+            readers or in feeds; reading your own entry still gives it, with that status.</li>
+        <li>The preview's picture is at <code>GET /EntryLinkImage/{id}</code> once it has passed the content
+            filter.</li>
+    </ul>
 
     <h3 id="comments">Comments</h3>
     <p>A comment has <code>id</code>, <code>eid</code> (the entry id), <code>username</code>, <code>date</code>,
@@ -218,6 +287,11 @@
     <ul>
         <li>Feeds of public entries: <code>/users/{username}/rss</code> (RSS 2.0), <code>/users/{username}/atom</code>
             and <code>/users/{username}/json</code> (<a href="https://www.jsonfeed.org/">JSON Feed</a>).</li>
+        <li>Feeds carry an entry's picture once it has passed review, and its link unless it is blocked. RSS uses
+            <code>enclosure</code>, <code>media:content</code>, <code>media:thumbnail</code> and
+            <code>atom:link rel="related"</code>; Atom uses <code>enclosure</code> and <code>related</code> links
+            with <code>media:thumbnail</code>; the JSON feed uses <code>image</code>, <code>external_url</code>
+            and <code>attachments</code>.</li>
         <li>Blogger 1.0 and MetaWeblog clients can post using <code>https://www.justjournal.com/xml-rpc</code> as
             the API URL. Clients that support Really Simple Discovery can find it at
             <code>/rsd?blogID={username}</code>.</li>
