@@ -336,6 +336,26 @@ class AccountControllerTests {
   }
 
   @Test
+  void accountDelete_removesFediverseRepliesToTheEntries_beforeTheEntries() {
+    login();
+    when(userRepository.findById(7)).thenReturn(Optional.of(user));
+    when(commentRepository.findByUser(user)).thenReturn(List.of());
+    when(entryRepository.findByUser(user)).thenReturn(List.of());
+    when(favoriteRepository.findByUser(user)).thenReturn(List.of());
+    when(rssSubscriptionsRepository.findByUser(user)).thenReturn(List.of());
+
+    controller.delete(response, session);
+
+    assertEquals(200, response.getStatus());
+    final InOrder order = inOrder(jdbcTemplate, entryRepository);
+    order
+        .verify(jdbcTemplate)
+        .execute(
+            "DELETE FROM activitypub_reply WHERE entry_id IN (SELECT id FROM entry WHERE uid=7);");
+    order.verify(entryRepository).deleteAllInBatch(any());
+  }
+
+  @Test
   void accountDelete_tellsFediverseServersTheActorIsGone_beforeAnythingIsRemoved()
       throws ServiceException {
     login();

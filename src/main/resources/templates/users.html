@@ -393,6 +393,19 @@
     var username = /*[[${user.username}]]*/ "";
     var authenticatedUser =  /*[[${authenticatedUsername}]]*/ "";
 
+    // a reply from another fediverse server, which the journal's owner may remove
+    function deleteRemoteComment(commentId) {
+        if (confirmDelete()) {
+            $.ajax({url: '/api/comment/remote/' + commentId, type: 'DELETE'})
+                    .done(function () {
+                        window.alert('Removed Comment');
+                    })
+                    .fail(function (jqXHR, textStatus) {
+                        window.alert('Request failed: ' + textStatus);
+                    });
+        }
+    }
+
     $().ready(function () {
         $.get('/api/entry/' + username + '/recent',
                 function (data) {

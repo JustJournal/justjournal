@@ -66,6 +66,7 @@ import com.justjournal.model.Journal;
 import com.justjournal.model.Location;
 import com.justjournal.model.Mood;
 import com.justjournal.model.MoodThemeData;
+import com.justjournal.model.RemoteReply;
 import com.justjournal.model.RssSubscription;
 import com.justjournal.model.Security;
 import com.justjournal.model.Tag;
@@ -78,6 +79,7 @@ import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.FavoriteRepository;
 import com.justjournal.repository.MoodThemeDataRepository;
+import com.justjournal.repository.RemoteReplyRepository;
 import com.justjournal.repository.RssSubscriptionsRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.rss.CachedHeadlineBean;
@@ -132,6 +134,7 @@ class UsersControllerTests {
   private static final String BASE = "http://localhost/users/" + BLOG;
 
   private CommentRepository commentDao;
+  private RemoteReplyRepository remoteReplyRepository;
   private EntryRepository entryDao;
   private EntryService entryService;
   private FavoriteRepository favoriteRepository;
@@ -160,6 +163,7 @@ class UsersControllerTests {
   @BeforeEach
   void setUp() {
     commentDao = mock(CommentRepository.class);
+    remoteReplyRepository = mock(RemoteReplyRepository.class);
     entryDao = mock(EntryRepository.class);
     entryService = mock(EntryService.class);
     favoriteRepository = mock(FavoriteRepository.class);
@@ -209,7 +213,8 @@ class UsersControllerTests {
             pdfFormatService,
             settings,
             entryAttachmentService,
-            new EntryAttachmentRenderer(entryAccessService, entryImageService));
+            new EntryAttachmentRenderer(entryAccessService, entryImageService),
+            remoteReplyRepository);
 
     // the real pages are Thymeleaf templates; here the view name and model are what matter
     final View noView = (m, request, response) -> {};
@@ -485,6 +490,27 @@ class UsersControllerTests {
   }
 
   @Test
+  void entries_commentCountsTakeInRemoteReplies() throws Exception {
+    anonymous();
+    final Entry entry = entry(1, blogUser, Security.PUBLIC, at(2024, 3, 10, 9));
+    entry.getComments().add(comment(50, blogUser, FormatType.TEXT));
+    when(remoteReplyRepository.countByEntryId(1)).thenReturn(2L);
+    when(entryDao.findByUserAndSecurityOrderByDateDesc(
+            eq(blogUser), eq(Security.PUBLIC), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(entry)));
+
+    final String html =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG).param("page", "0").param("size", "20"))
+                .andExpect(status().isOk())
+                .andReturn(),
+            "entries");
+
+    assertTrue(html.contains("title=\"View Comments\">3 comments</a>"), html);
+  }
+
+  @Test
   void entries_ownerSeesEveryEntryWithEditControls() throws Exception {
     final MockHttpSession session = viewedBy(blogUser);
     final Entry secret = entry(1, blogUser, Security.PRIVATE, at(2024, 3, 10, 9));
@@ -668,6 +694,80 @@ class UsersControllerTests {
     assertTrue(html.contains("/comment/5/edit/1\" title=\"Edit Comment\""), html);
     assertTrue(html.contains("deleteComment(1)"), html);
     assertFalse(html.contains("Delete Entry"), html);
+  }
+
+  private static RemoteReply remoteReply(final int id, final int entryId) {
+    final RemoteReply reply = new RemoteReply();
+    reply.setId(id);
+    reply.setEntryId(entryId);
+    reply.setObjectId("https://remote.social/users/alice/statuses/" + id);
+    reply.setActorId("https://remote.social/users/alice");
+    reply.setAuthorName("Alice <3");
+    reply.setAuthorHandle("@alice@remote.social");
+    reply.setAuthorUrl("https://remote.social/@alice");
+    reply.setContent("<p>Nice post</p>");
+    reply.setPublished(at(2024, 3, 11, 8));
+    return reply;
+  }
+
+  @Test
+  void entry_remoteRepliesAreShownWithTheComments() throws Exception {
+    anonymous();
+    final User alice = user(8, "alice");
+    final Entry entry = publicEntry(5, blogUser);
+    when(entryDao.findById(5)).thenReturn(Optional.of(entry));
+    when(commentDao.findByEntryId(5)).thenReturn(List.of(comment(1, alice, FormatType.TEXT)));
+    when(remoteReplyRepository.findByEntryIdOrderByPublishedAscIdAsc(5))
+        .thenReturn(List.of(remoteReply(3, 5)));
+    when(trackbackService.getByEntry(5)).thenReturn(List.of());
+
+    final String html =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG + "/entry/5"))
+                .andExpect(status().isOk())
+                .andReturn(),
+            "entry_format");
+
+    assertTrue(html.contains("2 comments</div>"), html);
+    assertTrue(html.contains("<p>Comment body 1</p>"), html);
+    assertTrue(
+        html.contains(
+            "<a href=\"https://remote.social/@alice\" rel=\"nofollow ugc noopener\">Alice &lt;3</a>"),
+        html);
+    assertTrue(html.contains("<span class=\"handle\">@alice@remote.social</span>"), html);
+    assertTrue(html.contains("<p>Nice post</p>"), html);
+    assertTrue(html.indexOf("Comment body 1") < html.indexOf("Nice post"), html);
+    assertFalse(html.contains("<img src=\"https://remote.social"), html);
+    assertFalse(html.contains("deleteRemoteComment"), html);
+  }
+
+  @Test
+  void entry_ownerMayDeleteARemoteReply_othersMayNot() throws Exception {
+    final Entry entry = publicEntry(5, blogUser);
+    when(entryDao.findById(5)).thenReturn(Optional.of(entry));
+    when(commentDao.findByEntryId(5)).thenReturn(List.of());
+    when(remoteReplyRepository.findByEntryIdOrderByPublishedAscIdAsc(5))
+        .thenReturn(List.of(remoteReply(3, 5)));
+    when(trackbackService.getByEntry(5)).thenReturn(List.of());
+
+    final String owner =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG + "/entry/5").session(viewedBy(blogUser)))
+                .andExpect(status().isOk())
+                .andReturn(),
+            "entry_format");
+    assertTrue(owner.contains("deleteRemoteComment(3)"), owner);
+
+    final String other =
+        modelString(
+            mockMvc
+                .perform(get("/users/" + BLOG + "/entry/5").session(viewedBy(user(8, "alice"))))
+                .andExpect(status().isOk())
+                .andReturn(),
+            "entry_format");
+    assertFalse(other.contains("deleteRemoteComment"), other);
   }
 
   @Test
