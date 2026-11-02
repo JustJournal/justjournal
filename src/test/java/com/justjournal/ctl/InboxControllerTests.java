@@ -354,6 +354,7 @@ class InboxControllerTests {
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<Map<String, List<String>>> headers = ArgumentCaptor.forClass(Map.class);
     final ArgumentCaptor<byte[]> bytes = ArgumentCaptor.forClass(byte[].class);
+    // skipcq: JAVA-E1109 - a complete check of the mocked method, which is also named verify
     verify(httpSignatureService)
         .verify(eq("POST"), path.capture(), headers.capture(), bytes.capture());
     assertEquals("/users/bob/inbox?x=1", path.getValue());
@@ -681,6 +682,7 @@ class InboxControllerTests {
   @Test
   void instanceInbox_verifiesThenIgnores() throws Exception {
     send("/actor/inbox", follow()).andExpect(status().isAccepted());
+    // skipcq: JAVA-E1109 - a complete check of the mocked method, which is also named verify
     verify(httpSignatureService).verify(eq("POST"), eq("/actor/inbox"), any(), any());
     verify(fetcher, never()).signedGet(any(), anyInt());
     nothingDone();
