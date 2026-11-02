@@ -803,41 +803,47 @@ class EntryControllerTests {
   }
 
   @Test
-  void post_withAnInvalidTag_isRejectedBeforeSaving() {
+  void post_cleansUpTagsBeforeApplyingThem() {
+    final EntryTo tagged = entryTo("TEXT");
+    tagged.setTags(Set.of("Open Source", "C++", "#AI", "node.js", "Windows11", "café", "日本"));
+
+    postAndCapture("TEXT", tagged);
+
+    assertEquals(200, response.getStatus());
+    verify(entryService)
+        .applyTags(
+            any(Entry.class),
+            eq(Set.of("open-source", "cplusplus", "ai", "node-js", "windows11", "cafe")));
+  }
+
+  @Test
+  void post_withATagTooLongAfterCleanup_isRejectedBeforeSaving() {
     final EntryTo badTag = entryTo("TEXT");
-    badTag.setTags(Set.of("news", "open-source"));
+    badTag.setTags(Set.of("news", "a really long tag that keeps going"));
 
     final Map<String, String> result =
         entryController.post(badTag, session, response, new ExtendedModelMap());
 
     assertEquals(400, response.getStatus());
     assertEquals(
-        "Tag \"open-source\" is invalid. Tags are letters only, 30 characters or less.",
+        "Tag \"a-really-long-tag-that-keeps-going\" is invalid. Tags are letters, digits and"
+            + " hyphens, 30 characters or less.",
         result.get("error"));
     verify(entryRepository, never()).saveAndFlush(any());
   }
 
   @Test
-  void put_withAnInvalidTag_isRejectedBeforeSaving() {
+  void put_withATagTooLongAfterCleanup_isRejectedBeforeSaving() {
     final EntryTo badTag = entryTo("TEXT");
-    badTag.setTags(Set.of("windows11"));
+    badTag.setTags(Set.of("abcdefghijklmnopqrstuvwxyz12345"));
 
     final Map<String, String> result = entryController.put(badTag, session, response);
 
     assertEquals(400, response.getStatus());
     assertEquals(
-        "Tag \"windows11\" is invalid. Tags are letters only, 30 characters or less.",
+        "Tag \"abcdefghijklmnopqrstuvwxyz12345\" is invalid. Tags are letters, digits and hyphens,"
+            + " 30 characters or less.",
         result.get("error"));
     verify(entryRepository, never()).save(any());
-  }
-
-  @Test
-  void post_withLetterOnlyTags_isSaved() {
-    final EntryTo tagged = entryTo("TEXT");
-    tagged.setTags(Set.of("news", "Linux"));
-
-    postAndCapture("TEXT", tagged);
-
-    assertEquals(200, response.getStatus());
   }
 }

@@ -56,6 +56,7 @@ import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.StopWords;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.justjournal.utility.StringUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -471,6 +472,15 @@ public class EntryController {
     var subject = entryTo.getSubject();
     subject = StringUtil.stripNonPrintableCharacters(subject);
     entryTo.setSubject(subject);
+
+    // bring tags like "Open Source" or "C++" into the stored form, dropping any that end up empty
+    if (entryTo.getTags() != null) {
+      entryTo.setTags(
+          entryTo.getTags().stream()
+              .map(Tag::normalizeName)
+              .filter(tag -> !tag.isEmpty())
+              .collect(Collectors.toCollection(LinkedHashSet::new)));
+    }
   }
 
   /**
@@ -588,7 +598,7 @@ public class EntryController {
         new Tag(tag);
       } catch (final IllegalArgumentException e) {
         return "Tag \"" + StringUtils.abbreviate(tag, 40)
-            + "\" is invalid. Tags are letters only, 30 characters or less.";
+            + "\" is invalid. Tags are letters, digits and hyphens, 30 characters or less.";
       }
     }
     return null;

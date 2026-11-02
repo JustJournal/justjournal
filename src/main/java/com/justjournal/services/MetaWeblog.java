@@ -354,8 +354,9 @@ public class MetaWeblog extends BaseXmlRpcService {
           entryRepository.save(et2);
 
           String[] tags = (String[]) content.get("categories");
-          for (final String tag : tags) {
-            if (StopWords.isStopWord(tag)) continue;
+          for (final String requested : tags) {
+            final String tag = Tag.normalizeName(requested);
+            if (tag.isEmpty() || StopWords.isStopWord(tag)) continue;
 
             final Tag tag1 = tagDao.findByName(tag);
             if (tag1 == null) continue;

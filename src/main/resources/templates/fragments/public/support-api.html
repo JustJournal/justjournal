@@ -88,7 +88,11 @@
             <code>2</code> public. Anything unrecognized is saved as private.</li>
         <li><code>location</code> and <code>mood</code> are ids from the <a href="#lookups">lookup lists</a>.
             Use <code>0</code> for none.</li>
-        <li>Tags are letters only, 30 characters or less.</li>
+        <li>Tags are stored as lowercase letters, digits and hyphens, 30 characters or less. Tags you send are
+            cleaned up first: <code>Open Source</code> becomes <code>open-source</code>, <code>node.js</code>
+            becomes <code>node-js</code>, <code>C++</code> becomes <code>cplusplus</code>, <code>C#</code>
+            becomes <code>csharp</code> and accents are dropped. A tag left empty is ignored; one still longer
+            than 30 characters is refused with a 400.</li>
         <li>When posting, fields you leave out get the defaults: the current date, <code>TEXT</code> format, comments
             allowed, not a draft. Only <code>body</code> is required.</li>
     </ul>

@@ -50,6 +50,7 @@ import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.StringUtil;
 import com.justjournal.utility.Xml;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -74,6 +75,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.util.HtmlUtils;
+import org.springframework.web.util.UriUtils;
 
 /**
  * Journal viewer for JustJournal.
@@ -1274,7 +1277,7 @@ public class UsersController {
             sb.append("<p>tags:");
             for (final EntryTag s : o.getTags()) {
               sb.append(" ");
-              sb.append(s.getTag().getName());
+              sb.append(HtmlUtils.htmlEscape(s.getTag().getName()));
             }
             sb.append("</p>");
             sb.append(ENDL);
@@ -1511,7 +1514,7 @@ public class UsersController {
         sb.append("<p>tags:");
         for (final EntryTag s : o.getTags()) {
           sb.append(" ");
-          sb.append(s.getTag().getName());
+          sb.append(HtmlUtils.htmlEscape(s.getTag().getName()));
         }
         sb.append("</p>");
         sb.append(ENDL);
@@ -2154,9 +2157,9 @@ public class UsersController {
         sb.append("<a href=\"/users/");
         sb.append(uc.getBlogUser().getUsername());
         sb.append("/tag/");
-        sb.append(tag.getTag().getName());
+        sb.append(UriUtils.encodePathSegment(tag.getTag().getName(), StandardCharsets.UTF_8));
         sb.append("\">");
-        sb.append(tag.getTag().getName());
+        sb.append(HtmlUtils.htmlEscape(tag.getTag().getName()));
         sb.append("</a>");
       }
       sb.append("</p>");
