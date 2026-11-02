@@ -38,16 +38,21 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.justjournal.model.Tag;
+import com.justjournal.services.activitypub.RemoteKeyResolver;
+import com.justjournal.services.activitypub.SeenActivities;
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -100,6 +105,35 @@ public class CacheConfig {
   public ReactiveRedisTemplate<String, String> reactiveRedisTemplateString(
       final ReactiveRedisConnectionFactory connectionFactory) {
     return new ReactiveRedisTemplate<>(connectionFactory, RedisSerializationContext.string());
+  }
+
+  /** Other servers' public keys, which {@link RemoteKeyResolver} fetches; kept for a while only. */
+  @Bean
+  public RedisCacheManagerBuilderCustomizer activityPubKeyCache(
+      @Value("${activitypub.key-cache-minutes:60}") final long minutes) {
+    return builder ->
+        builder.withCacheConfiguration(
+            RemoteKeyResolver.CACHE,
+            RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(minutes))
+                .disableCachingNullValues());
+  }
+
+  /**
+   * Activities the inboxes took, which {@link SeenActivities} remembers for as long as {@code
+   * HttpSignatureService} accepts a signature's Date: up to the allowed age past a Date that may
+   * itself be ahead of our clock.
+   */
+  @Bean
+  public RedisCacheManagerBuilderCustomizer activityPubSeenCache(
+      @Value("${activitypub.signature.max-age-seconds:43200}") final long maxAgeSeconds,
+      @Value("${activitypub.signature.max-future-seconds:3600}") final long maxFutureSeconds) {
+    return builder ->
+        builder.withCacheConfiguration(
+            SeenActivities.CACHE,
+            RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(maxAgeSeconds + maxFutureSeconds))
+                .disableCachingNullValues());
   }
 
   @PostConstruct

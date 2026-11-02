@@ -155,6 +155,25 @@ link-preview:
   image-size: 600
   user-agent: "JustJournal link preview (+https://www.justjournal.com/)"
 
+# ActivityPub federation: people on Mastodon and other fediverse servers may follow the journals of
+# writers who turned it on, and get their public entries. While this is off nothing is sent to
+# other servers and the setting is hidden from writers.
+activitypub:
+  federation:
+    enabled: false
+  # A background job posts queued activities to other servers' inboxes: https only, public
+  # addresses only, no redirects. Temporary failures are retried for about two days.
+  delivery:
+    # plain http inboxes, for testing only; private addresses are refused either way
+    allow-http: false
+    batch-size: 20
+    connect-timeout-ms: 5000
+    read-timeout-ms: 10000
+    max-request-ms: 30000
+    keep-delivered-days: 7
+    keep-failed-days: 30
+    user-agent: "JustJournal (+https://www.justjournal.com/)"
+
 bing:
   indexNowKey:
 

@@ -1166,6 +1166,37 @@
                 showMessage('#journal-error', parseError(xhr, 'Unable to save journal settings'));
             });
         });
+
+        initFederation();
+    }
+
+    // shown only when the site federates; the setting stays off otherwise
+    function initFederation() {
+        function showFederation(pref) {
+            $('#federate').prop('checked', pref.federate === true);
+            $('#frmFederation').toggle(pref.available === true);
+        }
+
+        $.getJSON('/api/federation').done(showFederation);
+
+        $('#frmFederation').on('submit', function (event) {
+            event.preventDefault();
+            showMessage('#federation-error', '');
+            showMessage('#federation-success', '');
+
+            $.ajax({
+                url: '/api/federation',
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({federate: $('#federate').is(':checked')})
+            }).done(function (pref) {
+                track('federation', 'Preferences', 'Federation');
+                showFederation(pref);
+                showMessage('#federation-success', 'Fediverse setting saved.', 'success');
+            }).fail(function (xhr) {
+                showMessage('#federation-error', parseError(xhr, 'Unable to save fediverse setting'));
+            });
+        });
     }
 
     function initDeleteAccount() {

@@ -14,6 +14,7 @@ import com.justjournal.services.EntryImageService;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageStorageService;
 import com.justjournal.services.StoredImageFiles;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.io.InputStream;
 import java.util.List;
 import lombok.Setter;
@@ -49,6 +50,7 @@ public class ModerationRetry {
   private final EntryLinkRepository entryLinkRepository;
   private final EntryImageService entryImageService;
   private final StoredImageFiles files;
+  private final ActivityPublisher activityPublisher;
 
   /** Off when the filter is off: nothing new would be learnt by asking. */
   @Setter
@@ -65,7 +67,8 @@ public class ModerationRetry {
       final EntryImageRepository entryImageRepository,
       final EntryLinkRepository entryLinkRepository,
       final EntryImageService entryImageService,
-      final StoredImageFiles files) {
+      final StoredImageFiles files,
+      final ActivityPublisher activityPublisher) {
     this.userImageRepository = userImageRepository;
     this.userPicRepository = userPicRepository;
     this.albumImageService = albumImageService;
@@ -76,6 +79,7 @@ public class ModerationRetry {
     this.entryLinkRepository = entryLinkRepository;
     this.entryImageService = entryImageService;
     this.files = files;
+    this.activityPublisher = activityPublisher;
   }
 
   /**
@@ -171,6 +175,11 @@ public class ModerationRetry {
                             current.getId(),
                             verdict.status(),
                             verdict.category());
+                        // an approved picture now shows on the post
+                        if (verdict.status() == ModerationStatus.APPROVED
+                            && current.getEntryId() != null) {
+                          activityPublisher.entryAttachmentsChanged(current.getEntryId());
+                        }
                       }));
     }
     return true;
@@ -258,6 +267,10 @@ public class ModerationRetry {
                             current.getId(),
                             verdict.status(),
                             verdict.category());
+                        // an approved avatar is now the actor's icon
+                        if (verdict.status() == ModerationStatus.APPROVED) {
+                          activityPublisher.profileChanged(current.getId());
+                        }
                       }));
     }
   }

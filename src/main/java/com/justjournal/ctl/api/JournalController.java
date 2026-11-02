@@ -36,9 +36,11 @@ import com.justjournal.model.api.JournalTo;
 import com.justjournal.repository.JournalRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.StyleService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
@@ -69,15 +71,18 @@ public class JournalController {
   private final JournalRepository journalRepository;
   private final UserRepository userRepository;
   private final StyleService styleService;
+  private final ActivityPublisher activityPublisher;
 
   @Autowired
   public JournalController(
       final JournalRepository journalRepository,
       final UserRepository userRepository,
-      final StyleService styleService) {
+      final StyleService styleService,
+      final ActivityPublisher activityPublisher) {
     this.journalRepository = journalRepository;
     this.userRepository = userRepository;
     this.styleService = styleService;
+    this.activityPublisher = activityPublisher;
   }
 
   @GetMapping(value = "user/{username}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -158,6 +163,8 @@ public class JournalController {
         return ErrorHandler.modelError("You do not have permission to update this journal.");
       }
 
+      // the name is the actor's name
+      final boolean renamed = !Objects.equals(j.getName(), journalTo.getName());
       j.setAllowSpider(journalTo.isAllowSpider());
       j.setName(journalTo.getName());
       j.setOwnerViewOnly(journalTo.isOwnerViewOnly());
@@ -172,6 +179,7 @@ public class JournalController {
 
       j.setModified(Calendar.getInstance().getTime());
       j = journalRepository.saveAndFlush(j);
+      if (renamed) activityPublisher.profileChanged(j.getUser());
 
       return java.util.Collections.singletonMap("slug", j.getSlug());
     } catch (final Exception e) {

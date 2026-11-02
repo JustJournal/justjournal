@@ -295,8 +295,12 @@
         <li>Blogger 1.0 and MetaWeblog clients can post using <code>https://www.justjournal.com/xml-rpc</code> as
             the API URL. Clients that support Really Simple Discovery can find it at
             <code>/rsd?blogID={username}</code>.</li>
-        <li>Journals can be followed from the fediverse. See <code>/.well-known/webfinger</code> and
-            <code>/@/{username}</code>.</li>
+        <li>Public journals and their public entries can be looked up from the fediverse, for example by
+            searching for <code>@{username}@justjournal.com</code> on Mastodon. <code>/.well-known/webfinger</code>
+            finds the account; <code>/users/{username}</code> and <code>/users/{username}/entry/{id}</code> answer
+            with ActivityPub JSON when asked for <code>application/activity+json</code>, and
+            <code>/users/{username}/outbox</code> lists public entries. When the site has the fediverse
+            turned on, journals whose owners turned on the fediverse option can be followed from there.</li>
     </ul>
 
     <h3>Questions</h3>

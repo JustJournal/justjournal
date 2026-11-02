@@ -192,13 +192,19 @@ public class UsersController {
 
 
   @Transactional(readOnly = true)
-  @GetMapping(value = "{username}", produces = MediaType.TEXT_HTML_VALUE)
+  // */* too: a client that asks for anything gets the page, not the ActivityPub JSON that
+  // ActivityStreamController serves at the same address to clients that ask for it by name
+  @GetMapping(
+      value = "{username}",
+      produces = {MediaType.TEXT_HTML_VALUE, MediaType.ALL_VALUE})
   public String entries(
       @PathVariable(PATH_USERNAME) final String username,
       final Pageable pageable,
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) throws ServiceException {
+    // ActivityStreamController serves the actor at this address
+    response.addHeader(HttpHeaders.VARY, HttpHeaders.ACCEPT);
     final UserContext userContext = userContextService.getUserContext(username, session);
 
     if (userContext == null) {
@@ -229,14 +235,19 @@ public class UsersController {
   }
 
   @Transactional(readOnly = true)
-  @GetMapping(value = "{username}/entry/{id}", produces = MediaType.TEXT_HTML_VALUE)
+  // */* too: a client that asks for anything gets the page, not the ActivityPub JSON that
+  // ActivityStreamController serves at the same address to clients that ask for it by name
+  @GetMapping(
+      value = "{username}/entry/{id}",
+      produces = {MediaType.TEXT_HTML_VALUE, MediaType.ALL_VALUE})
   public String entry(
       @PathVariable(PATH_USERNAME) final String username,
       @PathVariable("id") final int id,
       final Model model,
       final HttpSession session,
       final HttpServletResponse response) {
-
+    // ActivityStreamController serves the entry as an ActivityPub object at this address
+    response.addHeader(HttpHeaders.VARY, HttpHeaders.ACCEPT);
     final UserContext userContext = userContextService.getUserContext(username, session);
 
     if (userContext == null) {

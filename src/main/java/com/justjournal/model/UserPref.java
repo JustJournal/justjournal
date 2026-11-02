@@ -54,6 +54,11 @@ public class UserPref implements Serializable {
   @Convert(converter = PrefBoolConverter.class)
   private PrefBool showAvatar = PrefBool.N;
 
+  /** Whether people on other fediverse servers may follow the journal; see FederationPolicy. */
+  @Column(name = "federate", nullable = false, length = 1)
+  @Convert(converter = PrefBoolConverter.class)
+  private PrefBool federate = PrefBool.N;
+
   @Column(name = "modified", nullable = false)
   private Timestamp modified;
 

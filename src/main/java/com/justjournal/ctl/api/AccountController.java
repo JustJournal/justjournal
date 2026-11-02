@@ -206,6 +206,10 @@ public class AccountController {
       jdbcTemplate.execute("DELETE FROM user_two_factor_recovery WHERE user_id=" + userID + ";");
       jdbcTemplate.execute("DELETE FROM user_two_factor WHERE user_id=" + userID + ";");
 
+      // fediverse followers and anything still queued for them
+      jdbcTemplate.execute("DELETE FROM activitypub_delivery WHERE user_id=" + userID + ";");
+      jdbcTemplate.execute("DELETE FROM activitypub_follower WHERE user_id=" + userID + ";");
+
       jdbcTemplate.execute("DELETE FROM user_pref WHERE user_id=" + userID + ";");
 
       jdbcTemplate.execute("DELETE FROM journal WHERE user_id=" + userID + ";");
