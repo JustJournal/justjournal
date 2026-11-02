@@ -1384,6 +1384,8 @@ public class UsersController {
    * @param uc The UserContext we are working on including blog owner, authenticated user, and sb to
    *     write
    */
+  // long and branchy since long before fediverse posts; splitting it up is a change of its own
+  // skipcq: JAVA-R1000
   private String getFriends(final UserContext uc) throws ServiceException {
     final StringBuilder sb = new StringBuilder();
     final Collection<Entry> entries;
@@ -1396,16 +1398,7 @@ public class UsersController {
     entries = entryService.getFriendsEntries(uc.getBlogUser().getUsername());
     sb.append("<h2>Friends</h2>\n");
 
-    // posts by fediverse accounts the writer follows, for the writer alone
-    List<FriendsPagePost> fediverse = List.of();
-    if (uc.isAuthBlog()) {
-      try {
-        fediverse = remotePostService.forFriendsPage(uc.getBlogUser(), FEDIVERSE_POSTS);
-      } catch (final RuntimeException e) {
-        // the friends' entries still show
-        log.error("Could not read fediverse posts for {}", uc.getBlogUser().getUsername(), e);
-      }
-    }
+    final List<FriendsPagePost> fediverse = fediversePosts(uc);
 
     try {
       if (log.isDebugEnabled()) log.debug("getFriends: Init Date Parsers.");
@@ -1637,6 +1630,18 @@ public class UsersController {
       ErrorPage.display(" Error", "Error retrieving the friends entries", sb);
     }
     return sb.toString();
+  }
+
+  /** Posts by fediverse accounts the writer follows, for the writer's own friends page alone. */
+  private List<FriendsPagePost> fediversePosts(final UserContext uc) {
+    if (!uc.isAuthBlog()) return List.of();
+    try {
+      return remotePostService.forFriendsPage(uc.getBlogUser(), FEDIVERSE_POSTS);
+    } catch (final RuntimeException e) {
+      // the friends' entries still show
+      log.error("Could not read fediverse posts for {}", uc.getBlogUser().getUsername(), e);
+      return List.of();
+    }
   }
 
   /**

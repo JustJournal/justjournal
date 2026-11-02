@@ -150,23 +150,14 @@ public class RemotePostService {
 
   private InboxService.Outcome store(
       final JsonNode object, final String sender, final boolean update) {
-    if (object == null || !object.isObject() || !POST_TYPES.contains(text(object, "type")))
-      return InboxService.Outcome.IGNORED;
-    final String objectId = text(object, "id");
-    final URI actor = RemoteAccountResolver.httpUrl(sender);
-    final URI objectUri = RemoteAccountResolver.httpUrl(objectId);
-    if (actor == null
-        || objectUri == null
-        || !sameHost(objectUri, actor.getHost().toLowerCase(Locale.ROOT))
-        || !attributedTo(object.get("attributedTo"), sender)
-        || isReplyToUs(object)) {
-      return InboxService.Outcome.IGNORED;
-    }
+    final URI objectUri = ownPost(object, sender);
+    if (objectUri == null) return InboxService.Outcome.IGNORED;
 
-    final Optional<RemotePost> existing = repository.findByObjectId(objectId);
+    final Optional<RemotePost> existing = repository.findByObjectId(text(object, "id"));
     if (existing.isPresent() && !existing.get().getActorId().equals(sender))
       return InboxService.Outcome.IGNORED;
     if (!isPublic(object)) {
+      // an Update that hides a stored post takes it away
       if (!update || existing.isEmpty()) return InboxService.Outcome.IGNORED;
       repository.delete(existing.get());
       return InboxService.Outcome.HANDLED;
@@ -175,21 +166,54 @@ public class RemotePostService {
       return InboxService.Outcome.IGNORED;
     // the same Create again, perhaps through another follower's inbox
     if (!update && existing.isPresent()) return InboxService.Outcome.IGNORED;
+    return save(object, objectUri, sender, existing.orElse(null), update);
+  }
 
+  /**
+   * The id of a Note or Article sent by its author from the author's own server, and not a reply
+   * to an entry here; otherwise null.
+   */
+  private URI ownPost(final JsonNode object, final String sender) {
+    if (object == null || !object.isObject() || !POST_TYPES.contains(text(object, "type")))
+      return null;
+    final URI actor = RemoteAccountResolver.httpUrl(sender);
+    final URI objectUri = RemoteAccountResolver.httpUrl(text(object, "id"));
+    if (actor == null
+        || objectUri == null
+        || !sameHost(objectUri, actor.getHost().toLowerCase(Locale.ROOT))
+        || !attributedTo(object.get("attributedTo"), sender)
+        || isReplyToUs(object)) {
+      return null;
+    }
+    return objectUri;
+  }
+
+  /**
+   * Store a new post, or the new version of a stored one. A new post already older than the posts
+   * kept is not stored.
+   *
+   * @param existing the stored post, or null for a new one
+   */
+  private InboxService.Outcome save(
+      final JsonNode object,
+      final URI objectUri,
+      final String sender,
+      final RemotePost existing,
+      final boolean update) {
     final Date now = new Date();
     Date published = date(text(object, "published"));
     if (published == null || published.after(now)) published = now;
-    if (existing.isEmpty() && published.before(cutoff(now))) return InboxService.Outcome.IGNORED;
+    if (existing == null && published.before(cutoff(now))) return InboxService.Outcome.IGNORED;
 
-    final RemotePost post = existing.orElseGet(RemotePost::new);
-    post.setObjectId(objectId);
+    final RemotePost post = existing == null ? new RemotePost() : existing;
+    post.setObjectId(text(object, "id"));
     post.setActorId(sender);
     post.setUrl(link(object.get("url"), objectUri.toASCIIString()));
     post.setName(truncate(plain(text(object, "name")), RemotePost.MAX_NAME_LENGTH));
     post.setSummary(truncate(plain(text(object, "summary")), MAX_SUMMARY_LENGTH));
     post.setContent(clean(content(object)));
     post.setAttachments(attachments(object.get("attachment")));
-    if (existing.isEmpty()) post.setPublished(published);
+    if (existing == null) post.setPublished(published);
     if (update) post.setUpdated(now);
     repository.save(post);
     return InboxService.Outcome.HANDLED;
