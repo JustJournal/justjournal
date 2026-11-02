@@ -54,7 +54,6 @@ Proceed once the execution path, constraints, and regression surface are clear e
    - Single-track or dependent steps: stay in the main agent.
    - Small reads or searches: use parallel tool calls in the main agent.
    - 2+ independent tracks: launch all subagents in the same response.
-   - Use 2+ subagents or none. NEVER launch exactly 1 subagent.
 4. Synthesize findings and re-read target files if context is stale.
 5. Implement the smallest correct change.
 6. Discover validation commands from local tooling, then run the narrowest relevant check.
@@ -64,8 +63,6 @@ Workflow compression applies only to coupled, single-track work where the next s
 For review, debugging, or analysis requests, do not force code changes once findings are evidenced.
 
 ## Subagents
-
-Use 2+ subagents or none. NEVER launch exactly 1 subagent.
 
 The main agent is a builder, not a dispatcher. Work first, delegate second. Use subagents proactively, but only after scoping has split the work into tracks ready for parallel execution.
 
