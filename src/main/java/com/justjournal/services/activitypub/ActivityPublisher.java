@@ -53,6 +53,10 @@ import org.springframework.stereotype.Service;
  *   <li>a new journal name, biography or avatar: Update of the actor
  * </ul>
  *
+ * <p>An entry hidden and later made public again is sent as a Create under its old id. Mastodon
+ * keeps a tombstone for an id it was told to delete and ignores the Create, so the entry doesn't
+ * come back there; that is accepted rather than giving the entry a new id.
+ *
  * <p>Only journals that federate ({@link FederationPolicy#federates}) at the time of the change
  * send anything. Nothing here throws: a problem is logged and the user's save goes ahead.
  */

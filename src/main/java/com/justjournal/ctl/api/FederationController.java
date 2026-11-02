@@ -33,6 +33,7 @@ import com.justjournal.exception.NotFoundException;
 import com.justjournal.model.PrefBool;
 import com.justjournal.model.UserPref;
 import com.justjournal.repository.UserPrefRepository;
+import com.justjournal.services.activitypub.ActorDeletion;
 import com.justjournal.services.activitypub.FederationPolicy;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.MediaType;
@@ -46,7 +47,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The logged in user's choice to let people on Mastodon and other fediverse servers follow their
  * journal. Turning it on is refused while federation is off for the site; turning it off always
- * works.
+ * works, and tells the servers following the journal that its actor is gone ({@link
+ * ActorDeletion}).
  *
  * @author Lucas Holt
  */
@@ -59,11 +61,15 @@ public class FederationController {
 
   private final UserPrefRepository userPrefRepository;
   private final FederationPolicy federationPolicy;
+  private final ActorDeletion actorDeletion;
 
   public FederationController(
-      final UserPrefRepository userPrefRepository, final FederationPolicy federationPolicy) {
+      final UserPrefRepository userPrefRepository,
+      final FederationPolicy federationPolicy,
+      final ActorDeletion actorDeletion) {
     this.userPrefRepository = userPrefRepository;
     this.federationPolicy = federationPolicy;
+    this.actorDeletion = actorDeletion;
   }
 
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -83,8 +89,10 @@ public class FederationController {
       throw new BadRequestException("Following from other servers is not available on this site.");
     }
 
+    final boolean federated = federationPolicy.federates(pref.getUser());
     pref.setFederate(preference.federate() ? PrefBool.Y : PrefBool.N);
     userPrefRepository.save(pref);
+    if (federated && !preference.federate()) actorDeletion.federationStopped(pref.getUser());
     return ResponseEntity.ok(
         new FederationPreference(federationPolicy.isEnabled(), preference.federate()));
   }

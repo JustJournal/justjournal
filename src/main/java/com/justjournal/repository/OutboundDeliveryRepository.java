@@ -86,6 +86,17 @@ public interface OutboundDeliveryRepository extends JpaRepository<OutboundDelive
       @Param("error") String error,
       @Param("finished") Date finished);
 
+  /**
+   * Remove a user's deliveries that haven't been posted yet, so none of them arrives after an
+   * actor Delete.
+   */
+  @Transactional
+  @Modifying
+  @Query(
+      "delete from OutboundDelivery d where d.userId = :userId"
+          + " and d.status = com.justjournal.model.DeliveryStatus.PENDING")
+  int deletePendingByUserId(@Param("userId") int userId);
+
   /** Remove finished deliveries that ended before a cut off. */
   @Transactional
   @Modifying

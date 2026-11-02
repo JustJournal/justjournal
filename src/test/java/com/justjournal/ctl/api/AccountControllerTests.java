@@ -59,6 +59,7 @@ import com.justjournal.repository.UserRepository;
 import com.justjournal.services.AlbumImageService;
 import com.justjournal.services.ImageStorageService;
 import com.justjournal.services.EntryAttachmentService;
+import com.justjournal.services.activitypub.ActorDeletion;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +94,7 @@ class AccountControllerTests {
   @Mock private FavoriteRepository favoriteRepository;
   @Mock private ImageStorageService imageStorageService;
   @Mock private EntryAttachmentService entryAttachmentService;
+  @Mock private ActorDeletion actorDeletion;
 
   @InjectMocks private AccountController controller;
 
@@ -141,7 +143,8 @@ class AccountControllerTests {
             mock(AlbumImageService.class),
             mock(FavoriteRepository.class),
             mock(ImageStorageService.class),
-            mock(EntryAttachmentService.class));
+            mock(EntryAttachmentService.class),
+            mock(ActorDeletion.class));
     when(userRepository.findByUsername("nobody")).thenReturn(null);
     final MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -328,6 +331,27 @@ class AccountControllerTests {
     // before the user row: both tables refer to it
     final InOrder order = inOrder(jdbcTemplate, userRepository);
     order.verify(jdbcTemplate).execute("DELETE FROM activitypub_delivery WHERE user_id=7;");
+    order.verify(jdbcTemplate).execute("DELETE FROM activitypub_follower WHERE user_id=7;");
+    order.verify(userRepository).deleteById(7);
+  }
+
+  @Test
+  void accountDelete_tellsFediverseServersTheActorIsGone_beforeAnythingIsRemoved()
+      throws ServiceException {
+    login();
+    when(userRepository.findById(7)).thenReturn(Optional.of(user));
+    when(commentRepository.findByUser(user)).thenReturn(List.of());
+    when(entryRepository.findByUser(user)).thenReturn(List.of());
+    when(favoriteRepository.findByUser(user)).thenReturn(List.of());
+    when(rssSubscriptionsRepository.findByUser(user)).thenReturn(List.of());
+
+    controller.delete(response, session);
+
+    assertEquals(200, response.getStatus());
+    // signed with the account's key, which other servers fetch while checking it
+    final InOrder order = inOrder(actorDeletion, imageStorageService, jdbcTemplate, userRepository);
+    order.verify(actorDeletion).accountDeleting(user);
+    order.verify(imageStorageService).deleteAvatar(7);
     order.verify(jdbcTemplate).execute("DELETE FROM activitypub_follower WHERE user_id=7;");
     order.verify(userRepository).deleteById(7);
   }

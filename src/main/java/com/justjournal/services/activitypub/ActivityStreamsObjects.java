@@ -291,6 +291,23 @@ public class ActivityStreamsObjects {
   }
 
   /**
+   * A Delete of the actor itself, sent when the journal stops federating or the account is
+   * deleted. Mastodon then removes the account, with its posts and follows, from that server.
+   *
+   * @param when makes the activity's id unique
+   */
+  public ObjectNode deleteActorActivity(final User user, final Date when) {
+    final String actor = actorId(user);
+    final ObjectNode delete = withContext();
+    delete.put("id", actor + "#delete/" + when.getTime());
+    delete.put("type", "Delete");
+    delete.put("actor", actor);
+    delete.putArray("to").add(PUBLIC);
+    delete.put("object", actor);
+    return delete;
+  }
+
+  /**
    * An Update of the actor, after its name, biography or avatar changed.
    *
    * @param when when it changed; makes the activity's id unique

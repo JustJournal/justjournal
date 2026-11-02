@@ -104,6 +104,16 @@ public class FollowerService {
     return repository.deleteByActorId(actorId.toASCIIString());
   }
 
+  /**
+   * Remove everyone following a journal, when it stops federating.
+   *
+   * @return how many followers it had
+   */
+  @Transactional
+  public long removeAll(final User user) {
+    return repository.deleteByUserId(user.getId());
+  }
+
   /** Whether the actor follows any journal here. */
   @Transactional(readOnly = true)
   public boolean followsAny(final URI actorId) {

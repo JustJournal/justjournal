@@ -56,4 +56,7 @@ public interface RemoteFollowerRepository extends JpaRepository<RemoteFollower, 
 
   @Transactional
   long deleteByActorId(String actorId);
+
+  @Transactional
+  long deleteByUserId(int userId);
 }

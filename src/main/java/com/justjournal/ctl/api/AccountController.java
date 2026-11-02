@@ -38,6 +38,7 @@ import com.justjournal.model.User;
 import com.justjournal.model.api.PasswordChange;
 import com.justjournal.services.AlbumImageService;
 import com.justjournal.services.EntryAttachmentService;
+import com.justjournal.services.activitypub.ActorDeletion;
 import com.justjournal.services.ImageStorageService;
 import com.justjournal.repository.CommentRepository;
 import com.justjournal.repository.EntryRepository;
@@ -103,8 +104,11 @@ public class AccountController {
 
   private final EntryAttachmentService entryAttachmentService;
 
-  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, AlbumImageService albumImageService, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService, EntryAttachmentService entryAttachmentService) {
+  private final ActorDeletion actorDeletion;
+
+  public AccountController(Login webLogin, UserRepository userDao, CommentRepository commentRepository, EntryRepository entryRepository, JdbcTemplate jdbcTemplate, FriendsRepository friendsDao, UserBioRepository userBioDao, UserContactRepository userContactRepository, UserLinkRepository userLinkRepository, UserLocationRepository userLocationRepository, UserPrefRepository userPrefRepository, RssSubscriptionsRepository rssSubscriptionsDAO, AlbumImageService albumImageService, FavoriteRepository favoriteRepository, ImageStorageService imageStorageService, EntryAttachmentService entryAttachmentService, ActorDeletion actorDeletion) {
     this.entryAttachmentService = entryAttachmentService;
+    this.actorDeletion = actorDeletion;
     this.webLogin = webLogin;
     this.userDao = userDao;
     this.commentRepository = commentRepository;
@@ -180,6 +184,9 @@ public class AccountController {
       if (user.isEmpty()) {
         throw new NotFoundException("User should always exist at this point");
       }
+      // while the account and its keys still exist: other servers check the signature against them
+      actorDeletion.accountDeleting(user.get());
+
       // first, so if the image can't be removed from storage nothing else is deleted yet
       imageStorageService.deleteAvatar(userID);
 

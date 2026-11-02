@@ -150,6 +150,16 @@ public class DeliveryService {
         actorId(sender), sender.getId(), activityJson, followerService.deliveryInboxes(sender));
   }
 
+  /**
+   * Drop what is still queued from a user and not yet posted.
+   *
+   * @return how many deliveries were dropped
+   */
+  @Transactional
+  public int cancelPending(final User sender) {
+    return repository.deletePendingByUserId(sender.getId());
+  }
+
   /** The user's actor id, the same address WebFinger and the actor document give out. */
   public String actorId(final User user) {
     return settings.getBaseUri().replace("http://", "https://") + USERS + user.getUsername();
