@@ -41,6 +41,7 @@ import com.justjournal.model.User;
 import com.justjournal.model.UserBio;
 import com.justjournal.repository.UserBioRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,7 @@ class BiographyControllerTests {
 
   private UserBioRepository bioRepository;
   private UserRepository userRepository;
+  private ActivityPublisher activityPublisher;
   private BiographyController controller;
   private MockHttpSession session;
   private MockHttpServletResponse response;
@@ -65,6 +67,8 @@ class BiographyControllerTests {
     controller = new BiographyController();
     controller.setBioDao(bioRepository);
     controller.setUserDao(userRepository);
+    activityPublisher = mock(ActivityPublisher.class);
+    controller.setActivityPublisher(activityPublisher);
     session = new MockHttpSession();
     response = new MockHttpServletResponse();
 
@@ -106,6 +110,19 @@ class BiographyControllerTests {
     assertEquals(Map.of("status", "success"), result);
     assertEquals("A brand new biography.", bio.getBio());
     verify(bioRepository).save(bio);
+    // the biography is the actor's summary
+    verify(activityPublisher).profileChanged(4);
+  }
+
+  @Test
+  void post_sameText_profileNotPublished() {
+    login();
+    when(bioRepository.findByUserId(4)).thenReturn(bio);
+
+    controller.post("Old biography text", response, session);
+
+    verify(bioRepository).save(bio);
+    verify(activityPublisher, never()).profileChanged(org.mockito.ArgumentMatchers.anyInt());
   }
 
   @Test

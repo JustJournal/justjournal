@@ -13,6 +13,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -30,6 +31,7 @@ import com.justjournal.model.ModerationStatus;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -54,16 +56,19 @@ class AvatarControllerTests {
 
   private ImageStorageService imageStorageService;
   private ImageModerationService moderation;
+  private ActivityPublisher activityPublisher;
   private MockMvc mockMvc;
 
   @BeforeEach
   void setUp() {
     imageStorageService = mock(ImageStorageService.class);
     moderation = mock(ImageModerationService.class);
+    activityPublisher = mock(ActivityPublisher.class);
     verdict(ModerationStatus.APPROVED);
     mockMvc =
         MockMvcBuilders.standaloneSetup(
-                new AvatarController(imageStorageService, new ImageService(), moderation))
+                new AvatarController(
+                    imageStorageService, new ImageService(), moderation, activityPublisher))
             .setControllerAdvice(new ExceptionHandlerConfig())
             .build();
   }
@@ -123,6 +128,7 @@ class AvatarControllerTests {
             eq("approved"),
             stored.capture());
     verify(imageStorageService).setShowAvatar(USER_ID, true);
+    verify(activityPublisher).profileChanged(USER_ID);
     return stored.getValue().readAllBytes();
   }
 
@@ -248,6 +254,7 @@ class AvatarControllerTests {
         .andExpect(status().isInternalServerError());
 
     verify(imageStorageService, never()).setShowAvatar(anyInt(), anyBoolean());
+    verify(activityPublisher, never()).profileChanged(anyInt());
   }
 
   @Test
@@ -445,6 +452,33 @@ class AvatarControllerTests {
         .andExpect(jsonPath("$.show").value(true));
 
     verify(imageStorageService).setShowAvatar(USER_ID, true);
+    verify(activityPublisher).profileChanged(USER_ID);
+  }
+
+  @Test
+  void preference_unchanged_nothingPublished() throws Exception {
+    when(imageStorageService.hasAvatarImage(USER_ID)).thenReturn(true);
+    when(imageStorageService.isShowAvatar(USER_ID)).thenReturn(true);
+
+    mockMvc
+        .perform(
+            put("/Avatar/preference")
+                .session(loggedIn())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"show\": true}"))
+        .andExpect(status().isOk());
+
+    verify(activityPublisher, never()).profileChanged(anyInt());
+  }
+
+  @Test
+  void delete_ownAvatar_profilePublished() throws Exception {
+    mockMvc
+        .perform(delete("/Avatar/" + USER_ID).session(loggedIn()))
+        .andExpect(status().isNoContent());
+
+    verify(imageStorageService).deleteAvatar(USER_ID);
+    verify(activityPublisher).profileChanged(USER_ID);
   }
 
   @Test

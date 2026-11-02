@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -66,6 +67,7 @@ import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.services.EntryAttachmentService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +83,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -106,6 +109,7 @@ class EntryControllerTests {
   @Mock private Settings settings;
   @Mock private RecentBlogsRepository recentBlogsRepository;
   @Mock private EntryAttachmentService entryAttachmentService;
+  @Mock private ActivityPublisher activityPublisher;
 
   @InjectMocks private EntryController entryController;
 
@@ -484,6 +488,11 @@ class EntryControllerTests {
     verify(trackbackService)
         .sendForBlog("https://b.example.com/y", 42, "laffer1", "Luke's Journal", "links", entryTo.getBody());
     verify(recentBlogsRepository).delete();
+    // a new entry: nothing before it; sent once tags and attachments are in
+    final InOrder order = inOrder(entryService, entryAttachmentService, activityPublisher);
+    order.verify(entryService).applyTags(any(Entry.class), eq(Set.of("java")));
+    order.verify(entryAttachmentService).apply(any(Entry.class), any());
+    order.verify(activityPublisher).entrySaved(eq(null), any(Entry.class));
   }
 
   @Test
@@ -546,6 +555,10 @@ class EntryControllerTests {
     final Entry existing = entryOf(user, Security.PRIVATE);
     existing.setTrackback("https://old.example.com/");
     when(entryRepository.findById(7)).thenReturn(Optional.of(existing));
+    final ActivityPublisher.EntryState before =
+        new ActivityPublisher.EntryState(
+            7, false, "test", "old body", FormatType.TEXT, Security.PRIVATE, Set.of());
+    when(activityPublisher.capture(existing)).thenReturn(before);
     when(entryRepository.save(any(Entry.class))).thenAnswer(inv -> inv.getArgument(0));
     final EntryTo entryTo = entryTo("TEXT");
     entryTo.setEntryId(7);
@@ -564,6 +577,11 @@ class EntryControllerTests {
     verify(trackbackService, never())
         .sendForBlog(anyString(), anyInt(), anyString(), anyString(), anyString(), anyString());
     verify(recentBlogsRepository).delete();
+    // the stored entry is noted before the save changes it
+    final InOrder order = inOrder(activityPublisher, entryRepository);
+    order.verify(activityPublisher).capture(existing);
+    order.verify(entryRepository).save(any(Entry.class));
+    order.verify(activityPublisher).entrySaved(before, captor.getValue(), false);
   }
 
   @Test
@@ -587,6 +605,9 @@ class EntryControllerTests {
     verify(entryRepository).save(captor.capture());
     assertEquals(0, captor.getValue().getId());
     assertEquals("https://same.example.com/", captor.getValue().getTrackback());
+    // their entry is not this one's past
+    verify(activityPublisher, never()).capture(any());
+    verify(activityPublisher).entrySaved(null, captor.getValue(), false);
   }
 
   @Test
@@ -645,6 +666,7 @@ class EntryControllerTests {
     verify(commentRepository).deleteAll(entry.getComments());
     verify(entryRepository).deleteById(7);
     verify(recentBlogsRepository).delete();
+    verify(activityPublisher).entryDeleted(entry);
   }
 
   @Test
@@ -662,6 +684,7 @@ class EntryControllerTests {
     assertEquals(400, response.getStatus());
     assertEquals("Could not delete entry.", result.get("error"));
     verify(entryRepository, never()).deleteById(anyInt());
+    verify(activityPublisher, never()).entryDeleted(any());
   }
 
   @Test
@@ -713,6 +736,7 @@ class EntryControllerTests {
     assertEquals("Links from URL shortening services are not allowed.", result.get("error"));
     verify(entryRepository, never()).saveAndFlush(any());
     verify(entryAttachmentService, never()).apply(any(), any());
+    verify(activityPublisher, never()).entrySaved(any(), any());
   }
 
   @Test
@@ -747,6 +771,27 @@ class EntryControllerTests {
     final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
     verify(entryRepository).save(captor.capture());
     verify(entryAttachmentService).apply(captor.getValue(), prepared);
+  }
+
+  @Test
+  void put_attachmentsChanged_toldToThePublisher() {
+    final User user = owner();
+    when(userRepository.findById(1)).thenReturn(Optional.of(user));
+    when(entryRepository.findById(7)).thenReturn(Optional.of(entryOf(user, Security.PUBLIC)));
+    when(entryRepository.save(any(Entry.class))).thenAnswer(inv -> inv.getArgument(0));
+    final EntryAttachmentService.Prepared prepared =
+        new EntryAttachmentService.Prepared(3, null, false, null);
+    when(entryAttachmentService.prepare(1, 7, 3, null, null)).thenReturn(prepared);
+    when(entryAttachmentService.apply(any(Entry.class), eq(prepared))).thenReturn(true);
+    final EntryTo to = entryTo("TEXT");
+    to.setEntryId(7);
+    to.setImageId(3);
+
+    entryController.put(to, session, response);
+
+    final ArgumentCaptor<Entry> captor = ArgumentCaptor.forClass(Entry.class);
+    verify(entryRepository).save(captor.capture());
+    verify(activityPublisher).entrySaved(any(), eq(captor.getValue()), eq(true));
   }
 
   @Test

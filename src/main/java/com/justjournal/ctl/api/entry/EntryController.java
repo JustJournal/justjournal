@@ -52,6 +52,7 @@ import com.justjournal.repository.cache.RecentBlogsRepository;
 import com.justjournal.services.EntryAttachmentService;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.TrackbackService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.StopWords;
 
@@ -120,12 +121,15 @@ public class EntryController {
 
   private final EntryAttachmentService entryAttachmentService;
 
+  private final ActivityPublisher activityPublisher;
+
   public EntryController(@Qualifier("commentRepository") CommentRepository commentDao, @Qualifier("entryRepository") EntryRepository entryRepository,
                          @Qualifier("locationRepository") LocationRepository locationDao, @Qualifier("moodRepository") MoodRepository moodDao,
                          @Qualifier("userRepository") UserRepository userRepository, EntryService entryService,
                          TrackbackService trackbackService, Settings settings, RecentBlogsRepository recentBlogsRepository,
-                         EntryAttachmentService entryAttachmentService) {
+                         EntryAttachmentService entryAttachmentService, ActivityPublisher activityPublisher) {
     this.entryAttachmentService = entryAttachmentService;
+    this.activityPublisher = activityPublisher;
     this.commentDao = commentDao;
     this.entryRepository = entryRepository;
     this.locationDao = locationDao;
@@ -415,6 +419,7 @@ public class EntryController {
 
     entryService.applyTags(saved, entryTo.getTags());
     entryAttachmentService.apply(saved, attachments);
+    activityPublisher.entrySaved(null, saved);
 
     // only ping if it's public
     if (entry.getSecurity() == Security.PUBLIC) {
@@ -533,6 +538,8 @@ public class EntryController {
 
     final Entry entry2 = entryRepository.findById(entryTo.getEntryId()).orElse(null);
     final boolean editing = entry2 != null && entry2.getId() > 0 && entry2.getUser().getId() == user.getId();
+    // before the save: it updates entry2 in place
+    final ActivityPublisher.EntryState before = editing ? activityPublisher.capture(entry2) : null;
 
     final EntryAttachmentService.Prepared attachments;
     try {
@@ -562,7 +569,8 @@ public class EntryController {
 
     entry = entryRepository.save(entry);
     entryService.applyTags(entry, entryTo.getTags());
-    entryAttachmentService.apply(entry, attachments);
+    final boolean attachmentsChanged = entryAttachmentService.apply(entry, attachments);
+    activityPublisher.entrySaved(before, entry, attachmentsChanged);
 
     // only ping if it's public
     if (entry.getSecurity() == Security.PUBLIC) {
@@ -644,6 +652,7 @@ public class EntryController {
         commentDao.deleteAll(comments);
         entryAttachmentService.deleteForEntry(entryId);
         entryRepository.deleteById(entryId);
+        activityPublisher.entryDeleted(entry);
 
         recentBlogsRepository.delete().subscribe();
       } else {

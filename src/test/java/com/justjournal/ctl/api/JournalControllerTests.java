@@ -45,6 +45,7 @@ import com.justjournal.model.api.JournalTo;
 import com.justjournal.repository.JournalRepository;
 import com.justjournal.repository.UserRepository;
 import com.justjournal.services.StyleService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,7 @@ class JournalControllerTests {
   private JournalRepository journalRepository;
   private UserRepository userRepository;
   private StyleService styleService;
+  private ActivityPublisher activityPublisher;
   private JournalController controller;
 
   private MockHttpSession session;
@@ -78,7 +80,9 @@ class JournalControllerTests {
     journalRepository = mock(JournalRepository.class);
     userRepository = mock(UserRepository.class);
     styleService = mock(StyleService.class);
-    controller = new JournalController(journalRepository, userRepository, styleService);
+    activityPublisher = mock(ActivityPublisher.class);
+    controller =
+        new JournalController(journalRepository, userRepository, styleService, activityPublisher);
 
     session = new MockHttpSession();
     response = new MockHttpServletResponse();
@@ -190,6 +194,21 @@ class JournalControllerTests {
     assertTrue(!journal.isAllowSpider());
     assertTrue(!journal.isPingServices());
     assertNotNull(journal.getModified());
+    // the journal's name is the actor's name
+    verify(activityPublisher).profileChanged(owner);
+  }
+
+  @Test
+  void put_sameName_profileNotPublished() {
+    loginAs(OWNER_ID, "owner");
+    when(journalRepository.findOneBySlug("mine")).thenReturn(journal);
+    final JournalTo sameName = journalTo("mine");
+    sameName.setName("My Journal");
+
+    controller.put("mine", sameName, session, response);
+
+    verify(journalRepository).saveAndFlush(journal);
+    verify(activityPublisher, never()).profileChanged(any(User.class));
   }
 
   @Test

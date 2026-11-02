@@ -37,6 +37,7 @@ import com.justjournal.model.ModerationStatus;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -77,13 +78,17 @@ public class AvatarController {
 
   private final ImageModerationService imageModerationService;
 
+  private final ActivityPublisher activityPublisher;
+
   public AvatarController(
       ImageStorageService imageStorageService,
       ImageService imageService,
-      ImageModerationService imageModerationService) {
+      ImageModerationService imageModerationService,
+      ActivityPublisher activityPublisher) {
     this.imageStorageService = imageStorageService;
     this.imageService = imageService;
     this.imageModerationService = imageModerationService;
+    this.activityPublisher = activityPublisher;
   }
 
   /** Told to a user whose avatar the content filter refused. */
@@ -178,6 +183,7 @@ public class AvatarController {
           verdict.category(),
           new ByteArrayInputStream(avatar.data()));
       imageStorageService.setShowAvatar(userID, true);
+      activityPublisher.profileChanged(userID);
 
     } catch (final IllegalStateException | IllegalArgumentException e) {
       log.error(e.getMessage(), e);
@@ -215,6 +221,7 @@ public class AvatarController {
     }
 
     imageStorageService.deleteAvatar(userID);
+    activityPublisher.profileChanged(userID);
     return ResponseEntity.noContent().build();
   }
 
@@ -240,7 +247,9 @@ public class AvatarController {
       throw new BadRequestException("Upload an avatar before turning it on.");
     }
 
+    final boolean shown = imageStorageService.isShowAvatar(userID);
     imageStorageService.setShowAvatar(userID, preference.show());
+    if (shown != preference.show()) activityPublisher.profileChanged(userID);
     return ResponseEntity.ok(new AvatarPreference(available, preference.show()));
   }
 

@@ -31,6 +31,7 @@ import com.justjournal.model.PrefBool;
 import com.justjournal.model.Security;
 import com.justjournal.repository.EntryImageRepository;
 import com.justjournal.repository.EntryRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -48,6 +49,7 @@ class EntryImageServiceTests {
   private EntryImageRepository entryImageRepository;
   private EntryRepository entryRepository;
   private ImageModerationService moderation;
+  private ActivityPublisher activityPublisher;
   private EntryImageService service;
 
   @BeforeEach
@@ -56,6 +58,7 @@ class EntryImageServiceTests {
     entryImageRepository = mock(EntryImageRepository.class);
     entryRepository = mock(EntryRepository.class);
     moderation = mock(ImageModerationService.class);
+    activityPublisher = mock(ActivityPublisher.class);
     verdict(ModerationStatus.APPROVED);
     final StoredImageFiles files = new StoredImageFiles(storage);
     files.setBucket("pics");
@@ -66,7 +69,8 @@ class EntryImageServiceTests {
             moderation,
             entryImageRepository,
             entryRepository,
-            new EntryAccessService());
+            new EntryAccessService(),
+            activityPublisher);
   }
 
   private void verdict(final ModerationStatus status) {
@@ -390,6 +394,26 @@ class EntryImageServiceTests {
     verify(entryImageRepository).delete(image);
     verify(storage).deleteFile("pics", "entry/5/a.png");
     verify(storage).deleteFile("pics", "entry/5/a_display.jpg");
+    // it wasn't on a post
+    verify(activityPublisher, never()).entryAttachmentsChanged(anyInt());
+  }
+
+  @Test
+  void delete_approvedOnAPost_attachmentsPublished() throws Exception {
+    stored(post(Security.PUBLIC), ModerationStatus.APPROVED);
+
+    service.delete(7, OWNER);
+
+    verify(activityPublisher).entryAttachmentsChanged(30);
+  }
+
+  @Test
+  void delete_awaitingReviewOnAPost_neverShownSoNothingPublished() throws Exception {
+    stored(post(Security.PUBLIC), ModerationStatus.REVIEW);
+
+    service.delete(7, OWNER);
+
+    verify(activityPublisher, never()).entryAttachmentsChanged(anyInt());
   }
 
   @Test

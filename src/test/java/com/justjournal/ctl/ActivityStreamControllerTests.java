@@ -80,6 +80,7 @@ import com.justjournal.services.MarkdownService;
 import com.justjournal.services.PdfFormatService;
 import com.justjournal.services.TrackbackService;
 import com.justjournal.services.UserImageService;
+import com.justjournal.services.activitypub.ActivityStreamsObjects;
 import com.justjournal.services.activitypub.ActorKeyService;
 import com.justjournal.services.activitypub.FollowerService;
 import java.time.LocalDateTime;
@@ -166,16 +167,13 @@ class ActivityStreamControllerTests {
 
     final ActivityStreamController controller =
         new ActivityStreamController(
-            settings,
             userRepository,
             entryRepository,
-            entryService,
             new EntryAccessService(),
             entryAttachmentService,
-            avatarService,
-            userPicRepository,
             followerService,
-            actorKeyService);
+            new ActivityStreamsObjects(
+                settings, entryService, avatarService, userPicRepository, actorKeyService));
 
     final UserContextService userContextService = mock(UserContextService.class);
     final UsersController usersController =

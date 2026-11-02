@@ -31,6 +31,7 @@ import com.justjournal.Login;
 import com.justjournal.core.Settings;
 import com.justjournal.model.*;
 import com.justjournal.repository.*;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.HTMLUtil;
 import java.io.Serializable;
@@ -75,6 +76,8 @@ public class Blogger extends BaseXmlRpcService {
   @Autowired private EntryService entryService;
 
   @Autowired private EntryAttachmentService entryAttachmentService;
+
+  @Autowired private ActivityPublisher activityPublisher;
 
 
   /**
@@ -240,6 +243,7 @@ public class Blogger extends BaseXmlRpcService {
       et.setUser(userRepository.findById(userId).orElse(null));
 
       et = entryRepository.save(et);
+      activityPublisher.entrySaved(null, et);
       result = Integer.toString(et.getId());
 
       final Journal journal = new ArrayList<>(user.getJournals()).get(0);
@@ -300,6 +304,7 @@ public class Blogger extends BaseXmlRpcService {
         if (entry.getUser().getId() == userId) {
           entryAttachmentService.deleteForEntry(eid);
           entryRepository.deleteById(eid);
+          activityPublisher.entryDeleted(entry);
         }
       } catch (final Exception e) {
         return error(ERROR_ENTRY_ID + postid);
@@ -357,11 +362,14 @@ public class Blogger extends BaseXmlRpcService {
         if (et2 == null) return error(ERROR_ENTRY_ID + postid);
 
         if (userId == et2.getUser().getId()) {
+          // before the changes below: et2 is the stored entry itself
+          final ActivityPublisher.EntryState before = activityPublisher.capture(et2);
           et2.setBody(HTMLUtil.clean(content, false));
           et2.setFormat(FormatType.HTML);
           et2.setAutoFormat(PrefBool.N);
           et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
           entryRepository.save(et2);
+          activityPublisher.entrySaved(before, et2);
         } else return error(ERROR_USER_AUTH + username);
       } catch (final Exception e) {
         blnError = true;

@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +51,7 @@ import com.justjournal.repository.EntryRepository;
 import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,6 +85,7 @@ class BloggerTests {
   @Mock private Settings settings;
   @Mock private EntryService entryService;
   @Mock private EntryAttachmentService entryAttachmentService;
+  @Mock private ActivityPublisher activityPublisher;
 
   @InjectMocks private Blogger blogger;
 
@@ -247,6 +251,7 @@ class BloggerTests {
     assertEquals(PrefBool.Y, saved.getAllowComments());
     assertEquals(PrefBool.Y, saved.getEmailComments());
     assertEquals(user, saved.getUser());
+    verify(activityPublisher).entrySaved(null, saved);
   }
 
   @Test
@@ -304,6 +309,8 @@ class BloggerTests {
 
     verify(entryRepository).deleteById(5);
     verify(entryRepository, never()).deleteById(6);
+    verify(activityPublisher).entryDeleted(argThat(e -> e.getId() == 5));
+    verify(activityPublisher, never()).entryDeleted(argThat(e -> e.getId() == 6));
   }
 
   @Test
@@ -321,6 +328,16 @@ class BloggerTests {
     final Entry existing = ownedEntry(5);
     existing.setFormat(FormatType.TEXT);
     when(entryRepository.findById(5)).thenReturn(Optional.of(existing));
+    // the entry is noted while it still has its old format
+    final List<FormatType> formatWhenNoted = new ArrayList<>();
+    final ActivityPublisher.EntryState before =
+        new ActivityPublisher.EntryState(5, true, "", "old", FormatType.TEXT, null, Set.of());
+    when(activityPublisher.capture(existing))
+        .thenAnswer(
+            inv -> {
+              formatWhenNoted.add(existing.getFormat());
+              return before;
+            });
 
     assertEquals(true, blogger.editPost("key", "5", "laffer1", "secret", "<p>new</p>", false));
 
@@ -328,6 +345,8 @@ class BloggerTests {
     assertTrue(existing.getBody().contains("<p>new</p>"), existing.getBody());
     assertEquals(FormatType.HTML, existing.getFormat());
     assertEquals(PrefBool.Y, existing.getDraft());
+    assertEquals(List.of(FormatType.TEXT), formatWhenNoted);
+    verify(activityPublisher).entrySaved(before, existing);
   }
 
   @Test
@@ -341,6 +360,7 @@ class BloggerTests {
     when(entryRepository.findById(9)).thenReturn(Optional.empty());
     assertFault(blogger.editPost("key", "9", "laffer1", "secret", "x", true), "Invalid entry id 9");
     verify(entryRepository, never()).save(any());
+    verify(activityPublisher, never()).entrySaved(any(), any());
   }
 
   @Test

@@ -37,6 +37,7 @@ import com.justjournal.repository.LocationRepository;
 import com.justjournal.repository.MoodRepository;
 import com.justjournal.repository.TagRepository;
 import com.justjournal.repository.UserRepository;
+import com.justjournal.services.activitypub.ActivityPublisher;
 import com.justjournal.utility.DateConvert;
 import com.justjournal.utility.HTMLUtil;
 import com.justjournal.utility.StopWords;
@@ -84,6 +85,8 @@ public class MetaWeblog extends BaseXmlRpcService {
   @Autowired private EntryService entryService;
 
   @Autowired private EntryAttachmentService entryAttachmentService;
+
+  @Autowired private ActivityPublisher activityPublisher;
 
 
 
@@ -228,6 +231,7 @@ public class MetaWeblog extends BaseXmlRpcService {
         et.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
 
         entryRepository.save(et);
+        activityPublisher.entrySaved(null, et);
         result = Integer.toString(et.getId());
         log.debug("Result is: " + result);
 
@@ -300,6 +304,7 @@ public class MetaWeblog extends BaseXmlRpcService {
       if (entry.getUser().getId() == userId) {
         entryAttachmentService.deleteForEntry(eid);
         entryRepository.deleteById(eid);
+        activityPublisher.entryDeleted(entry);
       }
     } catch (final Exception e) {
       log.error("Unable to delete entry", e);
@@ -345,6 +350,8 @@ public class MetaWeblog extends BaseXmlRpcService {
           return error(ERROR_ENTRY_ID + postid);
         }
         if (et2.getUser().getId() == userId) {
+          // before the changes below: et2 is the stored entry itself
+          final ActivityPublisher.EntryState before = activityPublisher.capture(et2);
           et2.setSubject((String) content.get(TITLE_KEY));
           et2.setBody(HTMLUtil.clean((String) content.get(DESC_KEY), false));
           et2.setFormat(FormatType.HTML);
@@ -352,6 +359,8 @@ public class MetaWeblog extends BaseXmlRpcService {
           et2.setDraft(Boolean.TRUE.equals(publish) ? PrefBool.N : PrefBool.Y);
           /* TODO: add date edit support */
           entryRepository.save(et2);
+          // sent after commit, so the tags below are in it
+          activityPublisher.entrySaved(before, et2);
 
           String[] tags = (String[]) content.get("categories");
           for (final String requested : tags) {
