@@ -222,8 +222,9 @@ class InboxControllerTests {
   }
 
   private void nothingDone() {
-    verify(followerService, never()).add(any(), any(), any(), any());
+    verify(followerService, never()).add(any(), any(), any(), any(), any());
     verify(followerService, never()).remove(any(), any());
+    verify(followerService, never()).removeByFollowId(any(), any(), any());
     verify(followerService, never()).removeEverywhere(any());
     verifyNoInteractions(deliveryService);
   }
@@ -305,7 +306,7 @@ class InboxControllerTests {
             follow(),
             SIGNATURE)
         .andExpect(status().isAccepted());
-    verify(followerService).add(any(), any(), any(), any());
+    verify(followerService).add(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -368,7 +369,7 @@ class InboxControllerTests {
     send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
     send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
 
-    verify(followerService, times(1)).add(any(), any(), any(), any());
+    verify(followerService, times(1)).add(any(), any(), any(), any(), any());
     verify(deliveryService, times(1)).enqueue(any(), any(), any(), any());
   }
 
@@ -378,11 +379,11 @@ class InboxControllerTests {
     follow.remove("id");
     send("/users/bob/inbox", follow).andExpect(status().isAccepted());
     send("/users/bob/inbox", follow).andExpect(status().isAccepted());
-    verify(followerService, times(1)).add(any(), any(), any(), any());
+    verify(followerService, times(1)).add(any(), any(), any(), any(), any());
 
     send("/users/bob/inbox", ACTIVITY_JSON, follow, SIGNATURE + ",x=\"1\"")
         .andExpect(status().isAccepted());
-    verify(followerService, times(2)).add(any(), any(), any(), any());
+    verify(followerService, times(2)).add(any(), any(), any(), any(), any());
   }
 
   // ---- Follow ---------------------------------------------------------------------------
@@ -392,7 +393,12 @@ class InboxControllerTests {
     send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
 
     verify(followerService)
-        .add(bob, URI.create(ALICE), URI.create(ALICE_INBOX), URI.create(SHARED_INBOX));
+        .add(
+            bob,
+            URI.create(ALICE),
+            URI.create(ALICE_INBOX),
+            URI.create(SHARED_INBOX),
+            URI.create(FOLLOW_ID));
     final JsonNode accept = queuedTo(ALICE_INBOX);
     assertEquals("https://www.w3.org/ns/activitystreams", accept.get("@context").asText());
     assertEquals("Accept", accept.get("type").asText());
@@ -425,7 +431,39 @@ class InboxControllerTests {
     actor.remove("endpoints");
     serveActor(actor);
     send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
-    verify(followerService).add(bob, URI.create(ALICE), URI.create(ALICE_INBOX), null);
+    verify(followerService)
+        .add(bob, URI.create(ALICE), URI.create(ALICE_INBOX), null, URI.create(FOLLOW_ID));
+  }
+
+  @Test
+  void follow_again_storesTheNewFollowId() throws Exception {
+    send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
+    final ObjectNode again = follow();
+    again.put("id", FOLLOW_ID + "-2");
+    send("/users/bob/inbox", again).andExpect(status().isAccepted());
+
+    verify(followerService).add(any(), any(), any(), any(), eq(URI.create(FOLLOW_ID)));
+    verify(followerService).add(any(), any(), any(), any(), eq(URI.create(FOLLOW_ID + "-2")));
+  }
+
+  @Test
+  void follow_withoutAUsableId_isStoredWithoutOne() throws Exception {
+    final ObjectNode noId = follow();
+    noId.remove("id");
+    final ObjectNode notAUrl = follow();
+    notAUrl.put("id", "urn:uuid:0f6d1c2e");
+    final ObjectNode notText = follow();
+    notText.putObject("id");
+    int n = 0;
+    for (final ObjectNode follow : List.of(noId, notAUrl, notText)) {
+      // without a text id a replay is known by its signature, so each is signed differently
+      send("/users/bob/inbox", ACTIVITY_JSON, follow, SIGNATURE + ",x=\"" + n++ + "\"")
+          .andExpect(status().isAccepted());
+    }
+
+    verify(followerService, times(3))
+        .add(bob, URI.create(ALICE), URI.create(ALICE_INBOX), URI.create(SHARED_INBOX), null);
+    verify(deliveryService, times(3)).enqueue(eq(BOB), eq(7), any(), any());
   }
 
   @Test
@@ -434,7 +472,7 @@ class InboxControllerTests {
 
     send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
 
-    verify(followerService, never()).add(any(), any(), any(), any());
+    verify(followerService, never()).add(any(), any(), any(), any(), any());
     final JsonNode reject = queuedTo(ALICE_INBOX);
     assertEquals("Reject", reject.get("type").asText());
     assertEquals(BOB, reject.get("actor").asText());
@@ -478,7 +516,7 @@ class InboxControllerTests {
     // the sender's retry is not taken for a replay
     serveActor(aliceActor());
     send("/users/bob/inbox", follow()).andExpect(status().isAccepted());
-    verify(followerService).add(any(), any(), any(), any());
+    verify(followerService).add(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -507,13 +545,61 @@ class InboxControllerTests {
     someoneElses.put("actor", "https://remote.social/users/mallory");
     final ObjectNode ofCarol = follow();
     ofCarol.put("object", "https://www.justjournal.com/users/carol");
+    final ObjectNode likeById = mapper.createObjectNode().put("id", FOLLOW_ID).put("type", "Like");
+    final JsonNode notAUrl = mapper.getNodeFactory().textNode("urn:uuid:0f6d1c2e");
     int n = 0;
-    for (final JsonNode object :
-        List.of(like, someoneElses, ofCarol, mapper.getNodeFactory().textNode(FOLLOW_ID))) {
+    for (final JsonNode object : List.of(like, someoneElses, ofCarol, likeById, notAUrl)) {
       send("/users/bob/inbox", activity("Undo", ALICE + "#undo/" + n++, object))
           .andExpect(status().isAccepted());
     }
     nothingDone();
+  }
+
+  @Test
+  void undoOfAFollowNamedByItsId_removesTheFollower() throws Exception {
+    when(followerService.removeByFollowId(bob, URI.create(ALICE), URI.create(FOLLOW_ID)))
+        .thenReturn(true);
+    final JsonNode byString = mapper.getNodeFactory().textNode(FOLLOW_ID);
+    final ObjectNode byId = mapper.createObjectNode().put("id", FOLLOW_ID);
+    final ObjectNode byIdAndType =
+        mapper.createObjectNode().put("id", FOLLOW_ID).put("type", "Follow");
+    int n = 0;
+    for (final JsonNode object : List.of(byString, byId, byIdAndType)) {
+      send("/users/bob/inbox", activity("Undo", ALICE + "#undo/" + n++, object))
+          .andExpect(status().isAccepted());
+    }
+
+    verify(followerService, times(3))
+        .removeByFollowId(bob, URI.create(ALICE), URI.create(FOLLOW_ID));
+    verify(followerService, never()).remove(any(), any());
+    verifyNoInteractions(deliveryService);
+  }
+
+  @Test
+  void undoOfAFollowNamedByItsId_thatIsUnknown_isAccepted() throws Exception {
+    send(
+            "/users/bob/inbox",
+            activity("Undo", ALICE + "#undo", mapper.getNodeFactory().textNode(FOLLOW_ID)))
+        .andExpect(status().isAccepted());
+    verify(followerService).removeByFollowId(bob, URI.create(ALICE), URI.create(FOLLOW_ID));
+    verify(followerService, never()).remove(any(), any());
+  }
+
+  @Test
+  void undoOfAFollowNamedByItsId_fromAnotherActor_onlyMatchesTheSendersFollows()
+      throws Exception {
+    final String mallory = "https://remote.social/users/mallory";
+    when(httpSignatureService.verify(any(), any(), any(), any()))
+        .thenReturn(new VerifiedSignature(mallory + "#main-key", mallory));
+    final ObjectNode undo =
+        activity("Undo", mallory + "#undo", mapper.getNodeFactory().textNode(FOLLOW_ID));
+    undo.put("actor", mallory);
+
+    send("/users/bob/inbox", undo).andExpect(status().isAccepted());
+
+    verify(followerService).removeByFollowId(bob, URI.create(mallory), URI.create(FOLLOW_ID));
+    verify(followerService, never()).removeByFollowId(any(), eq(URI.create(ALICE)), any());
+    verify(followerService, never()).remove(any(), any());
   }
 
   // ---- Delete ---------------------------------------------------------------------------

@@ -51,21 +51,27 @@ public class FollowerService {
   }
 
   /**
-   * Add a follower, or update the inboxes of one already there.
+   * Add a follower, or update the inboxes and Follow id of one already there.
    *
    * @param user the followed journal's owner
    * @param actorId the remote actor's id
    * @param inbox the remote actor's inbox
    * @param sharedInbox the remote server's shared inbox, or null
+   * @param followId the id of the Follow the actor sent, or null
    * @return the stored follower
    * @throws IllegalArgumentException if a URL isn't an absolute http(s) URL of a sensible length
    */
   @Transactional
   public RemoteFollower add(
-      final User user, final URI actorId, final URI inbox, final URI sharedInbox) {
+      final User user,
+      final URI actorId,
+      final URI inbox,
+      final URI sharedInbox,
+      final URI followId) {
     final String actor = url(actorId, "actor id");
     final String inboxUrl = url(inbox, "inbox");
     final String shared = sharedInbox == null ? null : url(sharedInbox, "shared inbox");
+    final String follow = followId == null ? null : url(followId, "follow id");
 
     final RemoteFollower follower =
         repository
@@ -79,6 +85,7 @@ public class FollowerService {
                 });
     follower.setInbox(inboxUrl);
     follower.setSharedInbox(shared);
+    follower.setFollowId(follow);
     return repository.save(follower);
   }
 
@@ -91,6 +98,22 @@ public class FollowerService {
   public boolean remove(final User user, final URI actorId) {
     if (actorId == null) return false;
     return repository.deleteByUserIdAndActorId(user.getId(), actorId.toASCIIString()) > 0;
+  }
+
+  /**
+   * Remove a follower named by the id of its Follow. Only the actor's own Follow matches, so one
+   * actor can't undo another's.
+   *
+   * @param actorId the actor undoing the Follow
+   * @param followId the id of the Follow
+   * @return true if the actor was following by that Follow
+   */
+  @Transactional
+  public boolean removeByFollowId(final User user, final URI actorId, final URI followId) {
+    if (actorId == null || followId == null) return false;
+    return repository.deleteByUserIdAndActorIdAndFollowId(
+            user.getId(), actorId.toASCIIString(), followId.toASCIIString())
+        > 0;
   }
 
   /**
