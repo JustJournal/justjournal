@@ -59,6 +59,7 @@ public class OllamaClient {
    * Ask a model about an image and get its answer as JSON.
    *
    * @param model model name, as {@code ollama list} shows it
+   * @param system the instructions, sent as a system message so they stay apart from the image
    * @param prompt what to ask
    * @param image the image, in any format the model reads (JPEG and PNG are safe)
    * @param format JSON schema the answer must follow
@@ -66,7 +67,11 @@ public class OllamaClient {
    * @throws IOException if no server gave a usable answer
    */
   public JsonNode chat(
-      final String model, final String prompt, final byte[] image, final JsonNode format)
+      final String model,
+      final String system,
+      final String prompt,
+      final byte[] image,
+      final JsonNode format)
       throws IOException {
     final ObjectNode body = mapper.createObjectNode();
     body.put("model", model);
@@ -74,6 +79,7 @@ public class OllamaClient {
     body.set("format", format);
     body.putObject("options").put("temperature", 0);
     final ArrayNode messages = body.putArray("messages");
+    messages.addObject().put("role", "system").put("content", system);
     final ObjectNode message = messages.addObject();
     message.put("role", "user");
     message.put("content", prompt);
