@@ -130,7 +130,7 @@ class ImageModerationServiceTests {
   private void answers(final String category) throws IOException {
     final JsonNode answer =
         new ObjectMapper().readTree("{\"category\":\"" + category + "\",\"reason\":\"because\"}");
-    when(ollama.chat(eq("vision"), anyString(), any(), any())).thenReturn(answer);
+    when(ollama.chat(eq("vision"), anyString(), anyString(), any(), any())).thenReturn(answer);
   }
 
   @Test
@@ -164,7 +164,7 @@ class ImageModerationServiceTests {
 
   @Test
   void modelDown_fallsBackAsConfigured() throws Exception {
-    when(ollama.chat(anyString(), anyString(), any(), any())).thenThrow(new IOException("down"));
+    when(ollama.chat(anyString(), anyString(), anyString(), any(), any())).thenThrow(new IOException("down"));
 
     assertEquals(ModerationStatus.REVIEW, service.moderate(png(50, 50)).status());
 
@@ -181,7 +181,7 @@ class ImageModerationServiceTests {
   @Test
   void notAnImage_treatedAsError() throws Exception {
     assertEquals(ModerationStatus.REVIEW, service.moderate(new byte[100]).status());
-    verify(ollama, never()).chat(any(), any(), any(), any());
+    verify(ollama, never()).chat(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -189,7 +189,7 @@ class ImageModerationServiceTests {
     service.setEnabled(false);
 
     assertEquals(ModerationStatus.APPROVED, service.moderate(new byte[100]).status());
-    verify(ollama, never()).chat(any(), any(), any(), any());
+    verify(ollama, never()).chat(any(), any(), any(), any(), any());
   }
 
   @Test
@@ -200,7 +200,13 @@ class ImageModerationServiceTests {
 
     final ArgumentCaptor<byte[]> sent = ArgumentCaptor.forClass(byte[].class);
     final ArgumentCaptor<JsonNode> format = ArgumentCaptor.forClass(JsonNode.class);
-    verify(ollama).chat(eq("vision"), eq(ImageModerationService.PROMPT), sent.capture(), format.capture());
+    verify(ollama)
+        .chat(
+            eq("vision"),
+            eq(ImageModerationService.SYSTEM_PROMPT),
+            eq(ImageModerationService.PROMPT),
+            sent.capture(),
+            format.capture());
     final BufferedImage image = ImageIO.read(new ByteArrayInputStream(sent.getValue()));
     assertEquals(ImageModerationService.IMAGE_SIZE, image.getWidth());
     assertEquals(ImageModerationService.IMAGE_SIZE / 2, image.getHeight());
