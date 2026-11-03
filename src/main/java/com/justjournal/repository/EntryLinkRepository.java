@@ -68,6 +68,13 @@ public interface EntryLinkRepository extends JpaRepository<EntryLink, Integer> {
   List<EntryLink> findByImageModerationStatusAndImageModerationCategoryOrderByIdAsc(
       ModerationStatus imageModerationStatus, String imageModerationCategory, Pageable page);
 
+  /**
+   * Preview images with a given verdict that are still stored, oldest first; see {@code
+   * AdminModerationService}.
+   */
+  List<EntryLink> findByImageModerationStatusAndImageFilenameIsNotNullOrderByIdAsc(
+      ModerationStatus imageModerationStatus, Pageable page);
+
   /** Previews due to be fetched, oldest first. */
   List<EntryLink> findByPreviewStatusAndNextAttemptAtLessThanEqualOrderByIdAsc(
       LinkPreviewStatus previewStatus, Date now, Pageable page);
