@@ -119,6 +119,13 @@ public class User implements Serializable {
   @Column(name = "type", nullable = false)
   private Integer type;
 
+  /** Set by an administrator: the account can't log in and its journal is hidden from everyone. */
+  @Getter
+  @Setter
+  @JsonIgnore
+  @Column(name = "disabled", nullable = false)
+  private boolean disabled = false;
+
   @Getter
   @Setter
   @JsonManagedReference(value = "journal-user")
@@ -225,6 +232,7 @@ public class User implements Serializable {
     this.modified = user.getModified();
     this.lastName = user.getLastName();
     this.userContact = user.userContact;
+    this.disabled = user.isDisabled();
   }
 
 

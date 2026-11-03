@@ -64,6 +64,7 @@ class BlogSearchServiceTests {
 
   private BlogEntryRepository blogEntryRepository;
   private EntryRepository entryRepository;
+  private DisabledAccounts disabledAccounts;
   private BlogSearchService service;
   private User author;
 
@@ -71,7 +72,8 @@ class BlogSearchServiceTests {
   void setUp() {
     blogEntryRepository = mock(BlogEntryRepository.class);
     entryRepository = mock(EntryRepository.class);
-    service = new BlogSearchService(blogEntryRepository, entryRepository);
+    disabledAccounts = mock(DisabledAccounts.class);
+    service = new BlogSearchService(blogEntryRepository, entryRepository, disabledAccounts);
     author = new User();
     author.setId(1);
     author.setUsername("ada");
@@ -127,6 +129,22 @@ class BlogSearchServiceTests {
     assertSame(pub, service.publicSearch("cats", page));
     assertSame(mine, service.search("cats", "ada", page));
     assertSame(minePublic, service.publicSearch("cats", "ada", page));
+  }
+
+  @Test
+  void publicSearch_leavesOutDisabledAccounts() {
+    final Pageable page = PageRequest.of(0, 10);
+    final BlogEntry shown = new BlogEntry();
+    shown.setAuthor("ada");
+    final BlogEntry hidden = new BlogEntry();
+    hidden.setAuthor("mallory");
+    when(blogEntryRepository.findByPublicSearch("cats", page))
+        .thenReturn(new PageImpl<>(List.of(shown, hidden), page, 2));
+    when(disabledAccounts.isDisabled("mallory")).thenReturn(true);
+
+    final Page<BlogEntry> result = service.publicSearch("cats", page);
+
+    assertEquals(List.of(shown), result.getContent());
   }
 
   @Test

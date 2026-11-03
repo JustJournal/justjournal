@@ -122,6 +122,10 @@ public class PasswordResetService {
         log.info("Password reset requested for unknown user {}", username);
         return;
       }
+      if (user.isDisabled()) {
+        log.info("Password reset requested for disabled account {}", username);
+        return;
+      }
 
       final UserContact contact = userContactRepository.findByUser(user);
       if (contact == null

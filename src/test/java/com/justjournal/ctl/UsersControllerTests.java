@@ -88,6 +88,7 @@ import com.justjournal.rss.CachedHeadlineBean;
 import com.justjournal.rss.Rss;
 import com.justjournal.services.AvatarService;
 import com.justjournal.services.BlogSearchService;
+import com.justjournal.services.DisabledAccounts;
 import com.justjournal.services.EntryService;
 import com.justjournal.services.MarkdownService;
 import com.justjournal.services.PdfFormatService;
@@ -1331,6 +1332,47 @@ class UsersControllerTests {
     verify(atom).setId(BASE + "/atom");
     verify(atom).setSelfLink("/users/bob/atom");
     verify(atom).populate(entries, attachments);
+  }
+
+  @Test
+  void feeds_ofADisabledAccount_areNotFound() throws Exception {
+    blogUser.setDisabled(true);
+    when(userRepository.findByUsername(BLOG)).thenReturn(blogUser);
+
+    mockMvc.perform(get("/users/" + BLOG + "/atom")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/users/" + BLOG + "/rss")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/users/" + BLOG + "/rsspics")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/users/" + BLOG + "/json")).andExpect(status().isNotFound());
+    mockMvc.perform(get("/users/" + BLOG + "/tag/linux")).andExpect(status().isNotFound());
+
+    verify(atom, never()).toXml();
+    verify(rss, never()).toXml();
+  }
+
+  /** The interceptor in front of every address answers 404 before the controller runs. */
+  @Test
+  void anyPage_namingADisabledAccount_isNotFound() throws Exception {
+    final DisabledAccounts disabledAccounts = mock(DisabledAccounts.class);
+    when(disabledAccounts.isDisabled(BLOG)).thenReturn(true);
+    final MockMvc guarded =
+        MockMvcBuilders.standaloneSetup(
+                new UsersController(
+                    entryService, commentDao, entryDao, favoriteRepository, emoticonDao,
+                    userRepository, rssSubscriptionsDAO, userImageService, avatarService,
+                    blogSearchService, rss, markdownService, atom, trackbackService,
+                    cachedHeadlineBean, userContextService, pdfFormatService, settings,
+                    entryAttachmentService,
+                    new EntryAttachmentRenderer(entryAccessService, entryImageService),
+                    remoteReplyRepository, remotePostService))
+            .addInterceptors(new DisabledAccountInterceptor(disabledAccounts))
+            .build();
+
+    guarded.perform(get("/users/" + BLOG)).andExpect(status().isNotFound());
+    guarded.perform(get("/users/" + BLOG + "/rss")).andExpect(status().isNotFound());
+    guarded.perform(get("/users/" + BLOG + "/pictures")).andExpect(status().isNotFound());
+
+    verify(userContextService, never()).getUserContext(anyString(), any());
+    verify(userRepository, never()).findByUsername(anyString());
   }
 
   @Test

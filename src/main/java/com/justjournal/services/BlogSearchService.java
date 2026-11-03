@@ -38,6 +38,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -59,13 +60,16 @@ public class BlogSearchService {
 
   private final EntryRepository entryRepository;
 
+  private final DisabledAccounts disabledAccounts;
 
   @Autowired
   public BlogSearchService(
       final BlogEntryRepository blogEntryRepository,
-      final EntryRepository entryRepository) {
+      final EntryRepository entryRepository,
+      final DisabledAccounts disabledAccounts) {
     this.blogEntryRepository = blogEntryRepository;
     this.entryRepository = entryRepository;
+    this.disabledAccounts = disabledAccounts;
   }
 
   /**
@@ -87,7 +91,23 @@ public class BlogSearchService {
    * @return a page of results
    */
   public Page<BlogEntry> publicSearch(final String term, final Pageable page) {
-    return blogEntryRepository.findByPublicSearch(term, page);
+    return withoutDisabledAccounts(blogEntryRepository.findByPublicSearch(term, page));
+  }
+
+  /**
+   * The index keeps the entries of disabled accounts, so enabling the account brings them back;
+   * they are left out of results here instead. The total still counts them.
+   */
+  private Page<BlogEntry> withoutDisabledAccounts(final Page<BlogEntry> results) {
+    if (results == null
+        || results.getContent().stream().noneMatch(e -> disabledAccounts.isDisabled(e.getAuthor())))
+      return results;
+    return new PageImpl<>(
+        results.getContent().stream()
+            .filter(e -> !disabledAccounts.isDisabled(e.getAuthor()))
+            .toList(),
+        results.getPageable(),
+        results.getTotalElements());
   }
 
   /**

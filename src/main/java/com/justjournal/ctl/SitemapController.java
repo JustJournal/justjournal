@@ -69,6 +69,7 @@ public class SitemapController {
     create(xmlUrlSet, baseUri + "moodlist", Url.Priority.LOW, Url.ChangeFreqency.YEARLY);
 
     for (final User user : userRepository.findAll()) {
+      if (user.isDisabled()) continue;
       for (final Journal journal : user.getJournals()) {
         if (journal.isAllowSpider() && !journal.isOwnerViewOnly()) {
           final String users = settings.getBlogBaseUrl(user.getUsername());

@@ -237,7 +237,7 @@ public class InboxController {
   private User publicUser(final String username) {
     if (!Login.isUserName(username)) return null;
     final User user = userRepository.findByUsername(username);
-    if (user == null || user.getJournals().isEmpty()) return null;
+    if (user == null || user.isDisabled() || user.getJournals().isEmpty()) return null;
     if (user.getJournals().stream().anyMatch(Journal::isOwnerViewOnly)) return null;
     return user;
   }

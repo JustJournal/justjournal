@@ -431,6 +431,10 @@ public class Login {
         log.error("resetPass(): Unable to find user {}", userId);
         return false;
       }
+      if (user.isDisabled()) {
+        log.warn("resetPass(): refused for {}: the account is disabled", user.getUsername());
+        return false;
+      }
 
       user.setPassword(getHashedPassword(user.getUsername(), newPass));
       user.setPasswordType(PasswordType.ARGON2);
@@ -457,8 +461,25 @@ public class Login {
       return isUserName(userName) && userRepository.findByUsername(userName) != null;
   }
 
+  /**
+   * The account the username and password belong to. A disabled account is refused the same way
+   * as a wrong password, so the caller can't tell the two apart; only the log says which. Every
+   * password check (web, second factor, XML-RPC and desktop clients, password changes) comes
+   * through here.
+   */
   @Nullable
   private com.justjournal.model.User lookupUser(@NotNull final String userName, @NotNull final String password) {
+    final com.justjournal.model.User user = matchPassword(userName, password);
+    if (user != null && user.isDisabled()) {
+      log.warn("Login refused for {}: the account is disabled", userName);
+      return null;
+    }
+    return user;
+  }
+
+  @Nullable
+  private com.justjournal.model.User matchPassword(
+      @NotNull final String userName, @NotNull final String password) {
     try {
       com.justjournal.model.User user = userRepository.findByUsername(userName);
 

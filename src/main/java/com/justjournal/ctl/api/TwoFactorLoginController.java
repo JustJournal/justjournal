@@ -143,6 +143,13 @@ public class TwoFactorLoginController {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
       }
       case OK -> {
+        if (userRepository.findById(userId).filter(User::isDisabled).isPresent()) {
+          // disabled while the code was on its way: answered like a wrong code
+          log.warn("Two factor login refused for {}: the account is disabled", username);
+          Login.clearPendingSecondFactor(session);
+          response.setStatus(JJ_LOGIN_FAIL);
+          return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
         webLogin.completeLogin(request, userId, username);
         if (body.isRememberDevice()) {
           servletResponse.addCookie(trustCookie(twoFactorService.rememberDevice(userId), request));

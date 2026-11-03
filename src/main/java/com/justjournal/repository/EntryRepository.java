@@ -72,7 +72,7 @@ public interface EntryRepository extends JpaRepository<Entry, Integer> {
   @Query(
       "select e from Entry e, User u, Friend f where e.user = f.friend and"
           + " LOWER(u.username) = LOWER(:username) and e.security = com.justjournal.model.Security.PUBLIC"
-          + " and f.user = u and e.draft = :draft")
+          + " and f.user = u and e.draft = :draft and e.user.disabled = false")
   Page<Entry> findByUserFriends(
       @Param("username") String username, @Param("draft") PrefBool draft, Pageable pageable);
 
@@ -111,7 +111,12 @@ public interface EntryRepository extends JpaRepository<Entry, Integer> {
 
   Page<Entry> findByUserOrderByDateDesc(User user, Pageable pageable);
 
-  Page<Entry> findBySecurityOrderByDateDesc(Security security, Pageable pageable);
+  /** Entries with the security level across all journals, leaving out disabled accounts. */
+  @Query(
+      "select e from Entry e where e.security = :security and e.user.disabled = false"
+          + " order by e.date desc")
+  Page<Entry> findBySecurityOrderByDateDesc(
+      @Param("security") Security security, Pageable pageable);
 
   @Query(
       "select e from Entry e, User u where e.user= u and LOWER(u.username) ="

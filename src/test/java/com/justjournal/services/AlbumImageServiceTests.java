@@ -14,6 +14,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.justjournal.exception.BadRequestException;
@@ -193,6 +194,19 @@ class AlbumImageServiceTests {
     assertThrows(NotFoundException.class, () -> service.picture(7, 0));
     assertThrows(NotFoundException.class, () -> service.picture(7, 6));
     assertThrows(NotFoundException.class, () -> service.thumbnail(7, 6));
+  }
+
+  @Test
+  void picture_ofADisabledAccount_hiddenFromEveryone() {
+    final UserImage stored = image(7, 5, "5/a.jpg", "5/a_thumb.jpg");
+    stored.setModerationStatus(ModerationStatus.APPROVED);
+    when(stored.getUser().isDisabled()).thenReturn(true);
+    when(userImageRepository.findById(7)).thenReturn(Optional.of(stored));
+
+    assertThrows(NotFoundException.class, () -> service.picture(7, 0));
+    assertThrows(NotFoundException.class, () -> service.picture(7, 5));
+    assertThrows(NotFoundException.class, () -> service.thumbnail(7, 0));
+    verifyNoInteractions(storage);
   }
 
   @Test
