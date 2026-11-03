@@ -1,0 +1,41 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content">
+    <h1>Settings</h1>
+    <p>Changes take effect as soon as they are saved.</p>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Value</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="setting : ${settings}">
+            <th scope="row"><label th:for="'setting-' + ${setting.id}" th:text="${setting.name}">name</label></th>
+            <td>
+                <form class="form-inline" method="post" th:action="@{/admin/settings/{id}(id=${setting.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <th:block th:if="${setting.secret}">
+                        <input type="password" class="form-control" name="value" value=""
+                               autocomplete="new-password"
+                               th:id="'setting-' + ${setting.id}" th:maxlength="${maxLength}"
+                               th:attr="aria-describedby='hint-' + ${setting.id}"/>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <span class="help-block" th:id="'hint-' + ${setting.id}">Not shown. Leave blank to keep the current value.</span>
+                    </th:block>
+                    <th:block th:unless="${setting.secret}">
+                        <input type="text" class="form-control" name="value"
+                               th:id="'setting-' + ${setting.id}" th:value="${setting.value}"
+                               th:maxlength="${maxLength}"/>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </th:block>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>
