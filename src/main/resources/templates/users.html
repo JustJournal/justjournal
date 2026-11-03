@@ -412,6 +412,11 @@
     var username = /*[[${user.username}]]*/ "";
     var authenticatedUser =  /*[[${authenticatedUsername}]]*/ "";
 
+    // Before October 2026 the API sent no Cache-Control, so browsers may still hold old copies of
+    // the sidebar lists that they treat as fresh and never ask about again. A cache-busting query
+    // string makes every request reach the server.
+    $.ajaxSetup({cache: false});
+
     // a reply from another fediverse server, which the journal's owner may remove
     function deleteRemoteComment(commentId) {
         if (confirmDelete()) {
