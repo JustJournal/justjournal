@@ -1,0 +1,53 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content">
+    <h1>Pictures to review</h1>
+    <p class="text-muted">
+        The content filter wasn't sure about these, so only their owners can see them. Approve a
+        picture to show it to everyone; a rejected one stays hidden. Up to
+        <span th:text="${maxPerKind}">50</span> of each kind are listed, oldest first.
+    </p>
+
+    <p class="well" th:if="${#lists.isEmpty(pictures)}">No pictures are waiting for review.</p>
+
+    <div class="row" th:unless="${#lists.isEmpty(pictures)}">
+        <div class="col-xs-12 col-sm-6 col-md-4 col-lg-3" th:each="picture : ${pictures}">
+            <div class="thumbnail">
+                <a href="#" th:href="@{/admin/images/{kind}/{id}(kind=${picture.kind.path},id=${picture.id})}"
+                   target="_blank" rel="noopener noreferrer">
+                    <img src="#" th:src="@{/admin/images/{kind}/{id}(kind=${picture.kind.path},id=${picture.id})}"
+                         th:alt="${picture.kind.label} + ' ' + ${picture.id}"
+                         class="img-responsive" loading="lazy"/>
+                </a>
+                <div class="caption">
+                    <p>
+                        <strong th:text="${picture.kind.label}">Album picture</strong>
+                        <span th:text="${picture.id}">1</span>
+                    </p>
+                    <p>Owner:
+                        <span th:text="${picture.owner} ?: ('missing user ' + ${picture.ownerId})">owner</span>
+                    </p>
+                    <p>Category: <code th:text="${picture.category} ?: 'none'">error</code></p>
+                    <p th:if="${picture.where}">
+                        <a href="#" th:href="@{${picture.where}}" target="_blank" rel="noopener noreferrer">Where it appears</a>
+                    </p>
+                    <form class="form-inline" style="display: inline" method="post"
+                          th:action="@{/admin/images/{kind}/{id}(kind=${picture.kind.path},id=${picture.id})}">
+                        <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                        <input type="hidden" name="decision" value="APPROVED"/>
+                        <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                    </form>
+                    <form class="form-inline" style="display: inline" method="post"
+                          th:action="@{/admin/images/{kind}/{id}(kind=${picture.kind.path},id=${picture.id})}">
+                        <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                        <input type="hidden" name="decision" value="REJECTED"/>
+                        <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

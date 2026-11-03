@@ -53,4 +53,8 @@ public interface UserImageRepository extends JpaRepository<UserImage, Integer> {
   /** Pictures with a given verdict and reason, oldest first; see {@code ModerationRetry}. */
   List<UserImage> findByModerationStatusAndModerationCategoryOrderByIdAsc(
       ModerationStatus moderationStatus, String moderationCategory, Pageable page);
+
+  /** Pictures with a given verdict, oldest first; see {@code AdminModerationService}. */
+  List<UserImage> findByModerationStatusOrderByIdAsc(
+      ModerationStatus moderationStatus, Pageable page);
 }

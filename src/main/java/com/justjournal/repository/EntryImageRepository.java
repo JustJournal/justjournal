@@ -63,4 +63,8 @@ public interface EntryImageRepository extends JpaRepository<EntryImage, Integer>
   /** Pictures with a given verdict and reason, oldest first; see {@code ModerationRetry}. */
   List<EntryImage> findByModerationStatusAndModerationCategoryOrderByIdAsc(
       ModerationStatus moderationStatus, String moderationCategory, Pageable page);
+
+  /** Pictures with a given verdict, oldest first; see {@code AdminModerationService}. */
+  List<EntryImage> findByModerationStatusOrderByIdAsc(
+      ModerationStatus moderationStatus, Pageable page);
 }
