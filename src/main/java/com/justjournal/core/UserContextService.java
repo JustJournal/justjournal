@@ -34,7 +34,7 @@ public class UserContextService {
 
         try {
             final User user = userRepository.findByUsername(username);
-            if (user == null || user.getId() == 0) return null;
+            if (user == null || user.getId() == 0 || user.isDisabled()) return null;
 
             return new UserContext(user, authUser);
         } catch (final Exception e) {

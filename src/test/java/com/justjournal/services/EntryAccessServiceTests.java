@@ -99,6 +99,17 @@ class EntryAccessServiceTests {
   }
 
   @Test
+  void disabledAccount_nobodySeesItsPosts() {
+    final Entry hidden = entry(Security.PUBLIC);
+    when(hidden.getUser().isDisabled()).thenReturn(true);
+
+    assertFalse(service.canView(hidden, OWNER));
+    assertFalse(service.canView(hidden, 0));
+    assertFalse(service.canView(hidden, FRIEND));
+    assertFalse(service.isPubliclyVisible(hidden));
+  }
+
+  @Test
   void publiclyVisible_onlyPublicPosts() {
     assertTrue(service.isPubliclyVisible(entry(Security.PUBLIC)));
     assertFalse(service.isPubliclyVisible(entry(Security.FRIENDS)));

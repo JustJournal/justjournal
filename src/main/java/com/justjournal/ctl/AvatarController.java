@@ -34,6 +34,7 @@ import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.ModerationStatus;
+import com.justjournal.services.DisabledAccounts;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
@@ -80,6 +82,8 @@ public class AvatarController {
 
   private final ActivityPublisher activityPublisher;
 
+  private DisabledAccounts disabledAccounts;
+
   public AvatarController(
       ImageStorageService imageStorageService,
       ImageService imageService,
@@ -89,6 +93,11 @@ public class AvatarController {
     this.imageService = imageService;
     this.imageModerationService = imageModerationService;
     this.activityPublisher = activityPublisher;
+  }
+
+  @Autowired
+  public void setDisabledAccounts(final DisabledAccounts disabledAccounts) {
+    this.disabledAccounts = disabledAccounts;
   }
 
   /** Told to a user whose avatar the content filter refused. */
@@ -113,6 +122,10 @@ public class AvatarController {
   @GetMapping("/{id}")
   public ResponseEntity<Resource> getByPath(
       @PathVariable(PARAM_ID) final int id, final HttpSession session) throws ServiceException {
+    // a disabled account's avatar is hidden like the rest of its journal
+    if (disabledAccounts != null && disabledAccounts.isDisabled(id)) {
+      throw new NotFoundException("No such user");
+    }
     final boolean shown;
     try {
       shown = imageStorageService.isShowAvatar(id) && imageStorageService.isAvatarApproved(id);

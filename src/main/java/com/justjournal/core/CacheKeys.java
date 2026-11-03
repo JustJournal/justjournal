@@ -40,4 +40,7 @@ public class CacheKeys {
   public static final String TWO_FACTOR_ATTEMPTS_KEY = "twofactor_attempts:";
   public static final String TWO_FACTOR_TOTP_PENDING_KEY = "twofactor_totp_pending:";
   public static final String TWO_FACTOR_TOTP_USED_KEY = "twofactor_totp_used:";
+  public static final String ADMIN_TWO_FACTOR_CODE_KEY = "admin_2fa_code:";
+  public static final String ADMIN_TWO_FACTOR_THROTTLE_KEY = "admin_2fa_throttle:";
+  public static final String ADMIN_TWO_FACTOR_ATTEMPTS_KEY = "admin_2fa_attempts:";
 }

@@ -78,7 +78,7 @@ public class TrackbackController {
       final HttpServletResponse response) {
     final Entry entry = entryRepository.findById(entryId).orElse(null);
 
-    if (entry == null) {
+    if (entry == null || entry.getUser().isDisabled()) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return Collections.emptyList();
     }

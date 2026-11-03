@@ -29,6 +29,8 @@ package com.justjournal.repository;
 import com.justjournal.model.User;
 import java.util.Date;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -51,8 +53,17 @@ public interface UserRepository extends JpaRepository<User, Integer> {
   User findByUsernameAndPassword(
       @Param("username") String username, @Param("password") String password);
 
-  @Query("SELECT u FROM User u, Journal j where j.user = u and j.ownerViewOnly = false")
+  @Query(
+      "SELECT u FROM User u, Journal j where j.user = u and j.ownerViewOnly = false"
+          + " and u.disabled = false")
   List<User> getPublicUsers();
+
+  /** Ids and usernames of the disabled accounts, as {@code [id, username]} rows. */
+  @Query("SELECT u.id, u.username FROM User u WHERE u.disabled = true")
+  List<Object[]> findDisabledAccounts();
+
+  /** Accounts whose username contains the text, ignoring case, for the admin account list. */
+  Page<User> findByUsernameContainingIgnoreCase(String username, Pageable pageable);
 
   /** Users who logged in after the given time. */
   long countByLastLoginAfter(Date since);

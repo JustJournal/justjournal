@@ -56,10 +56,11 @@ public class FederationPolicy {
    * Whether this user's journal federates.
    *
    * @param user a user; may be null
-   * @return true when the site allows it, the user turned it on, and anyone may read the journal
+   * @return true when the site allows it, the user turned it on, anyone may read the journal and
+   *     the account isn't disabled
    */
   public boolean federates(final User user) {
-    if (!enabled || user == null) return false;
+    if (!enabled || user == null || user.isDisabled()) return false;
     if (!optedIn(user.getUserPref())) return false;
     if (user.getJournals() == null || user.getJournals().isEmpty()) return false;
     return user.getJournals().stream().noneMatch(Journal::isOwnerViewOnly);

@@ -117,7 +117,7 @@ public class CommentController {
       final HttpServletResponse response) {
     final Entry entry = entryDao.findById(entryId).orElse(null);
 
-    if (entry == null) {
+    if (entry == null || entry.getUser().isDisabled()) {
       response.setStatus(HttpServletResponse.SC_NOT_FOUND);
       return Collections.emptyList();
     }

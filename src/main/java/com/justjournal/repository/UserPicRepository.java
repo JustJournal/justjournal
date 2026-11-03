@@ -39,4 +39,8 @@ public interface UserPicRepository extends JpaRepository<UserPic, Integer> {
   /** Avatars with a given verdict and reason, oldest first; see {@code ModerationRetry}. */
   List<UserPic> findByModerationStatusAndModerationCategoryOrderByModifiedAsc(
       ModerationStatus moderationStatus, String moderationCategory, Pageable page);
+
+  /** Avatars with a given verdict, oldest first; see {@code AdminModerationService}. */
+  List<UserPic> findByModerationStatusOrderByModifiedAsc(
+      ModerationStatus moderationStatus, Pageable page);
 }

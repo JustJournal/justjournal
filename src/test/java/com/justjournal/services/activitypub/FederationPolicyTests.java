@@ -88,6 +88,16 @@ class FederationPolicyTests {
     assertFalse(policy.federates(user));
   }
 
+  @Test
+  void aDisabledAccount_doesNotFederate() {
+    final FederationPolicy policy = new FederationPolicy();
+    policy.setEnabled(true);
+    final User user = user(true, false);
+    user.setDisabled(true);
+
+    assertFalse(policy.federates(user));
+  }
+
   private static User user(final boolean optedIn, final boolean ownerOnly) {
     final User user = new User();
     user.setId(7);

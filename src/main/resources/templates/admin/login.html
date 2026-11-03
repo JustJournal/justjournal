@@ -1,0 +1,28 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content">
+    <div class="row">
+        <div class="col-sm-6 col-sm-offset-3">
+            <h1>Admin log in</h1>
+            <p>After your password, a code is e-mailed to the site admin address.</p>
+            <form method="post" action="/admin/login" th:action="@{/admin/login}">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <div class="form-group">
+                    <label for="admin-username">Username</label>
+                    <input type="text" class="form-control" id="admin-username" name="username"
+                           autocomplete="username" autocapitalize="none" spellcheck="false"
+                           required="required" autofocus="autofocus"/>
+                </div>
+                <div class="form-group">
+                    <label for="admin-password">Password</label>
+                    <input type="password" class="form-control" id="admin-password" name="password"
+                           autocomplete="current-password" required="required"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Continue</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

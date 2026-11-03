@@ -415,4 +415,59 @@ class LoginTests {
     assertFalse(login.changePass("bob", "wrong1", "N3w_password"));
     verify(userRepository, never()).saveAndFlush(any());
   }
+  private User disabledUser() {
+    when(trackBackIpRepository.getIpAddress(anyString())).thenReturn(Mono.empty());
+    when(trackBackIpRepository.saveIpAddress(anyString(), anyInt())).thenReturn(Mono.just(true));
+    final User user = new User();
+    user.setId(2);
+    user.setUsername("bob");
+    user.setPassword(login.getHashedPassword("bob", "basic1"));
+    user.setDisabled(true);
+    when(userRepository.findByUsername("bob")).thenReturn(user);
+    return user;
+  }
+
+  /** The web login and the second factor start with validatePassword. */
+  @Test
+  void validatePassword_refusesADisabledAccountLikeAWrongPassword() {
+    disabledUser();
+
+    assertEquals(BAD_USER_ID, login.validatePassword("bob", "basic1"));
+
+    // the same IP block a wrong password gets, so the answer doesn't tell them apart
+    verify(trackBackIpRepository).saveIpAddress(anyString(), eq(5));
+  }
+
+  /** XML-RPC and the old desktop clients. */
+  @Test
+  void validate_refusesADisabledAccount() {
+    disabledUser();
+
+    assertEquals(BAD_USER_ID, login.validate("bob", "basic1"));
+
+    verify(userRepository, never()).findById(anyInt());
+    verify(userRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void changePass_refusesADisabledAccount() {
+    disabledUser();
+
+    assertFalse(login.changePass("bob", "basic1", "N3w_password"));
+    verify(userRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void resetPass_refusesADisabledAccount() {
+    final User user = new User();
+    user.setId(7);
+    user.setUsername("ada");
+    user.setPassword("oldhash");
+    user.setDisabled(true);
+    when(userRepository.findById(7)).thenReturn(Optional.of(user));
+
+    assertFalse(login.resetPass(7, "N3w_password"));
+    assertEquals("oldhash", user.getPassword());
+    verify(userRepository, never()).saveAndFlush(any());
+  }
 }

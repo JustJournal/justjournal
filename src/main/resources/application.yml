@@ -110,6 +110,16 @@ moderation:
   # an animated GIF the model found safe, having seen only its first frame: APPROVED, REVIEW or REJECTED
   on-animated: REVIEW
 
+# The site administrator's login for /admin; with either value blank every /admin address answers
+# 404. password-hash is an argon2id string of the password alone, base64 salt and hash with or
+# without padding, e.g. from the argon2 CLI (m=2^16 KiB, t=3, p=4, 32 byte hash):
+#   echo -n 'the password' | argon2 "$(openssl rand -base64 16)" -id -t 3 -m 16 -p 4 -l 32 -e
+# After the password a six digit code is mailed to the site admin e-mail address from the settings.
+# Set both from the environment; never put the real values in this file.
+admin:
+  username: ${ADMIN_USERNAME:}
+  password-hash: ${ADMIN_PASSWORD_HASH:}
+
 # A post can have one picture and one link attached. Pictures go through the content filter above;
 # a picture uploaded but never saved with a post is removed after orphan-hours.
 entry-attachments:
@@ -253,6 +263,25 @@ bucket4j:
               unit: minutes
             - id: sustained
               capacity: 1200
+              time: 1
+              unit: hours
+    # admin password and login code posts: each guess costs an argon2 hash or burns a code attempt
+    - id: admin-login
+      cache-name: buckets
+      filter-method: servlet
+      filter-order: 4
+      url: '^/admin/(login|code)/?$'
+      rate-limits:
+        - cache-key: "getRemoteAddr()"
+          execute-predicates:
+            - METHOD=POST
+          bandwidths:
+            - id: burst
+              capacity: 5
+              time: 1
+              unit: minutes
+            - id: sustained
+              capacity: 20
               time: 1
               unit: hours
 

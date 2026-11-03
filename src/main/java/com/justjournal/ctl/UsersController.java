@@ -527,7 +527,7 @@ public class UsersController {
     try {
       final User user = userRepository.findByUsername(username);
 
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
         return VIEW_NOT_FOUND;
       }
@@ -552,7 +552,7 @@ public class UsersController {
     try {
       final User user = userRepository.findByUsername(username);
 
-      if (user == null || pageId < 0) {
+      if (user == null || user.isDisabled() || pageId < 0) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
       }
 
@@ -638,7 +638,7 @@ public class UsersController {
     try {
       final User user = userRepository.findByUsername(username);
 
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
         return VIEW_NOT_FOUND;
       }
@@ -663,7 +663,7 @@ public class UsersController {
     try {
       final User user = userRepository.findByUsername(username);
 
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
         return VIEW_NOT_FOUND;
       }
@@ -883,7 +883,7 @@ public class UsersController {
     try {
       final User user = userRepository.findByUsername(username);
 
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
         return VIEW_NOT_FOUND;
       }
@@ -1149,6 +1149,7 @@ public class UsersController {
 
     for (final Favorite fav : favorites) {
       final Entry e = fav.getEntry();
+      if (e.getUser().isDisabled()) continue;
 
       // if the blog entry belongs to the user, it's owned by a friend, or it's public, render it.
       if (e.getSecurity() == Security.PUBLIC

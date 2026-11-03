@@ -289,6 +289,10 @@ public class AlbumImageService {
   /** The picture, if it is approved or the viewer owns it; otherwise it doesn't exist for them. */
   private UserImage visible(final int id, final int viewerId) {
     final UserImage image = find(id);
+    // a disabled account's pictures are hidden from everyone
+    if (image.getUser() != null && image.getUser().isDisabled()) {
+      throw new NotFoundException("No picture " + id);
+    }
     if (image.getModerationStatus() != ModerationStatus.APPROVED
         && (image.getUser() == null || image.getUser().getId() != viewerId)) {
       throw new NotFoundException("No picture " + id);
