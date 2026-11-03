@@ -153,7 +153,7 @@ public class EntryService {
   public List<Entry> getPublicEntries(final String username) throws ServiceException {
     try {
       final User user = userRepository.findByUsername(username);
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         return Collections.emptyList();
       }
       return entryDao.findByUserAndSecurityAndDraftOrderByDateDesc(
@@ -169,7 +169,7 @@ public class EntryService {
       throws ServiceException {
     try {
       final User user = userRepository.findByUsername(username);
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         return null;
       }
       return entryDao.findByUserAndSecurityAndDraft(

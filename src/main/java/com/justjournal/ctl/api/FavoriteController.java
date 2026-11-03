@@ -103,7 +103,8 @@ public class FavoriteController {
       final List<Favorite> favoriteList = favoriteRepository.findByUser(user);
 
       for (final Favorite f : favoriteList) {
-        entries.add(f.getEntry());
+        // posts of disabled accounts are hidden
+        if (!f.getEntry().getUser().isDisabled()) entries.add(f.getEntry());
       }
 
     } catch (final Exception e) {

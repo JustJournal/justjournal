@@ -101,7 +101,7 @@ public class WebFingerController {
         }
 
         final User user = userRepository.findByUsername(matcher.group(1));
-        if (user == null || user.getJournals().isEmpty()
+        if (user == null || user.isDisabled() || user.getJournals().isEmpty()
                 || user.getJournals().stream().anyMatch(Journal::isOwnerViewOnly)) {
             return Optional.empty();
         }

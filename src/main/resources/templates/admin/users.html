@@ -1,0 +1,71 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content">
+    <h1>Accounts</h1>
+    <p>A disabled account can't log in, its open sessions are logged out, and its journal, feeds,
+        pictures and fediverse profile answer as if it didn't exist. Enabling it restores everything.</p>
+
+    <form class="form-inline" method="get" action="/admin/users" th:action="@{/admin/users}" role="search">
+        <div class="form-group">
+            <label class="sr-only" for="q">Username</label>
+            <input type="search" class="form-control" id="q" name="q" placeholder="Username"
+                   maxlength="50" th:value="${q}"/>
+        </div>
+        <button type="submit" class="btn btn-default">Search</button>
+    </form>
+
+    <p th:if="${users.totalElements == 0}" class="text-muted" style="margin-top: 1em">No accounts found.</p>
+
+    <table class="table table-striped" th:if="${users.totalElements > 0}" style="margin-top: 1em">
+        <thead>
+        <tr>
+            <th scope="col">Username</th>
+            <th scope="col">Name</th>
+            <th scope="col">Last login</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="sr-only">Action</span></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="u : ${users.content}">
+            <td><a href="#" th:href="@{/users/{name}(name=${u.username})}" th:text="${u.username}">username</a></td>
+            <td th:text="${u.lastName != null ? u.name + ' ' + u.lastName : u.name}">Name</td>
+            <td th:text="${u.lastLogin != null ? #dates.format(u.lastLogin, 'yyyy-MM-dd HH:mm') : 'Never'}">Never</td>
+            <td>
+                <span th:if="${u.disabled}" class="label label-danger">Disabled</span>
+                <span th:unless="${u.disabled}" class="label label-success">Active</span>
+            </td>
+            <td>
+                <form method="post" th:if="${!u.disabled}" th:action="@{/admin/users/{id}/disable(id=${u.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <input type="hidden" name="q" th:value="${q}"/>
+                    <button type="submit" class="btn btn-danger btn-xs"
+                            th:attr="aria-label='Disable ' + ${u.username}">Disable</button>
+                </form>
+                <form method="post" th:if="${u.disabled}" th:action="@{/admin/users/{id}/enable(id=${u.id})}">
+                    <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                    <input type="hidden" name="q" th:value="${q}"/>
+                    <button type="submit" class="btn btn-default btn-xs"
+                            th:attr="aria-label='Enable ' + ${u.username}">Enable</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+
+    <nav th:if="${users.totalPages > 1}" aria-label="Account pages">
+        <ul class="pager">
+            <li class="previous" th:if="${users.hasPrevious()}">
+                <a href="#" th:href="@{/admin/users(q=${q}, page=${users.number - 1})}">Previous</a>
+            </li>
+            <li class="next" th:if="${users.hasNext()}">
+                <a href="#" th:href="@{/admin/users(q=${q}, page=${users.number + 1})}">Next</a>
+            </li>
+        </ul>
+        <p class="text-center text-muted"
+           th:text="'Page ' + ${users.number + 1} + ' of ' + ${users.totalPages}">Page 1 of 1</p>
+    </nav>
+</div>
+</body>
+</html>

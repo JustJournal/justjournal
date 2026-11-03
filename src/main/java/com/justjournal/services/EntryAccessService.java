@@ -36,9 +36,9 @@ import org.springframework.stereotype.Service;
  * Who may see a blog post: the rule the journal pages apply, for what is shown alongside a post,
  * such as its picture and link preview.
  *
- * <p>The owner sees all their posts. Everyone else sees a post only if it isn't a draft and the
- * journal isn't owner view only, and then public posts, or friends only posts when the owner has
- * them on their friends list.
+ * <p>Nobody sees the posts of an account an administrator disabled. The owner sees all their
+ * posts. Everyone else sees a post only if it isn't a draft and the journal isn't owner view only,
+ * and then public posts, or friends only posts when the owner has them on their friends list.
  *
  * @author Lucas Holt
  */
@@ -51,6 +51,9 @@ public class EntryAccessService {
   public boolean canView(final Entry entry, final int viewerId) {
     if (entry == null || entry.getUser() == null) return false;
     final User owner = entry.getUser();
+
+    // a disabled account's posts are hidden from everyone, the owner included
+    if (owner.isDisabled()) return false;
 
     if (viewerId > 0 && owner.getId() == viewerId) return true;
 

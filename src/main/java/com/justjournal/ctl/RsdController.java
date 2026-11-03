@@ -80,7 +80,7 @@ public class RsdController {
 
     if (blogID != null && blogID.length() > 1) {
       final User user = userRepository.findByUsername(blogID);
-      if (user == null) {
+      if (user == null || user.isDisabled()) {
         return rsd(HttpStatus.NOT_FOUND, XML_HEADER + RSD_HEADER + RSD_FOOTER);
       }
       username = HtmlUtils.htmlEscape(user.getUsername());

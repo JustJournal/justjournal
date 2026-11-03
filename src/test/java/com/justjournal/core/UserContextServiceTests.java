@@ -68,6 +68,14 @@ class UserContextServiceTests {
     assertFalse(context.isAuthBlog());
   }
 
+  /** Every journal page in UsersController starts here, so they all answer 404. */
+  @Test
+  void disabledAccount_hasNoJournal() {
+    ada.setDisabled(true);
+
+    assertNull(service.getUserContext("ada", session));
+  }
+
   @Test
   void theOwner_isRecognised() {
     session.setAttribute(LOGIN_ATTRID, 1);

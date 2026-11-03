@@ -429,6 +429,18 @@ class ActivityStreamControllerTests {
   }
 
   @Test
+  void actor_isNotFoundWhileTheAccountIsDisabled() throws Exception {
+    bob.setDisabled(true);
+
+    for (final String path :
+        List.of(
+            "/users/bob", "/users/bob/outbox", "/users/bob/followers", "/users/bob/following")) {
+      as(path, ActivityStreamController.ACTIVITY_JSON_VALUE).andExpect(status().isNotFound());
+    }
+    verify(actorKeyService, never()).forUser(any());
+  }
+
+  @Test
   void followersAndFollowing_areEmpty() throws Exception {
     for (final String name : List.of("followers", "following")) {
       final JsonNode collection = json("/users/bob/" + name);

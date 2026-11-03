@@ -28,6 +28,7 @@ import com.justjournal.exception.NotFoundException;
 import com.justjournal.exception.ServiceException;
 import com.justjournal.model.AvatarSource;
 import com.justjournal.model.ModerationStatus;
+import com.justjournal.services.DisabledAccounts;
 import com.justjournal.services.ImageModerationService;
 import com.justjournal.services.ImageService;
 import com.justjournal.services.ImageStorageService;
@@ -346,6 +347,25 @@ class AvatarControllerTests {
         .andExpect(content().bytes(new byte[] {1, 2, 3}))
         .andExpect(header().string("Cache-Control", "max-age=3600, public"))
         .andExpect(header().exists("Expires"));
+  }
+
+  @Test
+  void get_disabledAccount_notFound() throws Exception {
+    storedAvatar(true, MediaType.IMAGE_PNG_VALUE);
+    final DisabledAccounts disabledAccounts = mock(DisabledAccounts.class);
+    when(disabledAccounts.isDisabled(USER_ID)).thenReturn(true);
+    final AvatarController controller =
+        new AvatarController(
+            imageStorageService, new ImageService(), moderation, activityPublisher);
+    controller.setDisabledAccounts(disabledAccounts);
+
+    MockMvcBuilders.standaloneSetup(controller)
+        .setControllerAdvice(new ExceptionHandlerConfig())
+        .build()
+        .perform(get("/Avatar/" + USER_ID))
+        .andExpect(status().isNotFound());
+
+    verify(imageStorageService, never()).downloadAvatar(anyInt());
   }
 
   @Test

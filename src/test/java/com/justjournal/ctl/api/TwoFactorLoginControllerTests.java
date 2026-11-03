@@ -150,6 +150,22 @@ class TwoFactorLoginControllerTests {
   }
 
   @Test
+  void accountDisabledWhileTheCodeWasPendingIsRefused() {
+    pending(TwoFactorMethod.TOTP);
+    user.setDisabled(true);
+    when(twoFactorService.verify(5, "123456")).thenReturn(TwoFactorService.VerifyResult.OK);
+
+    final ResponseEntity<LoginResponse> result =
+        controller.verify(code("123456", true), request, response);
+
+    assertEquals(401, result.getStatusCode().value());
+    assertEquals(JJ_LOGIN_FAIL, result.getBody().getStatus());
+    verify(webLogin, never()).completeLogin(any(), anyInt(), anyString());
+    verify(twoFactorService, never()).rememberDevice(anyInt());
+    assertFalse(Login.isPendingSecondFactor(session));
+  }
+
+  @Test
   void rememberingTheBrowserSetsACookie() {
     pending(TwoFactorMethod.TOTP);
     when(twoFactorService.verify(5, "123456")).thenReturn(TwoFactorService.VerifyResult.OK);

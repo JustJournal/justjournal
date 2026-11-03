@@ -140,6 +140,17 @@ class PasswordResetServiceTests {
   }
 
   @Test
+  void disabledAccountSendsNothing() {
+    user.setDisabled(true);
+
+    passwordResetService.requestReset("jjsite", "owner@justjournal.com");
+
+    verify(passwordResetRepository, never()).tryAcquireUser(anyInt(), any());
+    verify(passwordResetRepository, never()).saveToken(anyString(), anyInt(), any());
+    verify(queueMailRepository, never()).save(any());
+  }
+
+  @Test
   void throttledAccountSendsNothing() {
     when(passwordResetRepository.tryAcquireUser(eq(7), any(Duration.class)))
         .thenReturn(Mono.just(false));
