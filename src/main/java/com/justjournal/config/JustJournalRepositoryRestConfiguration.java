@@ -26,15 +26,19 @@
 package com.justjournal.config;
 
 
-import com.justjournal.model.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.rest.core.config.RepositoryRestConfiguration;
+import org.springframework.data.rest.core.mapping.RepositoryDetectionStrategy.RepositoryDetectionStrategies;
 import org.springframework.data.rest.webmvc.config.RepositoryRestConfigurer;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 
 /**
- * Expose ids for some classes
+ * Spring Data REST exports no repositories. It used to publish them at the site root (/users,
+ * /entries, /comments and so on) with no login check, and /users overlapped the ActivityPub actors.
+ * Nothing on the site or in the JustJournal clients called them; they use /api instead. Only a
+ * repository annotated with {@code @RepositoryRestResource} could be exported, and all of those say
+ * {@code exported = false}.
  *
  * @author Lucas Holt
  */
@@ -47,8 +51,7 @@ public class JustJournalRepositoryRestConfiguration {
       @Override
       public void configureRepositoryRestConfiguration(
           RepositoryRestConfiguration config, CorsRegistry cors) {
-        config.exposeIdsFor(
-            Comment.class, Entry.class, Mood.class, Location.class, Security.class, Style.class);
+        config.setRepositoryDetectionStrategy(RepositoryDetectionStrategies.ANNOTATED);
       }
     };
   }

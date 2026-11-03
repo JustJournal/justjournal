@@ -114,6 +114,16 @@ class ITAppTest {
   }
 
   @Test
+  void repositoriesAreNotExported() throws Exception {
+    // Spring Data REST used to serve these at the root with no login check
+    for (String path : new String[] {"/entries", "/comments", "/userContacts", "/queueMails"}) {
+      mockMvc
+          .perform(get(path).accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isNotFound());
+    }
+  }
+
+  @Test
   void users() throws Exception {
     mockMvc
         .perform(get("/users/testuser"))
