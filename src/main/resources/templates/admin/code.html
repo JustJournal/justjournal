@@ -1,0 +1,32 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="content">
+    <div class="row">
+        <div class="col-sm-6 col-sm-offset-3">
+            <h1>Login code</h1>
+            <p>Enter the six digit code from the e-mail. It is good for 10 minutes.</p>
+            <form method="post" action="/admin/code" th:action="@{/admin/code}">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <div class="form-group">
+                    <label for="admin-code">Code</label>
+                    <input type="text" class="form-control" id="admin-code" name="code"
+                           autocomplete="one-time-code" inputmode="numeric" pattern="[0-9 ]{6,7}"
+                           maxlength="7" required="required" autofocus="autofocus"/>
+                </div>
+                <button type="submit" class="btn btn-primary">Log in</button>
+            </form>
+            <form method="post" action="/admin/code" th:action="@{/admin/code}" class="form-inline"
+                  style="margin-top: 1em">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <button type="submit" class="btn btn-link" name="resend" value="1">Send a new code</button>
+            </form>
+            <form method="post" action="/admin/logout" th:action="@{/admin/logout}" class="form-inline">
+                <input type="hidden" name="_csrf" th:value="${csrfToken}"/>
+                <button type="submit" class="btn btn-link">Start over</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
