@@ -39,7 +39,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Sort;
 
-/** The site settings are read once from the settings table, with defaults for anything unset. */
+/**
+ * The site settings are read from the settings table at startup and on reload, with defaults for
+ * anything unset.
+ */
 class SettingsTests {
 
   private static com.justjournal.model.Settings row(final String name, final String value) {
@@ -205,5 +208,45 @@ class SettingsTests {
     settings.setTzName("PST");
 
     assertEquals("PST", settings.getTzName());
+  }
+
+  @Test
+  void reload_picksUpChangedRows_andResetsRemovedOnesToDefaults() {
+    final SettingsRepository repository = mock(SettingsRepository.class);
+    when(repository.findAll(any(Sort.class)))
+        .thenReturn(List.of(row("sitename", "Old"), row("mailport", "25"), row("siterss", "false")))
+        .thenReturn(List.of(row("sitename", "New"), row("mailport", "587")));
+    final Settings settings = new Settings(repository);
+    assertEquals("Old", settings.getSiteName());
+    assertFalse(settings.isSiteRss());
+
+    settings.reload();
+
+    assertEquals("New", settings.getSiteName());
+    assertEquals(587, settings.getMailPort());
+    assertTrue(settings.isSiteRss());
+  }
+
+  @Test
+  void reload_keepsTheCurrentValues_whenTheTableCannotBeRead() {
+    final SettingsRepository repository = mock(SettingsRepository.class);
+    when(repository.findAll(any(Sort.class)))
+        .thenReturn(List.of(row("baseuri", "https://www.example.com/")))
+        .thenThrow(new IllegalStateException("no database"));
+    final Settings settings = new Settings(repository);
+
+    settings.reload();
+
+    assertEquals("https://www.example.com/", settings.getBaseUri());
+  }
+
+  @Test
+  void reload_replacesARuntimeTimeZoneName() {
+    final Settings settings = load(Map.of("tzname", "CET"));
+    settings.setTzName("PST");
+
+    settings.reload();
+
+    assertEquals("CET", settings.getTzName());
   }
 }
